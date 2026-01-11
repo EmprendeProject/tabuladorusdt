@@ -347,13 +347,13 @@ const DashboardPrecios = () => {
                     }
                   }}
                   disabled={cargandoBCV}
-                  className="flex-1 text-3xl font-bold text-blue-700 bg-transparent border-b-2 border-blue-300 focus:border-blue-500 outline-none py-2 disabled:opacity-50"
+                  className="flex-1 min-w-0 text-2xl md:text-3xl font-bold text-blue-700 bg-transparent border-b-2 border-blue-300 focus:border-blue-500 outline-none py-2 disabled:opacity-50"
                   placeholder="0.00"
                 />
                 <button
                   onClick={obtenerTasaBCV}
                   disabled={cargandoBCV}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Actualizar tasa BCV"
                 >
                   <RefreshCw size={20} className={cargandoBCV ? 'animate-spin' : ''} />
@@ -381,13 +381,13 @@ const DashboardPrecios = () => {
                     }
                   }}
                   disabled={cargandoUSDT}
-                  className="flex-1 text-3xl font-bold text-green-700 bg-transparent border-b-2 border-green-300 focus:border-green-500 outline-none py-2 disabled:opacity-50"
+                  className="flex-1 min-w-0 text-2xl md:text-3xl font-bold text-green-700 bg-transparent border-b-2 border-green-300 focus:border-green-500 outline-none py-2 disabled:opacity-50"
                   placeholder="0.00"
                 />
                 <button
                   onClick={obtenerTasaUSDT}
                   disabled={cargandoUSDT}
-                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Actualizar tasa USDT"
                 >
                   <RefreshCw size={20} className={cargandoUSDT ? 'animate-spin' : ''} />
