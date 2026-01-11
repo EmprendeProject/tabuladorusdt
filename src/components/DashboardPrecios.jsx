@@ -311,10 +311,14 @@ const DashboardPrecios = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
+    <div className="p-4 md:p-6 bg-gray-50 min-h-screen font-sans">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8 flex items-center gap-2">
-          <Package className="text-blue-600" /> Tabulador de Precios Interactivo
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 flex flex-col md:flex-row items-center gap-2 text-center md:text-left">
+          <Package className="text-blue-600 hidden md:block" /> 
+          <span className="flex items-center gap-2">
+            <Package className="text-blue-600 md:hidden" />
+            Tabulador de Precios
+          </span>
         </h1>
 
         {/* Sección de Tasas */}
@@ -396,30 +400,121 @@ const DashboardPrecios = () => {
 
         {/* Tabla de Productos */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex flex-col md:flex-row justify-between items-center p-4 border-b border-gray-200 bg-gray-50 gap-4 md:gap-0">
             <h2 className="text-lg font-semibold text-gray-800">Productos</h2>
-            <div className="flex gap-3">
+            <div className="flex w-full md:w-auto gap-3">
               <button
                 onClick={handleGuardarTodo}
                 disabled={guardando || cambiosSinGuardar.size === 0}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-md ${
+                className={`flex-1 md:flex-none justify-center flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-md ${
                   cambiosSinGuardar.size > 0
                     ? 'bg-green-600 text-white hover:bg-green-700 animate-pulse'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
                 <Save size={18} />
-                {guardando ? 'Guardando...' : `Guardar Cambios${cambiosSinGuardar.size > 0 ? ` (${cambiosSinGuardar.size})` : ''}`}
+                <span className="md:hidden">Guardar</span>
+                <span className="hidden md:inline">{guardando ? 'Guardando...' : `Guardar Cambios${cambiosSinGuardar.size > 0 ? ` (${cambiosSinGuardar.size})` : ''}`}</span>
               </button>
               <button
                 onClick={handleAgregarProducto}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="flex-1 md:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
               >
-                <Plus size={18} /> Agregar Producto
+                <Plus size={18} /> <span className="md:hidden">Agregar</span><span className="hidden md:inline">Agregar Producto</span>
               </button>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          
+          {/* Vista Móvil (Tarjetas) */}
+          <div className="md:hidden bg-gray-50 p-4 space-y-4">
+            {productos.map((prod) => (
+              <div key={prod.id} className="bg-white p-4 rounded-lg shadow border border-gray-200 space-y-3">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Producto</label>
+                    <input 
+                      type="text" 
+                      value={prod.nombre}
+                      onChange={(e) => handleUpdateProducto(prod.id, 'nombre', e.target.value)}
+                      placeholder="Nombre del producto"
+                      className="w-full mt-1 p-2 border rounded text-gray-800 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleEliminarProducto(prod.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-4"
+                    title="Eliminar producto"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Precio USDT</label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-2 text-gray-400">$</span>
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={prod.precioUSDT || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            handleUpdateProducto(prod.id, 'precioUSDT', value);
+                          }
+                        }}
+                        className="w-full pl-6 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Profit %</label>
+                    <div className="relative mt-1">
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={prod.profit || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            handleUpdateProducto(prod.id, 'profit', value);
+                          }
+                        }}
+                        className="w-full p-2 border rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                      />
+                      <span className="absolute right-3 top-2 text-gray-400">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                  <div className="bg-blue-50 p-2 rounded">
+                    <label className="text-[10px] font-bold text-blue-600 uppercase block">Real BCV</label>
+                    <span className="text-lg font-bold text-blue-700">
+                      ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </span>
+                  </div>
+                  <div className="bg-green-50 p-2 rounded">
+                    <label className="text-[10px] font-bold text-green-600 uppercase block">Venta Final</label>
+                    <span className="text-lg font-bold text-green-700">
+                      ${calcularPrecioVenta(prod.precioUSDT, prod.profit).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {productos.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No hay productos. ¡Agrega uno nuevo!
+              </div>
+            )}
+          </div>
+
+          {/* Vista Desktop (Tabla) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-800 text-white">
                 <tr>
