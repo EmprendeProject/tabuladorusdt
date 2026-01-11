@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { DollarSign, Package, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '../lib/supabase';
+import { DollarSign, Package, RefreshCw, Plus, Trash2, Save } from 'lucide-react';
 
 const DashboardPrecios = () => {
   // Estados para las tasas globales (basado en la hoja de cálculo)
@@ -9,12 +10,123 @@ const DashboardPrecios = () => {
   const [cargandoBCV, setCargandoBCV] = useState(false);
   const [cargandoUSDT, setCargandoUSDT] = useState(false);
   
-  // Productos hardcodeados
-  const [productos, setProductos] = useState([
-    { id: 1, nombre: 'papa chip', precioUSDT: 54, profit: 22 },
-    { id: 2, nombre: 'papa congelada', precioUSDT: 21, profit: 22 },
-    { id: 3, nombre: 'facilita kraft', precioUSDT: 8, profit: 22 },
-  ]);
+  // Estado de productos
+  const [productos, setProductos] = useState([]);
+  const [cargandoProductos, setCargandoProductos] = useState(true);
+  const [cambiosSinGuardar, setCambiosSinGuardar] = useState(new Set()); // Set de IDs con cambios
+  const [guardando, setGuardando] = useState(false);
+
+  // Cargar productos y suscribirse a cambios
+  useEffect(() => {
+    cargarProductos();
+    
+    const subscription = supabase
+      .channel('productos-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'productos' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setProductos(prev => [payload.new, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setProductos(prev =>
+              prev.map(p => p.id === payload.new.id ? payload.new : p)
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setProductos(prev => prev.filter(p => p.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  const cargarProductos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Mapear campos de BD a estado local si es necesario
+      // En este caso, la BD usa snake_case (precio_usdt) y el front camelCase (precioUSDT)
+      // Pero para simplificar, adaptaremos el estado local para usar lo que viene de la BD
+      // O transformamos aquí. Vamos a transformar para mantener compatibilidad con el render.
+      const productosFormateados = data.map(item => ({
+        id: item.id,
+        nombre: item.nombre,
+        precioUSDT: item.precio_usdt,
+        profit: item.profit
+      }));
+
+      setProductos(productosFormateados);
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+      alert('Error al cargar productos: ' + error.message);
+    } finally {
+      setCargandoProductos(false);
+    }
+  };
+
+  // CRUD Operations
+  const guardarProductoBD = async (producto) => {
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .insert([{
+          nombre: producto.nombre,
+          precio_usdt: producto.precioUSDT,
+          profit: producto.profit
+        }])
+        .select();
+      
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      console.error('Error al guardar:', error);
+      alert('Error al guardar: ' + error.message);
+      return null;
+    }
+  };
+
+  const actualizarProductoBD = async (id, cambios) => {
+    try {
+      // Mapear cambios de camelCase a snake_case para la BD
+      const cambiosBD = {};
+      if (cambios.nombre !== undefined) cambiosBD.nombre = cambios.nombre;
+      if (cambios.precioUSDT !== undefined) cambiosBD.precio_usdt = cambios.precioUSDT;
+      if (cambios.profit !== undefined) cambiosBD.profit = cambios.profit;
+
+      const { error } = await supabase
+        .from('productos')
+        .update(cambiosBD)
+        .eq('id', id);
+        
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error al actualizar:', error);
+      alert('Error al actualizar: ' + error.message);
+      return false;
+    }
+  };
+
+  const eliminarProductoBD = async (id) => {
+    try {
+      const { error } = await supabase.from('productos').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar:', error);
+      alert('Error al eliminar: ' + error.message);
+      return false;
+    }
+  };
 
   // Función para obtener tasa BCV desde la API de dolarvzla.com
   const obtenerTasaBCV = useCallback(async () => {
@@ -98,32 +210,103 @@ const DashboardPrecios = () => {
   };
 
   const handleUpdateProducto = (id, campo, valor) => {
-    if (campo === 'nombre') {
-      setProductos(productos.map(p => 
-        p.id === id ? { ...p, [campo]: valor } : p
-      ));
-    } else {
-      // Para campos numéricos, convertir a número (0 si está vacío o inválido)
-      const numValue = valor === '' ? 0 : (parseFloat(valor) || 0);
-      setProductos(productos.map(p => 
-        p.id === id ? { ...p, [campo]: numValue } : p
-      ));
+    // Actualización local inmediata
+    let nuevoValor = valor;
+    if (campo !== 'nombre') {
+      nuevoValor = valor === '' ? 0 : (parseFloat(valor) || 0);
     }
+
+    setProductos(prev => prev.map(p => 
+      p.id === id ? { ...p, [campo]: nuevoValor } : p
+    ));
+
+    // Marcar como no guardado
+    setCambiosSinGuardar(prev => new Set(prev).add(id));
   };
 
   const handleAgregarProducto = () => {
-    const nuevoId = Math.max(...productos.map(p => p.id), 0) + 1;
-    setProductos([...productos, { 
-      id: nuevoId, 
-      nombre: '', 
-      precioUSDT: 0, 
-      profit: 22 
-    }]);
+    // Crear ID temporal negativo para identificar que es nuevo localmente
+    const tempId = -(Date.now()); 
+    const nuevoProducto = {
+      id: tempId,
+      nombre: '',
+      precioUSDT: 0,
+      profit: 30
+    };
+    
+    setProductos(prev => [nuevoProducto, ...prev]);
+    setCambiosSinGuardar(prev => new Set(prev).add(tempId));
   };
 
-  const handleEliminarProducto = (id) => {
-    if (productos.length > 1) {
-      setProductos(productos.filter(p => p.id !== id));
+  const handleGuardarTodo = async () => {
+    if (cambiosSinGuardar.size === 0) return;
+    
+    setGuardando(true);
+    const idsParaGuardar = Array.from(cambiosSinGuardar);
+    const nuevosIdsMap = {}; // Mapa de ID temporal -> ID real
+
+    try {
+      // Procesar todas las actualizaciones
+      for (const id of idsParaGuardar) {
+        const producto = productos.find(p => p.id === id);
+        if (!producto) continue;
+
+        if (id < 0) {
+          // Es nuevo (INSERT)
+          const nuevoProductoBD = await guardarProductoBD(producto);
+          if (nuevoProductoBD) {
+            nuevosIdsMap[id] = nuevoProductoBD.id;
+          }
+        } else {
+          // Es existente (UPDATE)
+          await actualizarProductoBD(id, {
+            nombre: producto.nombre,
+            precioUSDT: producto.precioUSDT,
+            profit: producto.profit
+          });
+        }
+      }
+
+      // Actualizar estado local con los nuevos IDs reales
+      if (Object.keys(nuevosIdsMap).length > 0) {
+        setProductos(prev => prev.map(p => 
+          nuevosIdsMap[p.id] ? { ...p, id: nuevosIdsMap[p.id] } : p
+        ));
+      }
+
+      // Limpiar cambios sin guardar
+      setCambiosSinGuardar(new Set());
+      alert('¡Cambios guardados correctamente!');
+    } catch (error) {
+      console.error('Error al guardar todo:', error);
+      alert('Ocurrió un error al guardar algunos cambios.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminarProducto = async (id) => {
+    // Optimista: eliminar de la UI inmediatamente
+    const productoEliminado = productos.find(p => p.id === id);
+    setProductos(prev => prev.filter(p => p.id !== id));
+    
+    // Si estaba en cambios sin guardar, quitarlo del set
+    if (cambiosSinGuardar.has(id)) {
+      setCambiosSinGuardar(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
+    
+    // Si tiene ID positivo, borrar de BD
+    if (id > 0) {
+      const exito = await eliminarProductoBD(id);
+      if (!exito) {
+        // Si falla, revertir (volver a agregar)
+        setProductos(prev => [...prev, productoEliminado]);
+        alert('No se pudo eliminar el producto');
+      }
     }
   };
 
@@ -215,12 +398,26 @@ const DashboardPrecios = () => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
           <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
             <h2 className="text-lg font-semibold text-gray-800">Productos</h2>
-            <button
-              onClick={handleAgregarProducto}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              <Plus size={18} /> Agregar Producto
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleGuardarTodo}
+                disabled={guardando || cambiosSinGuardar.size === 0}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-md ${
+                  cambiosSinGuardar.size > 0
+                    ? 'bg-green-600 text-white hover:bg-green-700 animate-pulse'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Save size={18} />
+                {guardando ? 'Guardando...' : `Guardar Cambios${cambiosSinGuardar.size > 0 ? ` (${cambiosSinGuardar.size})` : ''}`}
+              </button>
+              <button
+                onClick={handleAgregarProducto}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                <Plus size={18} /> Agregar Producto
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -287,11 +484,10 @@ const DashboardPrecios = () => {
                     <td className="p-4 text-center font-bold text-green-700 bg-green-50">
                       ${calcularPrecioVenta(prod.precioUSDT, prod.profit).toLocaleString('es-VE', {minimumFractionDigits: 4, maximumFractionDigits: 4})}
                     </td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center flex items-center justify-center gap-2">
                       <button
                         onClick={() => handleEliminarProducto(prod.id)}
-                        disabled={productos.length === 1}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Eliminar producto"
                       >
                         <Trash2 size={18} />
