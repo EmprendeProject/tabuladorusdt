@@ -16,35 +16,22 @@ const DashboardPrecios = () => {
     { id: 3, nombre: 'facilita kraft', precioUSDT: 8, profit: 22 },
   ]);
 
-  // Función para obtener tasa BCV desde la API
+  // Función para obtener tasa BCV desde la API de dolarvzla.com
   const obtenerTasaBCV = useCallback(async () => {
     setCargandoBCV(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/bcv');
+      const response = await fetch('https://api.dolarvzla.com/public/exchange-rate');
       if (!response.ok) {
         throw new Error('Error al obtener la tasa BCV');
       }
       const data = await response.json();
       
-      // La API puede devolver un objeto o un array
-      // Intentamos obtener el valor más apropiado de diferentes posibles estructuras
-      let tasa = null;
-      if (Array.isArray(data) && data.length > 0) {
-        const firstItem = data[0];
-        tasa = firstItem.venta || firstItem.compra || firstItem.precio || firstItem.precio_venta || firstItem.valor;
-      } else if (typeof data === 'object' && data !== null) {
-        tasa = data.venta || data.compra || data.precio || data.precio_venta || data.precio_compra || data.valor || data.precio_bcv;
-      }
-      
-      if (tasa && typeof tasa === 'number') {
+      // La API devuelve: {"current":{"usd":330.3751,"eur":384.33196133,"date":"2026-01-13"},...}
+      // Obtenemos el valor USD del objeto current
+      if (data.current && data.current.usd) {
+        const tasa = data.current.usd;
         // Redondear a 2 decimales y convertir a string
         setTasaBCV(tasa.toFixed(2));
-      } else if (tasa && typeof tasa === 'string') {
-        // Si viene como string, intentar parsear
-        const tasaNum = parseFloat(tasa);
-        if (!isNaN(tasaNum)) {
-          setTasaBCV(tasaNum.toFixed(2));
-        }
       }
     } catch (error) {
       console.error('Error al obtener la tasa BCV:', error);
