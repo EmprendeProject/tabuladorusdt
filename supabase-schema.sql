@@ -12,11 +12,17 @@
 CREATE TABLE IF NOT EXISTS productos (
   id BIGSERIAL PRIMARY KEY,
   nombre TEXT NOT NULL,
+  descripcion TEXT,
+  imagen_url TEXT,
   precio_usdt DECIMAL(10, 2) NOT NULL DEFAULT 0,
   profit DECIMAL(5, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
+
+-- Si tu tabla ya existe, puedes ejecutar este bloque para agregar columnas sin perder datos:
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS descripcion TEXT;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT;
 
 -- Crear tabla de tasas (opcional - para guardar historial)
 CREATE TABLE IF NOT EXISTS tasas (
@@ -32,34 +38,85 @@ CREATE INDEX IF NOT EXISTS idx_productos_created_at ON productos(created_at);
 CREATE INDEX IF NOT EXISTS idx_tasas_tipo_fecha ON tasas(tipo, fecha);
 
 -- Habilitar Row Level Security (RLS)
-ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.productos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasas ENABLE ROW LEVEL SECURITY;
 
--- Política: Permitir lectura pública (ajusta según tus necesidades)
-CREATE POLICY "Permitir lectura pública de productos"
-  ON productos FOR SELECT
+-- ============================================
+-- POLÍTICAS RLS RECOMENDADAS (CATÁLOGO PÚBLICO + ADMIN PRIVADO)
+--
+-- Objetivo:
+-- - Cualquiera (incluyendo anon) puede LEER productos (catálogo compartible)
+-- - Solo TU usuario admin puede CREAR/EDITAR/ELIMINAR (dashboard)
+--
+-- Si ya habías creado políticas con otros nombres, puedes borrarlas desde
+-- el Dashboard (Authentication -> Policies) o usando DROP POLICY.
+-- ============================================
+
+-- UUID del usuario admin (Auth -> Users)
+-- Cambia este valor si tu usuario admin cambia.
+-- Nota: auth.uid() devuelve uuid.
+--
+-- Admin actual:
+-- 3513c316-f794-4e72-9e5d-543551565730
+
+DROP POLICY IF EXISTS "Permitir lectura pública de productos" ON public.productos;
+DROP POLICY IF EXISTS "Permitir inserción pública de productos" ON public.productos;
+DROP POLICY IF EXISTS "Permitir actualización pública de productos" ON public.productos;
+DROP POLICY IF EXISTS "Permitir eliminación pública de productos" ON public.productos;
+
+DROP POLICY IF EXISTS "Public read productos" ON public.productos;
+DROP POLICY IF EXISTS "Authenticated insert productos" ON public.productos;
+DROP POLICY IF EXISTS "Authenticated update productos" ON public.productos;
+DROP POLICY IF EXISTS "Authenticated delete productos" ON public.productos;
+DROP POLICY IF EXISTS "Admin insert productos" ON public.productos;
+DROP POLICY IF EXISTS "Admin update productos" ON public.productos;
+DROP POLICY IF EXISTS "Admin delete productos" ON public.productos;
+
+CREATE POLICY "Public read productos"
+  ON public.productos FOR SELECT
   USING (true);
 
-CREATE POLICY "Permitir inserción pública de productos"
-  ON productos FOR INSERT
-  WITH CHECK (true);
+CREATE POLICY "Admin insert productos"
+  ON public.productos FOR INSERT
+  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
 
-CREATE POLICY "Permitir actualización pública de productos"
-  ON productos FOR UPDATE
-  USING (true);
+CREATE POLICY "Admin update productos"
+  ON public.productos FOR UPDATE
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid)
+  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
 
-CREATE POLICY "Permitir eliminación pública de productos"
-  ON productos FOR DELETE
-  USING (true);
+CREATE POLICY "Admin delete productos"
+  ON public.productos FOR DELETE
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
 
 -- Políticas para tasas
-CREATE POLICY "Permitir lectura pública de tasas"
-  ON tasas FOR SELECT
+DROP POLICY IF EXISTS "Permitir lectura pública de tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Permitir inserción pública de tasas" ON public.tasas;
+
+DROP POLICY IF EXISTS "Public read tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Authenticated insert tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Authenticated update tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Authenticated delete tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Admin insert tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Admin update tasas" ON public.tasas;
+DROP POLICY IF EXISTS "Admin delete tasas" ON public.tasas;
+
+CREATE POLICY "Public read tasas"
+  ON public.tasas FOR SELECT
   USING (true);
 
-CREATE POLICY "Permitir inserción pública de tasas"
-  ON tasas FOR INSERT
-  WITH CHECK (true);
+CREATE POLICY "Admin insert tasas"
+  ON public.tasas FOR INSERT
+  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+
+CREATE POLICY "Admin update tasas"
+  ON public.tasas FOR UPDATE
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid)
+  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+
+CREATE POLICY "Admin delete tasas"
+  ON public.tasas FOR DELETE
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
 
 -- Función para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()

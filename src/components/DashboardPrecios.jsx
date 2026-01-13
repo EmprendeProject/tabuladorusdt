@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { DollarSign, Package, RefreshCw, Plus, Trash2, Save } from 'lucide-react';
+import { productoFromDb, productoToInsertDb, productoToUpdateDb } from '../lib/productos';
+import { uploadProductImage } from '../lib/storage';
 
 const DashboardPrecios = () => {
   // Estados para las tasas globales (basado en la hoja de cálculo)
@@ -15,6 +17,7 @@ const DashboardPrecios = () => {
   const [cargandoProductos, setCargandoProductos] = useState(true);
   const [cambiosSinGuardar, setCambiosSinGuardar] = useState(new Set()); // Set de IDs con cambios
   const [guardando, setGuardando] = useState(false);
+  const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
 
   // Cargar productos y suscribirse a cambios
   useEffect(() => {
@@ -27,13 +30,17 @@ const DashboardPrecios = () => {
         { event: '*', schema: 'public', table: 'productos' },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setProductos(prev => [payload.new, ...prev]);
+            const nuevo = productoFromDb(payload.new);
+            if (!nuevo) return;
+            setProductos(prev => [nuevo, ...prev.filter(p => p.id !== nuevo.id)]);
           } else if (payload.eventType === 'UPDATE') {
-            setProductos(prev =>
-              prev.map(p => p.id === payload.new.id ? payload.new : p)
-            );
+            const actualizado = productoFromDb(payload.new);
+            if (!actualizado) return;
+            setProductos(prev => prev.map(p => (p.id === actualizado.id ? actualizado : p)));
           } else if (payload.eventType === 'DELETE') {
-            setProductos(prev => prev.filter(p => p.id !== payload.old.id));
+            const id = payload?.old?.id;
+            if (!id) return;
+            setProductos(prev => prev.filter(p => p.id !== id));
           }
         }
       )
@@ -57,14 +64,7 @@ const DashboardPrecios = () => {
       // En este caso, la BD usa snake_case (precio_usdt) y el front camelCase (precioUSDT)
       // Pero para simplificar, adaptaremos el estado local para usar lo que viene de la BD
       // O transformamos aquí. Vamos a transformar para mantener compatibilidad con el render.
-      const productosFormateados = data.map(item => ({
-        id: item.id,
-        nombre: item.nombre,
-        precioUSDT: item.precio_usdt,
-        profit: item.profit
-      }));
-
-      setProductos(productosFormateados);
+      setProductos((data || []).map(productoFromDb).filter(Boolean));
     } catch (error) {
       console.error('Error al cargar productos:', error);
       alert('Error al cargar productos: ' + error.message);
@@ -78,11 +78,7 @@ const DashboardPrecios = () => {
     try {
       const { data, error } = await supabase
         .from('productos')
-        .insert([{
-          nombre: producto.nombre,
-          precio_usdt: producto.precioUSDT,
-          profit: producto.profit
-        }])
+        .insert([productoToInsertDb(producto)])
         .select();
       
       if (error) throw error;
@@ -96,11 +92,7 @@ const DashboardPrecios = () => {
 
   const actualizarProductoBD = async (id, cambios) => {
     try {
-      // Mapear cambios de camelCase a snake_case para la BD
-      const cambiosBD = {};
-      if (cambios.nombre !== undefined) cambiosBD.nombre = cambios.nombre;
-      if (cambios.precioUSDT !== undefined) cambiosBD.precio_usdt = cambios.precioUSDT;
-      if (cambios.profit !== undefined) cambiosBD.profit = cambios.profit;
+      const cambiosBD = productoToUpdateDb(cambios);
 
       const { error } = await supabase
         .from('productos')
@@ -212,7 +204,7 @@ const DashboardPrecios = () => {
   const handleUpdateProducto = (id, campo, valor) => {
     // Actualización local inmediata
     let nuevoValor = valor;
-    if (campo !== 'nombre') {
+    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'imagenUrl') {
       nuevoValor = valor === '' ? 0 : (parseFloat(valor) || 0);
     }
 
@@ -230,6 +222,8 @@ const DashboardPrecios = () => {
     const nuevoProducto = {
       id: tempId,
       nombre: '',
+      descripcion: '',
+      imagenUrl: '',
       precioUSDT: 0,
       profit: 30
     };
@@ -261,6 +255,8 @@ const DashboardPrecios = () => {
           // Es existente (UPDATE)
           await actualizarProductoBD(id, {
             nombre: producto.nombre,
+            descripcion: producto.descripcion,
+            imagenUrl: producto.imagenUrl,
             precioUSDT: producto.precioUSDT,
             profit: producto.profit
           });
@@ -310,6 +306,47 @@ const DashboardPrecios = () => {
     }
   };
 
+  const setSubiendo = (id, value) => {
+    setSubiendoImagen(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSubirImagen = async (id, file) => {
+    if (!file) return;
+
+    try {
+      setSubiendo(id, true);
+
+      // Si el producto aún no existe en BD, igual subimos y guardamos URL.
+      // Quedará pendiente de persistir cuando se presione "Guardar Cambios".
+      const storageId = id > 0 ? String(id) : `temp-${Math.abs(id)}`;
+      const { publicUrl } = await uploadProductImage({ file, productId: storageId });
+
+      setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: publicUrl } : p)));
+      setCambiosSinGuardar(prev => new Set(prev).add(id));
+    } catch (error) {
+      console.error('Error al subir imagen:', error);
+      alert('Error al subir imagen: ' + (error?.message || 'Desconocido'));
+    } finally {
+      setSubiendo(id, false);
+    }
+  };
+
+  const handleQuitarImagen = (id) => {
+    setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: '' } : p)));
+    setCambiosSinGuardar(prev => new Set(prev).add(id));
+  };
+
+  if (cargandoProductos) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <RefreshCw className="animate-spin mx-auto mb-4" size={48} />
+          <p className="text-gray-600">Cargando productos...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen font-sans">
       <div className="max-w-6xl mx-auto">
@@ -328,7 +365,7 @@ const DashboardPrecios = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border-l-4 border-blue-500 pl-4">
-              <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                 <DollarSign size={18} className="text-blue-600" /> TASA BCV (Bs.)
                 {cargandoBCV && (
                   <span className="text-xs text-blue-500 animate-pulse">Cargando...</span>
@@ -362,7 +399,7 @@ const DashboardPrecios = () => {
               <p className="text-xs text-gray-500 mt-2">Tasa de cambio BCV en Bolívares (actualizada automáticamente)</p>
             </div>
             <div className="border-l-4 border-green-500 pl-4">
-              <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                 <DollarSign size={18} className="text-green-600" /> TASA USDT (Bs.)
                 {cargandoUSDT && (
                   <span className="text-xs text-green-500 animate-pulse">Cargando...</span>
@@ -439,6 +476,67 @@ const DashboardPrecios = () => {
                       placeholder="Nombre del producto"
                       className="w-full mt-1 p-2 border rounded text-gray-800 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+
+                    <label className="mt-3 block text-xs font-bold text-gray-500 uppercase">Descripción</label>
+                    <textarea
+                      value={prod.descripcion || ''}
+                      onChange={(e) => handleUpdateProducto(prod.id, 'descripcion', e.target.value)}
+                      placeholder="Breve descripción (opcional)"
+                      rows={2}
+                      className="w-full mt-1 p-2 border rounded text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+
+                    <label className="mt-3 block text-xs font-bold text-gray-500 uppercase">Imagen (URL)</label>
+                    <input
+                      type="url"
+                      value={prod.imagenUrl || ''}
+                      onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
+                      placeholder="https://..."
+                      className="w-full mt-1 p-2 border rounded text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase">O subir archivo</label>
+                      {subiendoImagen[prod.id] ? (
+                        <span className="text-xs text-blue-600 animate-pulse">Subiendo...</span>
+                      ) : null}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={!!subiendoImagen[prod.id]}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleSubirImagen(prod.id, file);
+                        // permitir volver a seleccionar el mismo archivo
+                        e.target.value = '';
+                      }}
+                      className="w-full mt-1 text-sm"
+                    />
+
+                    {prod.imagenUrl ? (
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleQuitarImagen(prod.id)}
+                          className="text-xs text-red-600 hover:underline"
+                        >
+                          Quitar imagen
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {prod.imagenUrl ? (
+                      <img
+                        src={prod.imagenUrl}
+                        alt={prod.nombre || 'Imagen del producto'}
+                        className="mt-3 w-full h-40 object-cover rounded-lg border border-gray-200"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
                   </div>
                   <button
                     onClick={() => handleEliminarProducto(prod.id)}
@@ -537,6 +635,64 @@ const DashboardPrecios = () => {
                         placeholder="Nombre del producto"
                         className="w-full p-2 border rounded text-gray-700 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
+
+                      <textarea
+                        value={prod.descripcion || ''}
+                        onChange={(e) => handleUpdateProducto(prod.id, 'descripcion', e.target.value)}
+                        placeholder="Descripción breve (opcional)"
+                        rows={2}
+                        className="w-full mt-2 p-2 border rounded text-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          type="url"
+                          value={prod.imagenUrl || ''}
+                          onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
+                          placeholder="Imagen (URL)"
+                          className="flex-1 p-2 border rounded text-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {prod.imagenUrl ? (
+                          <img
+                            src={prod.imagenUrl}
+                            alt={prod.nombre || 'Imagen del producto'}
+                            className="w-14 h-14 object-cover rounded border border-gray-200"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={!!subiendoImagen[prod.id]}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleSubirImagen(prod.id, file);
+                            e.target.value = '';
+                          }}
+                          className="text-sm"
+                        />
+
+                        <div className="flex items-center gap-3">
+                          {subiendoImagen[prod.id] ? (
+                            <span className="text-xs text-blue-600 animate-pulse">Subiendo...</span>
+                          ) : null}
+                          {prod.imagenUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => handleQuitarImagen(prod.id)}
+                              className="text-xs text-red-600 hover:underline"
+                            >
+                              Quitar imagen
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       <input 
