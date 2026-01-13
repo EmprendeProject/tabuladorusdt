@@ -51,6 +51,20 @@ Supabase incluye una base de datos PostgreSQL completa. Puedes:
 - Gestionar buckets
 - URLs públicas/privadas
 
+## 🎨 Plantillas del Catálogo (2 estilos)
+
+El catálogo público (ruta `/`) puede mostrarse con 2 estilos: `simple` o `boutique`.
+
+Esto se guarda en la tabla `catalog_settings` (una fila con `id=1`).
+
+1) Ejecuta el SQL actualizado en:
+- [supabase-schema.sql](supabase-schema.sql)
+
+Si solo te falta esa tabla (o el SQL completo falló), ejecuta solo este script:
+- [supabase-catalog-settings.sql](supabase-catalog-settings.sql)
+
+2) En el dashboard admin (`/admin`) verás un selector para cambiar la plantilla.
+
 ## 🖼️ Imágenes de Productos (Storage)
 
 Este proyecto puede subir imágenes desde tu PC a Supabase Storage y guardar la URL pública en la tabla `productos.imagen_url`.

@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw, Search, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { productoFromDb } from '../lib/productos';
+import {
+  CATALOG_TEMPLATES,
+  DEFAULT_CATALOG_TEMPLATE,
+  fetchCatalogTemplate,
+  subscribeCatalogTemplate,
+} from '../lib/catalogSettings';
 
-const formatearNumero = (value, digits = 2) => {
-  const num = Number(value) || 0;
-  return num.toLocaleString('es-VE', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
-};
+import CatalogTemplateSimple from './catalog/CatalogTemplateSimple';
+import CatalogTemplateBoutique from './catalog/CatalogTemplateBoutique';
+import CatalogTemplateModern from './catalog/CatalogTemplateModern';
 
 const CatalogoProductos = () => {
   const [productos, setProductos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE);
 
   const cargarProductos = useCallback(async () => {
     setError('');
@@ -40,6 +42,20 @@ const CatalogoProductos = () => {
 
   useEffect(() => {
     cargarProductos();
+
+    let unsubscribeSettings;
+    fetchCatalogTemplate()
+      .then((t) => setCatalogTemplate(t))
+      .catch((e) => {
+        console.warn('No se pudo cargar la plantilla del catálogo:', e);
+        setCatalogTemplate(DEFAULT_CATALOG_TEMPLATE);
+      });
+
+    unsubscribeSettings = subscribeCatalogTemplate((next) => {
+      if (next === CATALOG_TEMPLATES.BOUTIQUE) setCatalogTemplate(CATALOG_TEMPLATES.BOUTIQUE);
+      else if (next === CATALOG_TEMPLATES.MODERN) setCatalogTemplate(CATALOG_TEMPLATES.MODERN);
+      else setCatalogTemplate(DEFAULT_CATALOG_TEMPLATE);
+    });
 
     const subscription = supabase
       .channel('catalogo-productos-changes')
@@ -66,6 +82,7 @@ const CatalogoProductos = () => {
 
     return () => {
       supabase.removeChannel(subscription);
+      unsubscribeSettings?.();
     };
   }, [cargarProductos]);
 
@@ -75,94 +92,25 @@ const CatalogoProductos = () => {
     return productos.filter((p) => (p.nombre || '').toLowerCase().includes(q));
   }, [productos, query]);
 
-  return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen font-sans">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <Package className="text-blue-600" /> Catálogo de Productos
-          </h1>
+  const templateProps = {
+    productos,
+    productosFiltrados,
+    query,
+    setQuery,
+    cargando,
+    error,
+    onReload: cargarProductos,
+  };
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                cargarProductos();
-              }}
-              disabled={cargando}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 shadow-sm disabled:opacity-50"
-              title="Actualizar productos"
-            >
-              <RefreshCw size={18} className={cargando ? 'animate-spin' : ''} />
-              Actualizar
-            </button>
-          </div>
-        </div>
+  if (catalogTemplate === CATALOG_TEMPLATES.BOUTIQUE) {
+    return <CatalogTemplateBoutique {...templateProps} />;
+  }
 
-        <div className="grid grid-cols-1 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <label className="text-sm font-medium text-gray-700">Buscar</label>
-            <div className="mt-2 relative">
-              <Search size={18} className="absolute left-3 top-3 text-gray-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ej: papa chip..."
-                className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <p className="mt-2 text-xs text-gray-500">Mostrando {productosFiltrados.length} de {productos.length} productos</p>
-          </div>
-        </div>
+  if (catalogTemplate === CATALOG_TEMPLATES.MODERN) {
+    return <CatalogTemplateModern {...templateProps} />;
+  }
 
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
-            {error}
-          </div>
-        )}
-
-        {cargando ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-600">
-            <RefreshCw className="animate-spin mx-auto mb-3" size={32} />
-            Cargando catálogo…
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {productosFiltrados.map((p) => (
-              <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                {p.imagenUrl ? (
-                  <img
-                    src={p.imagenUrl}
-                    alt={p.nombre || 'Imagen del producto'}
-                    className="w-full h-44 object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-44 bg-gray-100 flex items-center justify-center text-sm text-gray-500">
-                    Sin foto
-                  </div>
-                )}
-
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 truncate">{p.nombre || 'Sin nombre'}</h3>
-                  <p className="mt-2 text-xl font-extrabold text-gray-900">${formatearNumero(p.precioUSDT, 2)}</p>
-                </div>
-              </div>
-            ))}
-
-            {productosFiltrados.length === 0 && (
-              <div className="sm:col-span-2 lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center text-gray-600">
-                No hay productos que coincidan con la búsqueda.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <CatalogTemplateSimple {...templateProps} />;
 };
 
 export default CatalogoProductos;

@@ -32,6 +32,26 @@ CREATE TABLE IF NOT EXISTS tasas (
   fecha TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- Configuración del catálogo público (1 fila)
+-- Permite escoger entre 2 plantillas: simple | boutique
+CREATE TABLE IF NOT EXISTS public.catalog_settings (
+  id INTEGER PRIMARY KEY,
+  catalog_template TEXT NOT NULL DEFAULT 'simple' CHECK (catalog_template IN ('simple', 'boutique', 'modern')),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
+-- Si la tabla ya existía con un CHECK anterior, lo actualizamos (idempotente)
+ALTER TABLE public.catalog_settings
+  DROP CONSTRAINT IF EXISTS catalog_settings_catalog_template_check;
+ALTER TABLE public.catalog_settings
+  ADD CONSTRAINT catalog_settings_catalog_template_check
+  CHECK (catalog_template IN ('simple', 'boutique', 'modern'));
+
+-- Asegurar que exista la fila única
+INSERT INTO public.catalog_settings (id, catalog_template)
+VALUES (1, 'simple')
+ON CONFLICT (id) DO NOTHING;
+
 -- Crear índices para mejorar el rendimiento
 CREATE INDEX IF NOT EXISTS idx_productos_nombre ON productos(nombre);
 CREATE INDEX IF NOT EXISTS idx_productos_created_at ON productos(created_at);
@@ -40,6 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_tasas_tipo_fecha ON tasas(tipo, fecha);
 -- Habilitar Row Level Security (RLS)
 ALTER TABLE public.productos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.catalog_settings ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- POLÍTICAS RLS RECOMENDADAS (CATÁLOGO PÚBLICO + ADMIN PRIVADO)
@@ -118,6 +139,29 @@ CREATE POLICY "Admin delete tasas"
   ON public.tasas FOR DELETE
   USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
 
+-- Políticas para catalog_settings
+DROP POLICY IF EXISTS "Public read catalog_settings" ON public.catalog_settings;
+DROP POLICY IF EXISTS "Admin insert catalog_settings" ON public.catalog_settings;
+DROP POLICY IF EXISTS "Admin update catalog_settings" ON public.catalog_settings;
+DROP POLICY IF EXISTS "Admin delete catalog_settings" ON public.catalog_settings;
+
+CREATE POLICY "Public read catalog_settings"
+  ON public.catalog_settings FOR SELECT
+  USING (true);
+
+CREATE POLICY "Admin insert catalog_settings"
+  ON public.catalog_settings FOR INSERT
+  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+
+CREATE POLICY "Admin update catalog_settings"
+  ON public.catalog_settings FOR UPDATE
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid)
+  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+
+CREATE POLICY "Admin delete catalog_settings"
+  ON public.catalog_settings FOR DELETE
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+
 -- Función para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -130,6 +174,13 @@ $$ LANGUAGE plpgsql;
 -- Trigger para actualizar updated_at en productos
 CREATE TRIGGER update_productos_updated_at
   BEFORE UPDATE ON productos
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger para actualizar updated_at en catalog_settings
+DROP TRIGGER IF EXISTS update_catalog_settings_updated_at ON public.catalog_settings;
+CREATE TRIGGER update_catalog_settings_updated_at
+  BEFORE UPDATE ON public.catalog_settings
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 

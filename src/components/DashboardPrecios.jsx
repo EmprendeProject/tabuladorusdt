@@ -3,6 +3,12 @@ import { supabase } from '../lib/supabase';
 import { DollarSign, Package, RefreshCw, Plus, Trash2, Save } from 'lucide-react';
 import { productoFromDb, productoToInsertDb, productoToUpdateDb } from '../lib/productos';
 import { uploadProductImage } from '../lib/storage';
+import {
+  CATALOG_TEMPLATES,
+  DEFAULT_CATALOG_TEMPLATE,
+  fetchCatalogTemplate,
+  saveCatalogTemplate,
+} from '../lib/catalogSettings';
 
 const DashboardPrecios = () => {
   // Estados para las tasas globales (basado en la hoja de cálculo)
@@ -19,9 +25,23 @@ const DashboardPrecios = () => {
   const [guardando, setGuardando] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
 
+  // Configuración del catálogo público
+  const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE);
+  const [cargandoCatalogSettings, setCargandoCatalogSettings] = useState(true);
+  const [guardandoCatalogSettings, setGuardandoCatalogSettings] = useState(false);
+  const [catalogSettingsError, setCatalogSettingsError] = useState('');
+
   // Cargar productos y suscribirse a cambios
   useEffect(() => {
     cargarProductos();
+
+    fetchCatalogTemplate()
+      .then((t) => setCatalogTemplate(t))
+      .catch((e) => {
+        console.warn('No se pudo cargar catalog_settings:', e);
+        setCatalogTemplate(DEFAULT_CATALOG_TEMPLATE);
+      })
+      .finally(() => setCargandoCatalogSettings(false));
     
     const subscription = supabase
       .channel('productos-changes')
@@ -50,6 +70,27 @@ const DashboardPrecios = () => {
       supabase.removeChannel(subscription);
     };
   }, []);
+
+  const handleCambiarPlantillaCatalogo = async (value) => {
+    const next =
+      value === CATALOG_TEMPLATES.BOUTIQUE
+        ? CATALOG_TEMPLATES.BOUTIQUE
+        : value === CATALOG_TEMPLATES.MODERN
+          ? CATALOG_TEMPLATES.MODERN
+          : DEFAULT_CATALOG_TEMPLATE;
+    setCatalogTemplate(next);
+    setCatalogSettingsError('');
+    setGuardandoCatalogSettings(true);
+
+    try {
+      await saveCatalogTemplate(next);
+    } catch (e) {
+      console.error('Error guardando catalog_settings:', e);
+      setCatalogSettingsError(e?.message || 'No se pudo guardar la plantilla del catálogo.');
+    } finally {
+      setGuardandoCatalogSettings(false);
+    }
+  };
 
   const cargarProductos = async () => {
     try {
@@ -433,6 +474,46 @@ const DashboardPrecios = () => {
               <p className="text-xs text-gray-500 mt-2">Tasa de cambio USDT en Bolívares (promedio de Binance P2P - actualizada automáticamente)</p>
             </div>
           </div>
+        </div>
+
+        {/* Sección Catálogo Público */}
+        <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Catálogo Público</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Escoge cómo se verá tu catálogo en la ruta <span className="font-semibold">/</span>.
+          </p>
+
+          {catalogSettingsError ? (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+              {catalogSettingsError}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 md:w-48">Plantilla</label>
+            <select
+              value={catalogTemplate}
+              disabled={cargandoCatalogSettings || guardandoCatalogSettings}
+              onChange={(e) => handleCambiarPlantillaCatalogo(e.target.value)}
+              className="w-full md:max-w-sm p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+            >
+              <option value={CATALOG_TEMPLATES.SIMPLE}>Simple</option>
+              <option value={CATALOG_TEMPLATES.BOUTIQUE}>Boutique (Maison)</option>
+              <option value={CATALOG_TEMPLATES.MODERN}>Moderna (Trendy)</option>
+            </select>
+
+            <span className="text-xs text-gray-500">
+              {cargandoCatalogSettings
+                ? 'Cargando…'
+                : guardandoCatalogSettings
+                  ? 'Guardando…'
+                  : 'Guardado'}
+            </span>
+          </div>
+
+          <p className="mt-3 text-xs text-gray-500">
+            Nota: En el catálogo público solo se muestran foto, nombre y precio.
+          </p>
         </div>
 
         {/* Tabla de Productos */}
