@@ -32,6 +32,7 @@ const CatalogTemplateBoutique = ({
   setQuery,
   cargando,
   error,
+  onSelectProducto,
   brandName = 'Boutique',
 }) => {
   const [categorias, setCategorias] = useState([])
@@ -162,7 +163,12 @@ const CatalogTemplateBoutique = ({
           <div className="flex flex-col gap-8 pb-6">
             {productosFiltradosMaison.map((p) => (
               <div key={p.id} className="px-4">
-                <div className="flex flex-col items-stretch justify-start rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => onSelectProducto?.(p)}
+                  className="w-full text-left flex flex-col items-stretch justify-start rounded-lg overflow-hidden"
+                  aria-label={`Ver ${p.nombre || 'producto'}`}
+                >
                   {p.imagenUrl ? (
                     <div className="w-full aspect-[4/5] overflow-hidden rounded-lg shadow-sm bg-gray-100">
                       <img
@@ -191,7 +197,7 @@ const CatalogTemplateBoutique = ({
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
             ))}
 

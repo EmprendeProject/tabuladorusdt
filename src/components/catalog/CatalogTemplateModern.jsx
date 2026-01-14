@@ -31,6 +31,7 @@ const CatalogTemplateModern = ({
   cargando,
   error,
   onReload,
+  onSelectProducto,
   shopName = "Tu Tienda",
 }) => {
   return (
@@ -101,7 +102,12 @@ const CatalogTemplateModern = ({
             const ratio = idx % 6 === 0 ? 'aspect-[3/4]' : idx % 6 === 1 ? 'aspect-square' : idx % 6 === 2 ? 'aspect-[2/3]' : idx % 6 === 3 ? 'aspect-[4/3]' : idx % 6 === 4 ? 'aspect-square' : 'aspect-[3/5]'
             return (
               <div key={p.id} style={{ breakInside: 'avoid', marginBottom: 12 }}>
-                <div className="relative bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => onSelectProducto?.(p)}
+                  className="w-full text-left relative bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100"
+                  aria-label={`Ver ${p.nombre || 'producto'}`}
+                >
                   <div className={`bg-gray-100 ${ratio}`}>
                     {p.imagenUrl ? (
                       <img
@@ -126,7 +132,7 @@ const CatalogTemplateModern = ({
                   <div className="absolute bottom-14 right-3 size-9 bg-[#137fec] text-white rounded-full flex items-center justify-center shadow-lg">
                     +
                   </div>
-                </div>
+                </button>
               </div>
             )
           })}

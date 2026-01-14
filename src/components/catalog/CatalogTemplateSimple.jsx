@@ -15,6 +15,7 @@ const CatalogTemplateSimple = ({
   cargando,
   error,
   onReload,
+  onSelectProducto,
 }) => {
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen font-sans">
@@ -63,7 +64,13 @@ const CatalogTemplateSimple = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {productosFiltrados.map((p) => (
-              <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onSelectProducto?.(p)}
+                className="text-left bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+                aria-label={`Ver ${p.nombre || 'producto'}`}
+              >
                 {p.imagenUrl ? (
                   <img
                     src={p.imagenUrl}
@@ -84,7 +91,7 @@ const CatalogTemplateSimple = ({
                   <h3 className="font-semibold text-gray-900 truncate">{p.nombre || 'Sin nombre'}</h3>
                   <p className="mt-2 text-xl font-extrabold text-gray-900">${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}</p>
                 </div>
-              </div>
+              </button>
             ))}
 
             {productosFiltrados.length === 0 ? (

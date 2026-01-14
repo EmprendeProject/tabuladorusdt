@@ -48,7 +48,7 @@ export const productosRepository = {
     }
 
     // Intentamos con el set más completo, con fallbacks si faltan columnas.
-    let fields = ['id', 'nombre', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'activo']
+    let fields = ['id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'activo']
 
     // 1) Con filtro activo
     let { data, error } = await run(fields, true)
@@ -57,6 +57,12 @@ export const productosRepository = {
     // Si faltan columnas opcionales, reintentamos con una versión reducida.
     if (isMissingColumn(error, 'profit')) {
       fields = fields.filter((f) => f !== 'profit')
+      ;({ data, error } = await run(fields, true))
+      if (!error) return mapRows(data)
+    }
+
+    if (isMissingColumn(error, 'descripcion')) {
+      fields = fields.filter((f) => f !== 'descripcion')
       ;({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
@@ -76,6 +82,12 @@ export const productosRepository = {
       // Si faltan opcionales en este camino, reintentamos también.
       if (isMissingColumn(error, 'profit')) {
         fields = fields.filter((f) => f !== 'profit')
+        ;({ data, error } = await run(fields, false))
+        if (!error) return mapRows(data)
+      }
+
+      if (isMissingColumn(error, 'descripcion')) {
+        fields = fields.filter((f) => f !== 'descripcion')
         ;({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }

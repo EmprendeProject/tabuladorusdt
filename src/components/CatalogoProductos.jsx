@@ -7,9 +7,11 @@ import { useTasas } from '../hooks/useTasas';
 import CatalogTemplateSimple from './catalog/CatalogTemplateSimple';
 import CatalogTemplateBoutique from './catalog/CatalogTemplateBoutique';
 import CatalogTemplateModern from './catalog/CatalogTemplateModern';
+import ProductoDetalleModal from './ProductoDetalleModal';
 
 const CatalogoProductos = () => {
   const [query, setQuery] = useState('');
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public' });
   const { catalogTemplate } = useCatalogTemplate();
   const { tasaBCV, tasaUSDT } = useTasas();
@@ -46,17 +48,26 @@ const CatalogoProductos = () => {
     cargando,
     error,
     onReload: recargar,
+    onSelectProducto: (p) => setProductoSeleccionado({ ...p, _tasaBCV: tasaBCVNum }),
   };
 
-  if (catalogTemplate === CATALOG_TEMPLATES.BOUTIQUE) {
-    return <CatalogTemplateBoutique {...templateProps} />;
-  }
+  const Template =
+    catalogTemplate === CATALOG_TEMPLATES.BOUTIQUE
+      ? CatalogTemplateBoutique
+      : catalogTemplate === CATALOG_TEMPLATES.MODERN
+        ? CatalogTemplateModern
+        : CatalogTemplateSimple;
 
-  if (catalogTemplate === CATALOG_TEMPLATES.MODERN) {
-    return <CatalogTemplateModern {...templateProps} />;
-  }
-
-  return <CatalogTemplateSimple {...templateProps} />;
+  return (
+    <>
+      <Template {...templateProps} />
+      <ProductoDetalleModal
+        open={!!productoSeleccionado}
+        producto={productoSeleccionado}
+        onClose={() => setProductoSeleccionado(null)}
+      />
+    </>
+  );
 };
 
 export default CatalogoProductos;
