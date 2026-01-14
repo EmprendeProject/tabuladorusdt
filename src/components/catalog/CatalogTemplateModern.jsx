@@ -120,7 +120,7 @@ const CatalogTemplateModern = ({
 
                   <div className="p-3">
                     <h3 className="font-bold text-sm line-clamp-1">{p.nombre || 'Sin nombre'}</h3>
-                    <p className="text-[#137fec] font-extrabold text-base mt-1">${formatearNumero(p.precioUSDT, 2)}</p>
+                    <p className="text-[#137fec] font-extrabold text-base mt-1">${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}</p>
                   </div>
 
                   <div className="absolute bottom-14 right-3 size-9 bg-[#137fec] text-white rounded-full flex items-center justify-center shadow-lg">

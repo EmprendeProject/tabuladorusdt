@@ -36,22 +36,55 @@ export const productosRepository = {
   },
 
   async listPublic() {
-    const { data, error } = await supabase
-      .from('productos')
-      .select('id,nombre,precio_usdt,imagen_url,activo')
-      .eq('activo', true)
-      .order('created_at', { ascending: false })
+    const baseQuery = (select, filterActivo) => {
+      let q = supabase.from('productos').select(select)
+      if (filterActivo) q = q.eq('activo', true)
+      return q.order('created_at', { ascending: false })
+    }
 
+    const run = async (fields, filterActivo) => {
+      const select = fields.join(',')
+      return baseQuery(select, filterActivo)
+    }
+
+    // Intentamos con el set más completo, con fallbacks si faltan columnas.
+    let fields = ['id', 'nombre', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'activo']
+
+    // 1) Con filtro activo
+    let { data, error } = await run(fields, true)
     if (!error) return mapRows(data)
 
-    // Backward compatible: si aún no existe la columna `activo`, devolvemos todos.
+    // Si faltan columnas opcionales, reintentamos con una versión reducida.
+    if (isMissingColumn(error, 'profit')) {
+      fields = fields.filter((f) => f !== 'profit')
+      ;({ data, error } = await run(fields, true))
+      if (!error) return mapRows(data)
+    }
+
+    if (isMissingColumn(error, 'categoria')) {
+      fields = fields.filter((f) => f !== 'categoria')
+      ;({ data, error } = await run(fields, true))
+      if (!error) return mapRows(data)
+    }
+
+    // 2) Backward compatible: si aún no existe `activo`, devolvemos todos (sin filtro)
     if (isMissingColumn(error, 'activo')) {
-      const { data: data2, error: error2 } = await supabase
-        .from('productos')
-        .select('id,nombre,precio_usdt,imagen_url')
-        .order('created_at', { ascending: false })
-      if (error2) throw error2
-      return mapRows(data2)
+      fields = fields.filter((f) => f !== 'activo')
+      ;({ data, error } = await run(fields, false))
+      if (!error) return mapRows(data)
+
+      // Si faltan opcionales en este camino, reintentamos también.
+      if (isMissingColumn(error, 'profit')) {
+        fields = fields.filter((f) => f !== 'profit')
+        ;({ data, error } = await run(fields, false))
+        if (!error) return mapRows(data)
+      }
+
+      if (isMissingColumn(error, 'categoria')) {
+        fields = fields.filter((f) => f !== 'categoria')
+        ;({ data, error } = await run(fields, false))
+        if (!error) return mapRows(data)
+      }
     }
 
     throw error

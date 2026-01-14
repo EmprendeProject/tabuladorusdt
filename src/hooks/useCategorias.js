@@ -5,6 +5,7 @@ export function useCategorias() {
   const [categorias, setCategorias] = useState([])
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [eliminandoId, setEliminandoId] = useState('')
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
@@ -48,9 +49,27 @@ export function useCategorias() {
     }
   }, [])
 
+  const removeCategoria = useCallback(async (id) => {
+    const cleanId = String(id || '').trim()
+    if (!cleanId) throw new Error('El id de la categoría es requerido')
+
+    setError('')
+    setEliminandoId(cleanId)
+    try {
+      await categoriasRepository.remove({ id: cleanId })
+      setCategorias((prev) => (prev || []).filter((c) => String(c?.id || '') !== cleanId))
+      return { id: cleanId }
+    } catch (e) {
+      setError(e?.message || 'No se pudo eliminar la categoría')
+      throw e
+    } finally {
+      setEliminandoId('')
+    }
+  }, [])
+
   const nombres = useMemo(() => {
     return (categorias || []).map((c) => c?.nombre).filter(Boolean)
   }, [categorias])
 
-  return { categorias, nombres, cargando, guardando, error, refresh, createCategoria }
+  return { categorias, nombres, cargando, guardando, eliminandoId, error, refresh, createCategoria, removeCategoria }
 }

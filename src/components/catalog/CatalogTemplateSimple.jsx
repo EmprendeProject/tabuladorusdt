@@ -9,7 +9,6 @@ const formatearNumero = (value, digits = 2) => {
 }
 
 const CatalogTemplateSimple = ({
-  productos,
   productosFiltrados,
   query,
   setQuery,
@@ -51,9 +50,6 @@ const CatalogTemplateSimple = ({
                 className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            <p className="mt-2 text-xs text-gray-500">
-              Mostrando {productosFiltrados.length} de {productos.length} productos
-            </p>
           </div>
         </div>
 
@@ -86,7 +82,7 @@ const CatalogTemplateSimple = ({
 
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900 truncate">{p.nombre || 'Sin nombre'}</h3>
-                  <p className="mt-2 text-xl font-extrabold text-gray-900">${formatearNumero(p.precioUSDT, 2)}</p>
+                  <p className="mt-2 text-xl font-extrabold text-gray-900">${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}</p>
                 </div>
               </div>
             ))}

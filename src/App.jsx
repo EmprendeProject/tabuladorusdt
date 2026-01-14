@@ -8,6 +8,7 @@ import { useCatalogTemplate } from './hooks/useCatalogTemplate'
 import DashboardPrecios from './components/DashboardPrecios'
 import CatalogoProductos from './components/CatalogoProductos'
 import AdminLogin from './components/AdminLogin'
+import FloatingWhatsAppButton from './components/FloatingWhatsAppButton'
 
 const AdminPage = () => {
   const { session, cargando, error, cerrarSesion } = useAuthSession()
@@ -179,6 +180,8 @@ const AdminPage = () => {
       </div>
 
       <DashboardPrecios />
+
+      <FloatingWhatsAppButton />
     </div>
   )
 }
@@ -200,6 +203,8 @@ const CatalogoPublico = () => {
       </div>
 
       <CatalogoProductos />
+
+      <FloatingWhatsAppButton />
     </div>
   )
 }

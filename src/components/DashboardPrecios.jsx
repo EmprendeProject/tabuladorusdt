@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List } from 'lucide-react';
+import { Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List, Tags } from 'lucide-react';
 import { uploadProductImage } from '../lib/storage';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
@@ -7,6 +7,7 @@ import { useCategorias } from '../hooks/useCategorias';
 import { eliminarProducto, guardarCambiosProductos, setProductoActivo } from '../usecases/productosUsecases';
 import NuevoProductoModal from './NuevoProductoModal';
 import NuevaCategoriaModal from './NuevaCategoriaModal';
+import GestionCategoriasModal from './GestionCategoriasModal';
 import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
@@ -32,6 +33,7 @@ const DashboardPrecios = () => {
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
   const [nuevoProductoOpen, setNuevoProductoOpen] = useState(false);
   const [nuevaCategoriaOpen, setNuevaCategoriaOpen] = useState(false);
+  const [gestionarCategoriasOpen, setGestionarCategoriasOpen] = useState(false);
   const [categoriaTargetProductoId, setCategoriaTargetProductoId] = useState(null);
   const [productosView, setProductosView] = useState('list'); // list | grid
   const [expandProductoId, setExpandProductoId] = useState(null);
@@ -40,9 +42,12 @@ const DashboardPrecios = () => {
   const { toasts, pushToast, dismissToast } = useToasts();
 
   const {
+    categorias,
     nombres: categoriasNombres,
     createCategoria,
+    removeCategoria,
     guardando: guardandoCategoria,
+    eliminandoId: eliminandoCategoriaId,
     error: categoriasError,
   } = useCategorias();
 
@@ -347,6 +352,23 @@ const DashboardPrecios = () => {
     <>
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     <div className="min-h-screen bg-gray-50">
+      <GestionCategoriasModal
+        open={gestionarCategoriasOpen}
+        onClose={() => setGestionarCategoriasOpen(false)}
+        categorias={categorias}
+        onCreate={async (nombre) => {
+          // Si se crea desde el gestor, no auto-asignamos a un producto.
+          setCategoriaTargetProductoId(null);
+          return createCategoria(nombre);
+        }}
+        onDelete={async (id) => {
+          await removeCategoria(id);
+        }}
+        guardando={guardandoCategoria}
+        eliminandoId={eliminandoCategoriaId}
+        notify={pushToast}
+      />
+
       <NuevaCategoriaModal
         open={nuevaCategoriaOpen}
         onClose={() => {
@@ -390,6 +412,15 @@ const DashboardPrecios = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={() => setGestionarCategoriasOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white text-gray-900 hover:bg-gray-50 border border-gray-200"
+              title="Gestionar categorías"
+              type="button"
+            >
+              <Tags size={18} />
+              Categorías
+            </button>
             <button
               onClick={handleAgregarProducto}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 border border-blue-600"

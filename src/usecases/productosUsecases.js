@@ -13,7 +13,7 @@ export const guardarCambiosProductos = async ({ productos, idsParaGuardar }) => 
       continue
     }
 
-    await productosRepository.update(id, {
+    const res = await productosRepository.update(id, {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       categoria: producto.categoria,
@@ -22,6 +22,10 @@ export const guardarCambiosProductos = async ({ productos, idsParaGuardar }) => 
       profit: producto.profit,
       activo: producto.activo,
     })
+
+    if (res?.ignoredFields?.includes('categoria')) {
+      throw new Error('La columna "categoria" no existe en la base de datos.')
+    }
   }
 
   return nuevosIdsMap
