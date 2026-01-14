@@ -32,8 +32,8 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
     <div className="fixed inset-0 z-[80]">
       <div className="absolute inset-0 bg-black/50" onClick={() => onClose?.()} aria-hidden="true" />
 
-      <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3" role="dialog" aria-modal="true">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div className="absolute inset-0 flex items-center justify-center p-3" role="dialog" aria-modal="true">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[92vh]">
           <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
             <div className="min-w-0">
               <div className="text-sm font-semibold text-gray-900 truncate">{nombre}</div>
@@ -50,13 +50,13 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
             </button>
           </header>
 
-          <div className="p-4">
-            <div className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-100">
+          <div className="p-4 overflow-y-auto">
+            <div className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-100 flex items-center justify-center">
               {imagenUrl ? (
                 <img
                   src={imagenUrl}
                   alt={nombre}
-                  className="w-full h-72 object-cover"
+                  className="w-full h-auto max-h-[60vh] object-contain"
                   loading="lazy"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none'

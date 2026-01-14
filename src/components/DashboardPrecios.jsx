@@ -511,9 +511,9 @@ const DashboardPrecios = () => {
                         key={prod.id}
                         className={`rounded-3xl border border-gray-200 overflow-hidden ${isVisible ? 'bg-white' : 'bg-gray-50 opacity-80'}`}
                       >
-                        <div className="p-4 flex items-center justify-between gap-4">
+                        <div className="p-4 flex items-start sm:items-center justify-between gap-3 sm:gap-4">
                           <div className="flex items-center gap-4 min-w-0">
-                            <div className="w-20 h-20 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
+                            <div className="w-20 h-20 sm:w-20 sm:h-20 rounded-3xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
                               {prod.imagenUrl ? (
                                 <img
                                   src={prod.imagenUrl}
@@ -528,9 +528,11 @@ const DashboardPrecios = () => {
                             </div>
 
                             <div className="min-w-0">
-                              <div className="text-lg font-semibold text-gray-900 truncate">{prod.nombre || 'Sin nombre'}</div>
-                              <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
-                                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                              <div className="text-xl sm:text-lg font-extrabold text-gray-900 truncate text-center sm:text-left">
+                                {prod.nombre || 'Sin nombre'}
+                              </div>
+                              <div className="mt-2 flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-500">
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
                                   {profitPct}% PROFIT
                                 </span>
                                 {prod.categoria ? (
@@ -541,24 +543,30 @@ const DashboardPrecios = () => {
                                 ) : null}
                               </div>
 
-                              <div className="mt-3 grid grid-cols-2 gap-6">
-                                <div>
+                              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="hidden sm:block">
                                   <div className="text-xs font-bold text-gray-400 tracking-wider">USDT</div>
-                                  <div className="text-xl font-bold text-gray-900">
+                                  <div className="text-lg sm:text-xl font-bold text-gray-900 tabular-nums">
                                     ${usdtValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </div>
                                 </div>
-                                <div>
+                                <div className="hidden sm:block">
                                   <div className="text-xs font-bold text-gray-400 tracking-wider">BCV (REAL)</div>
-                                  <div className="text-xl font-black text-emerald-500">
+                                  <div className="text-lg sm:text-xl font-black text-emerald-500 tabular-nums">
                                     ${calcularPrecioRealBCV(usdtValue).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-gray-400 tracking-wider">PÚBLICO</div>
+                                  <div className="text-3xl sm:text-xl font-black text-blue-600 tabular-nums leading-none">
+                                    ${calcularPrecioVenta(usdtValue, Number(prod.profit) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 shrink-0 relative">
+                          <div className="flex flex-col items-end justify-between gap-3 shrink-0 relative self-stretch">
                             {!isEditing ? (
                               <button
                                 type="button"
