@@ -740,22 +740,7 @@ const DashboardPrecios = () => {
           </div>
         </section>
 
-        <section id="ayuda" className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <h3 className="font-semibold text-gray-900 mb-2">Fórmulas</h3>
-            <ul className="text-sm text-gray-700 space-y-1">
-              <li><strong>Precio real BCV ($)</strong> = (Precio USDT × Tasa USDT) / Tasa BCV</li>
-              <li><strong>Precio de venta ($)</strong> = Precio real BCV ($) × (1 + Profit%)</li>
-            </ul>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <h3 className="font-semibold text-gray-900 mb-2">Notas</h3>
-            <ul className="text-sm text-gray-700 space-y-1">
-              <li>La imagen puede ser URL o subida desde archivo.</li>
-              <li>Guarda los cambios para persistir en la base de datos.</li>
-            </ul>
-          </div>
-        </section>
+        
       </div>
 
       <div className="fixed bottom-0 inset-x-0 md:hidden z-40">
