@@ -1,21 +1,19 @@
 import { useMemo, useRef, useState } from 'react';
-import { DollarSign, Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List } from 'lucide-react';
+import { Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List } from 'lucide-react';
 import { uploadProductImage } from '../lib/storage';
-import { CATALOG_TEMPLATES } from '../data/catalogSettingsRepository';
-import { useCatalogTemplate } from '../hooks/useCatalogTemplate';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
+import { useCategorias } from '../hooks/useCategorias';
 import { eliminarProducto, guardarCambiosProductos, setProductoActivo } from '../usecases/productosUsecases';
 import NuevoProductoModal from './NuevoProductoModal';
+import NuevaCategoriaModal from './NuevaCategoriaModal';
 import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
 const DashboardPrecios = () => {
   const {
     tasaBCV,
-    setTasaBCV,
     tasaUSDT,
-    setTasaUSDT,
     cargandoBCV,
     cargandoUSDT,
     refrescarBCV,
@@ -33,6 +31,8 @@ const DashboardPrecios = () => {
   const [guardando, setGuardando] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
   const [nuevoProductoOpen, setNuevoProductoOpen] = useState(false);
+  const [nuevaCategoriaOpen, setNuevaCategoriaOpen] = useState(false);
+  const [categoriaTargetProductoId, setCategoriaTargetProductoId] = useState(null);
   const [productosView, setProductosView] = useState('list'); // list | grid
   const [expandProductoId, setExpandProductoId] = useState(null);
   const editSnapshotsRef = useRef(new Map());
@@ -40,16 +40,11 @@ const DashboardPrecios = () => {
   const { toasts, pushToast, dismissToast } = useToasts();
 
   const {
-    catalogTemplate,
-    setCatalogTemplate: guardarCatalogTemplate,
-    cargando: cargandoCatalogSettings,
-    guardando: guardandoCatalogSettings,
-    error: catalogSettingsError,
-  } = useCatalogTemplate({ enableSave: true });
-
-  const handleCambiarPlantillaCatalogo = async (value) => {
-    await guardarCatalogTemplate(value);
-  };
+    nombres: categoriasNombres,
+    createCategoria,
+    guardando: guardandoCategoria,
+    error: categoriasError,
+  } = useCategorias();
 
   // Funciones auxiliares para obtener valores numéricos
   const getTasaBCV = () => parseFloat(tasaBCV) || 0;
@@ -136,6 +131,22 @@ const DashboardPrecios = () => {
       setProductos((prev) => prev.filter((p) => p.id !== productoConDefaults.id));
       throw e;
     }
+  };
+
+  const abrirNuevaCategoria = (productoId = null) => {
+    setCategoriaTargetProductoId(productoId);
+    setNuevaCategoriaOpen(true);
+  };
+
+  const onCreateCategoria = async (nombre) => {
+    const created = await createCategoria(nombre);
+    const nombreCreado = created?.nombre || String(nombre || '').trim();
+
+    // Si estamos creando desde un producto, asignarla automáticamente.
+    if (categoriaTargetProductoId != null) {
+      handleUpdateProducto(categoriaTargetProductoId, 'categoria', nombreCreado);
+    }
+    return created;
   };
 
   const handleToggleVisible = async (prod) => {
@@ -336,11 +347,27 @@ const DashboardPrecios = () => {
     <>
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     <div className="min-h-screen bg-gray-50">
+      <NuevaCategoriaModal
+        open={nuevaCategoriaOpen}
+        onClose={() => {
+          setNuevaCategoriaOpen(false);
+          setCategoriaTargetProductoId(null);
+        }}
+        onCreate={onCreateCategoria}
+        notify={pushToast}
+      />
+
       <NuevoProductoModal
         open={nuevoProductoOpen}
         onClose={() => setNuevoProductoOpen(false)}
         onCreate={handleCreateProductoFromModal}
         notify={pushToast}
+        categorias={categoriasNombres}
+        onCreateCategoria={async (nombre) => {
+          // categoría creada desde el modal de producto (sin target producto)
+          setCategoriaTargetProductoId(null);
+          return onCreateCategoria(nombre);
+        }}
         tasaBCV={tasaBCV}
         tasaUSDT={tasaUSDT}
         cargandoBCV={cargandoBCV}
@@ -395,142 +422,11 @@ const DashboardPrecios = () => {
           </div>
         ) : null}
 
-        <section id="tasas" className="mb-6">
-          <div className="rounded-2xl border border-slate-900 bg-slate-950 text-white overflow-hidden">
-            <div className="p-5 md:p-6 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
-                  <DollarSign size={18} /> Tasas
-                </h2>
-                <p className="text-xs md:text-sm text-slate-300 mt-1">
-                  Actualiza y usa las tasas para calcular precios.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  refrescarBCV();
-                  refrescarUSDT();
-                }}
-                className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-sm"
-                title="Actualizar ambas tasas"
-              >
-                <RefreshCw size={16} className={(cargandoBCV || cargandoUSDT) ? 'animate-spin' : ''} />
-                Actualizar
-              </button>
-            </div>
-
-            <div className="px-5 md:px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs font-medium text-slate-300">TASA BCV (Bs.)</label>
-                  {cargandoBCV ? <span className="text-xs text-slate-400 animate-pulse">Cargando…</span> : null}
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={tasaBCV}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                        setTasaBCV(value);
-                      }
-                    }}
-                    disabled={cargandoBCV}
-                    className="flex-1 min-w-0 text-2xl font-semibold bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    placeholder="0.00"
-                  />
-                  <button
-                    onClick={refrescarBCV}
-                    disabled={cargandoBCV}
-                    className="p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Actualizar tasa BCV"
-                  >
-                    <RefreshCw size={18} className={cargandoBCV ? 'animate-spin' : ''} />
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-slate-400">Se usa para convertir a $ BCV.</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs font-medium text-slate-300">TASA USDT (Bs.)</label>
-                  {cargandoUSDT ? <span className="text-xs text-slate-400 animate-pulse">Cargando…</span> : null}
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={tasaUSDT}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                        setTasaUSDT(value);
-                      }
-                    }}
-                    disabled={cargandoUSDT}
-                    className="flex-1 min-w-0 text-2xl font-semibold bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                    placeholder="0.00"
-                  />
-                  <button
-                    onClick={refrescarUSDT}
-                    disabled={cargandoUSDT}
-                    className="p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Actualizar tasa USDT"
-                  >
-                    <RefreshCw size={18} className={cargandoUSDT ? 'animate-spin' : ''} />
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-slate-400">Promedio (Binance P2P) según tu fuente.</p>
-              </div>
-            </div>
+        {categoriasError ? (
+          <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4">
+            {categoriasError}
           </div>
-        </section>
-
-        <section id="catalogo" className="mb-6">
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="text-base md:text-lg font-semibold text-gray-900">Catálogo público</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Escoge cómo se verá tu catálogo en la ruta <span className="font-semibold">/</span>.
-                </p>
-              </div>
-              <div className="text-xs text-gray-500">
-                {cargandoCatalogSettings
-                  ? 'Cargando…'
-                  : guardandoCatalogSettings
-                    ? 'Guardando…'
-                    : 'Listo'}
-              </div>
-            </div>
-
-            {catalogSettingsError ? (
-              <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">
-                {catalogSettingsError}
-              </div>
-            ) : null}
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
-              <label className="text-sm font-medium text-gray-700">Plantilla</label>
-              <select
-                value={catalogTemplate}
-                disabled={cargandoCatalogSettings || guardandoCatalogSettings}
-                onChange={(e) => handleCambiarPlantillaCatalogo(e.target.value)}
-                className="w-full md:max-w-md p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white"
-              >
-                <option value={CATALOG_TEMPLATES.SIMPLE}>Simple</option>
-                <option value={CATALOG_TEMPLATES.BOUTIQUE}>Boutique (Maison)</option>
-                <option value={CATALOG_TEMPLATES.MODERN}>Moderna (Trendy)</option>
-              </select>
-            </div>
-
-            <p className="mt-3 text-xs text-gray-500">
-              Nota: en el catálogo público solo se muestran foto, nombre y precio.
-            </p>
-          </div>
-        </section>
+        ) : null}
 
         <section id="productos" className="mb-6">
           <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
@@ -606,8 +502,12 @@ const DashboardPrecios = () => {
                                 <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
                                   {profitPct}% PROFIT
                                 </span>
-                                <span className="text-gray-300">•</span>
-                                <span className="truncate">{prod.categoria || 'General'}</span>
+                                {prod.categoria ? (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span className="truncate">{prod.categoria}</span>
+                                  </>
+                                ) : null}
                               </div>
 
                               <div className="mt-3 grid grid-cols-2 gap-6">
@@ -709,16 +609,29 @@ const DashboardPrecios = () => {
 
                               <div>
                                 <div className="text-xs text-gray-500">Categoría</div>
-                                <select
-                                  value={prod.categoria || 'General'}
-                                  onChange={(e) => handleUpdateProducto(prod.id, 'categoria', e.target.value)}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                  <option>General</option>
-                                  <option>Damas</option>
-                                  <option>Caballeros</option>
-                                  <option>Accesorios</option>
-                                </select>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <select
+                                    value={prod.categoria || ''}
+                                    onChange={(e) => handleUpdateProducto(prod.id, 'categoria', e.target.value)}
+                                    className="flex-1 p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    <option value="">Sin categoría</option>
+                                    {(categoriasNombres || []).map((c) => (
+                                      <option key={c} value={c}>
+                                        {c}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => abrirNuevaCategoria(prod.id)}
+                                    disabled={guardandoCategoria}
+                                    className="px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                                    title="Crear categoría"
+                                  >
+                                    Nueva
+                                  </button>
+                                </div>
                               </div>
                               <div>
                                 <div className="text-xs text-gray-500">Profit %</div>
@@ -838,7 +751,6 @@ const DashboardPrecios = () => {
           <div className="bg-white border border-gray-200 rounded-2xl p-5">
             <h3 className="font-semibold text-gray-900 mb-2">Notas</h3>
             <ul className="text-sm text-gray-700 space-y-1">
-              <li>Los cambios en tasas se aplican instantáneamente.</li>
               <li>La imagen puede ser URL o subida desde archivo.</li>
               <li>Guarda los cambios para persistir en la base de datos.</li>
             </ul>
@@ -848,7 +760,7 @@ const DashboardPrecios = () => {
 
       <div className="fixed bottom-0 inset-x-0 md:hidden z-40">
         <div className="bg-white/90 backdrop-blur border-t border-gray-200">
-          <div className="max-w-6xl mx-auto px-4 py-2 grid grid-cols-3 gap-2">
+          <div className="max-w-6xl mx-auto px-4 py-2 grid grid-cols-1 gap-2">
             <button
               type="button"
               onClick={() => scrollToSection('productos')}
@@ -856,22 +768,6 @@ const DashboardPrecios = () => {
             >
               <Package size={18} />
               Productos
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection('tasas')}
-              className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <DollarSign size={18} />
-              Tasas
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection('catalogo')}
-              className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <RefreshCw size={18} />
-              Catálogo
             </button>
           </div>
         </div>

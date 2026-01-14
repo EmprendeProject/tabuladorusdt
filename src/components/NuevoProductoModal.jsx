@@ -13,6 +13,8 @@ export default function NuevoProductoModal({
   onClose,
   onCreate,
   notify,
+  categorias,
+  onCreateCategoria,
   tasaBCV,
   tasaUSDT,
   cargandoBCV,
@@ -24,7 +26,9 @@ export default function NuevoProductoModal({
   const [draftId, setDraftId] = useState(null)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [categoria, setCategoria] = useState('Damas')
+  const [categoria, setCategoria] = useState('')
+  const [creandoCategoria, setCreandoCategoria] = useState(false)
+  const [nuevaCategoria, setNuevaCategoria] = useState('')
 
   const [precioUSDT, setPrecioUSDT] = useState('')
   const [profit, setProfit] = useState(40)
@@ -62,7 +66,9 @@ export default function NuevoProductoModal({
     setDraftId(id)
     setNombre('')
     setDescripcion('')
-    setCategoria('Damas')
+    setCategoria('')
+    setCreandoCategoria(false)
+    setNuevaCategoria('')
     setPrecioUSDT('')
     setProfit(40)
     setImagenUrl('')
@@ -232,15 +238,61 @@ export default function NuevoProductoModal({
 
                 <div>
                   <label className="block text-sm font-medium mb-1 text-gray-600">Categoría</label>
-                  <select
-                    className="w-full rounded-xl border-gray-200 bg-white focus:ring-blue-600 focus:border-blue-600"
-                    value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
-                  >
-                    <option>Damas</option>
-                    <option>Caballeros</option>
-                    <option>Accesorios</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="flex-1 rounded-xl border-gray-200 bg-white focus:ring-blue-600 focus:border-blue-600"
+                      value={categoria}
+                      onChange={(e) => setCategoria(e.target.value)}
+                    >
+                      <option value="">Sin categoría</option>
+                      {(categorias || []).map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+
+                    {typeof onCreateCategoria === 'function' ? (
+                      <button
+                        type="button"
+                        onClick={() => setCreandoCategoria((v) => !v)}
+                        className="shrink-0 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+                      >
+                        Nueva
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {creandoCategoria && typeof onCreateCategoria === 'function' ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={nuevaCategoria}
+                        onChange={(e) => setNuevaCategoria(e.target.value)}
+                        placeholder="Nombre de categoría"
+                        className="flex-1 rounded-xl border-gray-200 bg-white focus:ring-blue-600 focus:border-blue-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const clean = String(nuevaCategoria || '').trim()
+                          if (!clean) return
+                          try {
+                            await onCreateCategoria(clean)
+                            setCategoria(clean)
+                            setNuevaCategoria('')
+                            setCreandoCategoria(false)
+                          } catch {
+                            // errores se notifican desde el dashboard/modal
+                          }
+                        }}
+                        disabled={!String(nuevaCategoria || '').trim()}
+                        className="px-3 py-2 rounded-xl text-sm font-semibold bg-slate-950 text-white hover:bg-slate-900 disabled:opacity-50"
+                      >
+                        Crear
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </section>

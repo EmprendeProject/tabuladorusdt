@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
-import { LogOut, Store } from 'lucide-react'
+import { Check, LogOut, Palette, Store } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
+import { CATALOG_TEMPLATES } from './data/catalogSettingsRepository'
+import { useCatalogTemplate } from './hooks/useCatalogTemplate'
 import DashboardPrecios from './components/DashboardPrecios'
 import CatalogoProductos from './components/CatalogoProductos'
 import AdminLogin from './components/AdminLogin'
@@ -10,6 +12,14 @@ import AdminLogin from './components/AdminLogin'
 const AdminPage = () => {
   const { session, cargando, error, cerrarSesion } = useAuthSession()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [themesOpen, setThemesOpen] = useState(false)
+
+  const {
+    catalogTemplate,
+    setCatalogTemplate: guardarCatalogTemplate,
+    cargando: cargandoCatalogSettings,
+    guardando: guardandoCatalogSettings,
+  } = useCatalogTemplate({ enableSave: true })
 
   const avatarLabel = useMemo(() => {
     const email = session?.user?.email || ''
@@ -59,6 +69,69 @@ const AdminPage = () => {
             >
               <Store size={18} />
             </Link>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setThemesOpen((v) => !v)}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setThemesOpen(false)
+                }}
+                disabled={cargandoCatalogSettings}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                title="Temas del catálogo"
+                aria-label="Temas del catálogo"
+              >
+                <Palette size={18} />
+              </button>
+
+              {themesOpen ? (
+                <div
+                  className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden"
+                  role="menu"
+                >
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="text-xs text-gray-500">Tema</div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {guardandoCatalogSettings ? 'Guardando…' : 'Selecciona un tema'}
+                    </div>
+                  </div>
+
+                  {[{
+                    value: CATALOG_TEMPLATES.SIMPLE,
+                    label: 'Simple',
+                  }, {
+                    value: CATALOG_TEMPLATES.BOUTIQUE,
+                    label: 'Boutique',
+                  }, {
+                    value: CATALOG_TEMPLATES.MODERN,
+                    label: 'Moderna',
+                  }].map((opt) => {
+                    const active = catalogTemplate === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={async () => {
+                          try {
+                            await guardarCatalogTemplate(opt.value)
+                          } finally {
+                            setThemesOpen(false)
+                          }
+                        }}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50"
+                        role="menuitem"
+                        disabled={guardandoCatalogSettings}
+                      >
+                        <span className="font-medium">{opt.label}</span>
+                        {active ? <Check size={18} className="text-emerald-600" /> : <span className="w-[18px]" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
 
             <button
               type="button"

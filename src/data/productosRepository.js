@@ -11,7 +11,17 @@ const mapRows = (rows) => (rows || []).map(productoFromDb).filter(Boolean)
 
 const isMissingColumn = (error, columnName) => {
   const message = (error?.message || '').toLowerCase()
-  return message.includes('does not exist') && message.includes(String(columnName).toLowerCase())
+  const col = String(columnName).toLowerCase()
+  // PostgREST puede reportar de varias formas:
+  // - "column ... does not exist"
+  // - "Could not find the 'x' column ... in the schema cache"
+  return (
+    message.includes(col) &&
+    (message.includes('does not exist') ||
+      message.includes("could not find") ||
+      message.includes('schema cache') ||
+      message.includes('column') && message.includes('not found'))
+  )
 }
 
 export const productosRepository = {
@@ -70,9 +80,16 @@ export const productosRepository = {
       return productoFromDb(data2)
     }
 
-    // Para `categoria`, preferimos fallar con un mensaje claro (para que el usuario ejecute la migración).
+    // Compatibilidad hacia atrás: si aún no existe `categoria`, reintentar sin ese campo.
     if (payload?.categoria !== undefined && isMissingColumn(error, 'categoria')) {
-      throw new Error('La columna "categoria" no existe en la base de datos.')
+      const { categoria: _categoria, ...payload2 } = payload
+      const { data: data2, error: error2 } = await supabase
+        .from('productos')
+        .insert([payload2])
+        .select('*')
+        .maybeSingle()
+      if (error2) throw error2
+      return productoFromDb(data2)
     }
 
     throw error
@@ -99,9 +116,15 @@ export const productosRepository = {
       return { ignoredFields: ['activo'] }
     }
 
-    // Para `categoria`, preferimos fallar con un mensaje claro (para que el usuario ejecute la migración).
+    // Compatibilidad hacia atrás: si aún no existe `categoria`, reintentar sin ese campo.
     if (cambiosBD?.categoria !== undefined && isMissingColumn(error, 'categoria')) {
-      throw new Error('La columna "categoria" no existe en la base de datos.')
+      const { categoria: _categoria, ...cambiosBD2 } = cambiosBD
+      const { error: error2 } = await supabase
+        .from('productos')
+        .update(cambiosBD2)
+        .eq('id', id)
+      if (error2) throw error2
+      return { ignoredFields: ['categoria'] }
     }
 
     throw error
