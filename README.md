@@ -14,3 +14,27 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Arquitectura (código desacoplado)
+
+Este proyecto está organizado para evitar “código espagueti”:
+
+- UI (React): `src/components/`
+	- Solo renderiza y maneja interacción/estado local de formulario.
+	- No llama APIs directamente.
+
+- Hooks (casos de uso en React): `src/hooks/`
+	- Orquestan carga/errores/loading y suscripciones.
+	- Consumen repositorios/servicios.
+
+- Data (repositorios Supabase): `src/data/`
+	- Aquí vive el acceso a Supabase (select/insert/update/realtime/auth).
+
+- Services (APIs externas): `src/services/`
+	- Llamadas a APIs HTTP (ej. tasas BCV/USDT).
+
+- Usecases (lógica reutilizable): `src/usecases/`
+	- Funciones de negocio que combinan repositorios (ej. guardar cambios en batch).
+
+- Lib (helpers puros): `src/lib/`
+	- Mapeos snake_case ↔ camelCase, utilidades de storage, cliente Supabase, etc.

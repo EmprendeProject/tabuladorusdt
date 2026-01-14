@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LogIn, Shield } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { authRepository } from '../data/authRepository';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -14,12 +14,7 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) throw signInError;
+      await authRepository.signInWithPassword({ email, password });
     } catch (err) {
       console.error('Error login:', err);
       setError(err?.message || 'No se pudo iniciar sesión');

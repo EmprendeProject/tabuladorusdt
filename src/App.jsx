@@ -1,43 +1,39 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { LogOut, Store } from 'lucide-react'
 
-import { supabase } from './lib/supabase'
+import { useAuthSession } from './hooks/useAuthSession'
 import DashboardPrecios from './components/DashboardPrecios'
 import CatalogoProductos from './components/CatalogoProductos'
 import AdminLogin from './components/AdminLogin'
 
 const AdminPage = () => {
-  const [session, setSession] = useState(null)
-  const [cargando, setCargando] = useState(true)
+  const { session, cargando, error, cerrarSesion } = useAuthSession()
+  const [menuOpen, setMenuOpen] = useState(false)
 
-  useEffect(() => {
-    let mounted = true
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      setSession(data?.session || null)
-      setCargando(false)
-    })
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession)
-    })
-
-    return () => {
-      mounted = false
-      sub?.subscription?.unsubscribe()
-    }
-  }, [])
-
-  const cerrarSesion = async () => {
-    await supabase.auth.signOut()
-  }
+  const avatarLabel = useMemo(() => {
+    const email = session?.user?.email || ''
+    const name = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || ''
+    const base = (name || email).trim()
+    if (!base) return 'A'
+    const parts = base.split(/\s+/).filter(Boolean)
+    const first = parts[0]?.[0] || 'A'
+    const second = parts.length > 1 ? (parts[1]?.[0] || '') : (parts[0]?.[1] || '')
+    return (first + second).toUpperCase()
+  }, [session])
 
   if (cargando) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
         Cargando…
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
+        {error}
       </div>
     )
   }
@@ -48,23 +44,64 @@ const AdminPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="border-b bg-white">
+      <div className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-gray-800">Admin</span>
-            <Link to="/" className="text-sm text-blue-700 hover:underline">
-              Ver catálogo público
-            </Link>
           </div>
 
-          <button
-            onClick={cerrarSesion}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
-            title="Cerrar sesión"
-          >
-            <LogOut size={18} />
-            Salir
-          </button>
+          <div className="relative flex items-center gap-2">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              title="Ver catálogo"
+              aria-label="Ver catálogo"
+            >
+              <Store size={18} />
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              onBlur={(e) => {
+                // Cierra si el focus sale del contenedor
+                if (!e.currentTarget.contains(e.relatedTarget)) setMenuOpen(false)
+              }}
+              className="inline-flex items-center gap-2"
+              title="Cuenta"
+            >
+              <span className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold select-none">
+                {avatarLabel}
+              </span>
+            </button>
+
+            {menuOpen ? (
+              <div
+                className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden"
+                role="menu"
+              >
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="text-xs text-gray-500">Sesión</div>
+                  <div className="text-sm font-semibold text-gray-900 truncate">
+                    {session?.user?.email || 'Cuenta'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={async () => {
+                    setMenuOpen(false)
+                    await cerrarSesion()
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-700 hover:bg-red-50"
+                  role="menuitem"
+                >
+                  <LogOut size={18} />
+                  Cerrar sesión
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 

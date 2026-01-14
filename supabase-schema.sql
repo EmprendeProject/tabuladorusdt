@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS productos (
   nombre TEXT NOT NULL,
   descripcion TEXT,
   imagen_url TEXT,
+  activo BOOLEAN NOT NULL DEFAULT true,
   precio_usdt DECIMAL(10, 2) NOT NULL DEFAULT 0,
   profit DECIMAL(5, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
@@ -23,6 +24,17 @@ CREATE TABLE IF NOT EXISTS productos (
 -- Si tu tabla ya existe, puedes ejecutar este bloque para agregar columnas sin perder datos:
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS descripcion TEXT;
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS activo BOOLEAN;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS categoria TEXT;
+
+-- Backfill y asegurar NOT NULL + DEFAULT (idempotente)
+UPDATE productos SET activo = true WHERE activo IS NULL;
+ALTER TABLE productos ALTER COLUMN activo SET DEFAULT true;
+ALTER TABLE productos ALTER COLUMN activo SET NOT NULL;
+
+-- Categoría (idempotente)
+ALTER TABLE productos ALTER COLUMN categoria SET DEFAULT 'General';
+UPDATE productos SET categoria = 'General' WHERE categoria IS NULL;
 
 -- Crear tabla de tasas (opcional - para guardar historial)
 CREATE TABLE IF NOT EXISTS tasas (
@@ -55,6 +67,8 @@ ON CONFLICT (id) DO NOTHING;
 -- Crear índices para mejorar el rendimiento
 CREATE INDEX IF NOT EXISTS idx_productos_nombre ON productos(nombre);
 CREATE INDEX IF NOT EXISTS idx_productos_created_at ON productos(created_at);
+CREATE INDEX IF NOT EXISTS idx_productos_activo ON productos(activo);
+CREATE INDEX IF NOT EXISTS idx_productos_categoria ON productos(categoria);
 CREATE INDEX IF NOT EXISTS idx_tasas_tipo_fecha ON tasas(tipo, fecha);
 
 -- Habilitar Row Level Security (RLS)
@@ -95,7 +109,13 @@ DROP POLICY IF EXISTS "Admin delete productos" ON public.productos;
 
 CREATE POLICY "Public read productos"
   ON public.productos FOR SELECT
-  USING (true);
+  USING (activo = true);
+
+-- Permitir que el admin vea también productos inactivos (necesario para poder reactivarlos)
+DROP POLICY IF EXISTS "Admin read productos" ON public.productos;
+CREATE POLICY "Admin read productos"
+  ON public.productos FOR SELECT
+  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
 
 CREATE POLICY "Admin insert productos"
   ON public.productos FOR INSERT

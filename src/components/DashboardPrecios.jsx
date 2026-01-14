@@ -1,226 +1,55 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { DollarSign, Package, RefreshCw, Plus, Trash2, Save } from 'lucide-react';
-import { productoFromDb, productoToInsertDb, productoToUpdateDb } from '../lib/productos';
+import { useMemo, useRef, useState } from 'react';
+import { DollarSign, Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List } from 'lucide-react';
 import { uploadProductImage } from '../lib/storage';
-import {
-  CATALOG_TEMPLATES,
-  DEFAULT_CATALOG_TEMPLATE,
-  fetchCatalogTemplate,
-  saveCatalogTemplate,
-} from '../lib/catalogSettings';
+import { CATALOG_TEMPLATES } from '../data/catalogSettingsRepository';
+import { useCatalogTemplate } from '../hooks/useCatalogTemplate';
+import { useProductos } from '../hooks/useProductos';
+import { useTasas } from '../hooks/useTasas';
+import { eliminarProducto, guardarCambiosProductos, setProductoActivo } from '../usecases/productosUsecases';
+import NuevoProductoModal from './NuevoProductoModal';
+import ToastStack from './ToastStack';
+import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
 const DashboardPrecios = () => {
-  // Estados para las tasas globales (basado en la hoja de cálculo)
-  // Usar strings para permitir valores vacíos en los inputs
-  const [tasaBCV, setTasaBCV] = useState('365');
-  const [tasaUSDT, setTasaUSDT] = useState('800');
-  const [cargandoBCV, setCargandoBCV] = useState(false);
-  const [cargandoUSDT, setCargandoUSDT] = useState(false);
+  const {
+    tasaBCV,
+    setTasaBCV,
+    tasaUSDT,
+    setTasaUSDT,
+    cargandoBCV,
+    cargandoUSDT,
+    refrescarBCV,
+    refrescarUSDT,
+  } = useTasas();
   
   // Estado de productos
-  const [productos, setProductos] = useState([]);
-  const [cargandoProductos, setCargandoProductos] = useState(true);
+  const {
+    productos,
+    setProductos,
+    cargando: cargandoProductos,
+    error: productosError,
+  } = useProductos();
   const [cambiosSinGuardar, setCambiosSinGuardar] = useState(new Set()); // Set de IDs con cambios
   const [guardando, setGuardando] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
+  const [nuevoProductoOpen, setNuevoProductoOpen] = useState(false);
+  const [productosView, setProductosView] = useState('list'); // list | grid
+  const [expandProductoId, setExpandProductoId] = useState(null);
+  const editSnapshotsRef = useRef(new Map());
 
-  // Configuración del catálogo público
-  const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE);
-  const [cargandoCatalogSettings, setCargandoCatalogSettings] = useState(true);
-  const [guardandoCatalogSettings, setGuardandoCatalogSettings] = useState(false);
-  const [catalogSettingsError, setCatalogSettingsError] = useState('');
+  const { toasts, pushToast, dismissToast } = useToasts();
 
-  // Cargar productos y suscribirse a cambios
-  useEffect(() => {
-    cargarProductos();
-
-    fetchCatalogTemplate()
-      .then((t) => setCatalogTemplate(t))
-      .catch((e) => {
-        console.warn('No se pudo cargar catalog_settings:', e);
-        setCatalogTemplate(DEFAULT_CATALOG_TEMPLATE);
-      })
-      .finally(() => setCargandoCatalogSettings(false));
-    
-    const subscription = supabase
-      .channel('productos-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'productos' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const nuevo = productoFromDb(payload.new);
-            if (!nuevo) return;
-            setProductos(prev => [nuevo, ...prev.filter(p => p.id !== nuevo.id)]);
-          } else if (payload.eventType === 'UPDATE') {
-            const actualizado = productoFromDb(payload.new);
-            if (!actualizado) return;
-            setProductos(prev => prev.map(p => (p.id === actualizado.id ? actualizado : p)));
-          } else if (payload.eventType === 'DELETE') {
-            const id = payload?.old?.id;
-            if (!id) return;
-            setProductos(prev => prev.filter(p => p.id !== id));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, []);
+  const {
+    catalogTemplate,
+    setCatalogTemplate: guardarCatalogTemplate,
+    cargando: cargandoCatalogSettings,
+    guardando: guardandoCatalogSettings,
+    error: catalogSettingsError,
+  } = useCatalogTemplate({ enableSave: true });
 
   const handleCambiarPlantillaCatalogo = async (value) => {
-    const next =
-      value === CATALOG_TEMPLATES.BOUTIQUE
-        ? CATALOG_TEMPLATES.BOUTIQUE
-        : value === CATALOG_TEMPLATES.MODERN
-          ? CATALOG_TEMPLATES.MODERN
-          : DEFAULT_CATALOG_TEMPLATE;
-    setCatalogTemplate(next);
-    setCatalogSettingsError('');
-    setGuardandoCatalogSettings(true);
-
-    try {
-      await saveCatalogTemplate(next);
-    } catch (e) {
-      console.error('Error guardando catalog_settings:', e);
-      setCatalogSettingsError(e?.message || 'No se pudo guardar la plantilla del catálogo.');
-    } finally {
-      setGuardandoCatalogSettings(false);
-    }
+    await guardarCatalogTemplate(value);
   };
-
-  const cargarProductos = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('productos')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Mapear campos de BD a estado local si es necesario
-      // En este caso, la BD usa snake_case (precio_usdt) y el front camelCase (precioUSDT)
-      // Pero para simplificar, adaptaremos el estado local para usar lo que viene de la BD
-      // O transformamos aquí. Vamos a transformar para mantener compatibilidad con el render.
-      setProductos((data || []).map(productoFromDb).filter(Boolean));
-    } catch (error) {
-      console.error('Error al cargar productos:', error);
-      alert('Error al cargar productos: ' + error.message);
-    } finally {
-      setCargandoProductos(false);
-    }
-  };
-
-  // CRUD Operations
-  const guardarProductoBD = async (producto) => {
-    try {
-      const { data, error } = await supabase
-        .from('productos')
-        .insert([productoToInsertDb(producto)])
-        .select();
-      
-      if (error) throw error;
-      return data[0];
-    } catch (error) {
-      console.error('Error al guardar:', error);
-      alert('Error al guardar: ' + error.message);
-      return null;
-    }
-  };
-
-  const actualizarProductoBD = async (id, cambios) => {
-    try {
-      const cambiosBD = productoToUpdateDb(cambios);
-
-      const { error } = await supabase
-        .from('productos')
-        .update(cambiosBD)
-        .eq('id', id);
-        
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error al actualizar:', error);
-      alert('Error al actualizar: ' + error.message);
-      return false;
-    }
-  };
-
-  const eliminarProductoBD = async (id) => {
-    try {
-      const { error } = await supabase.from('productos').delete().eq('id', id);
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error al eliminar:', error);
-      alert('Error al eliminar: ' + error.message);
-      return false;
-    }
-  };
-
-  // Función para obtener tasa BCV desde la API de dolarvzla.com
-  const obtenerTasaBCV = useCallback(async () => {
-    setCargandoBCV(true);
-    try {
-      const response = await fetch('https://api.dolarvzla.com/public/exchange-rate');
-      if (!response.ok) {
-        throw new Error('Error al obtener la tasa BCV');
-      }
-      const data = await response.json();
-      
-      // La API devuelve: {"current":{"usd":330.3751,"eur":384.33196133,"date":"2026-01-13"},...}
-      // Obtenemos el valor USD del objeto current
-      if (data.current && data.current.usd) {
-        const tasa = data.current.usd;
-        // Redondear a 2 decimales y convertir a string
-        setTasaBCV(tasa.toFixed(2));
-      }
-    } catch (error) {
-      console.error('Error al obtener la tasa BCV:', error);
-      // Si falla, mantener el valor por defecto
-    } finally {
-      setCargandoBCV(false);
-    }
-  }, []);
-
-  // Función para obtener tasa USDT desde la API de CriptoYa
-  const obtenerTasaUSDT = useCallback(async () => {
-    setCargandoUSDT(true);
-    try {
-      const response = await fetch('https://criptoya.com/api/binancep2p/usdt/ves');
-      if (!response.ok) {
-        throw new Error('Error al obtener la tasa USDT');
-      }
-      const data = await response.json();
-      
-      // La API devuelve: {"ask":556.499,"bid":555,"totalAsk":556.499,"totalBid":555,"time":1768075151}
-      // Calculamos el promedio entre ask (venta) y bid (compra)
-      if (data.ask && data.bid) {
-        const promedio = (parseFloat(data.ask) + parseFloat(data.bid)) / 2;
-        setTasaUSDT(promedio.toFixed(2));
-      } else if (data.ask) {
-        // Si solo hay ask, usar ese valor
-        setTasaUSDT(parseFloat(data.ask).toFixed(2));
-      } else if (data.bid) {
-        // Si solo hay bid, usar ese valor
-        setTasaUSDT(parseFloat(data.bid).toFixed(2));
-      }
-    } catch (error) {
-      console.error('Error al obtener la tasa USDT:', error);
-      // Si falla, mantener el valor por defecto
-    } finally {
-      setCargandoUSDT(false);
-    }
-  }, []);
-
-  // Obtener tasas desde las APIs al cargar el componente
-  useEffect(() => {
-    obtenerTasaBCV();
-    obtenerTasaUSDT();
-  }, [obtenerTasaBCV, obtenerTasaUSDT]);
 
   // Funciones auxiliares para obtener valores numéricos
   const getTasaBCV = () => parseFloat(tasaBCV) || 0;
@@ -245,7 +74,7 @@ const DashboardPrecios = () => {
   const handleUpdateProducto = (id, campo, valor) => {
     // Actualización local inmediata
     let nuevoValor = valor;
-    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'imagenUrl') {
+    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'categoria' && campo !== 'imagenUrl' && campo !== 'activo') {
       nuevoValor = valor === '' ? 0 : (parseFloat(valor) || 0);
     }
 
@@ -258,65 +87,155 @@ const DashboardPrecios = () => {
   };
 
   const handleAgregarProducto = () => {
-    // Crear ID temporal negativo para identificar que es nuevo localmente
-    const tempId = -(Date.now()); 
-    const nuevoProducto = {
-      id: tempId,
-      nombre: '',
-      descripcion: '',
-      imagenUrl: '',
-      precioUSDT: 0,
-      profit: 30
-    };
-    
-    setProductos(prev => [nuevoProducto, ...prev]);
-    setCambiosSinGuardar(prev => new Set(prev).add(tempId));
+    setNuevoProductoOpen(true);
   };
 
-  const handleGuardarTodo = async () => {
-    if (cambiosSinGuardar.size === 0) return;
-    
-    setGuardando(true);
-    const idsParaGuardar = Array.from(cambiosSinGuardar);
-    const nuevosIdsMap = {}; // Mapa de ID temporal -> ID real
+  const startEditingProducto = (prod) => {
+    if (!prod) return;
+    // Guardar snapshot solo la primera vez que se entra a editar ese producto.
+    if (!editSnapshotsRef.current.has(prod.id)) {
+      editSnapshotsRef.current.set(prod.id, { ...prod });
+    }
+    setExpandProductoId(prod.id);
+  };
+
+  const discardEditingProducto = (id) => {
+    const snapshot = editSnapshotsRef.current.get(id);
+    if (snapshot) {
+      setProductos((prev) => prev.map((p) => (p.id === id ? { ...snapshot } : p)));
+    }
+    setCambiosSinGuardar((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    editSnapshotsRef.current.delete(id);
+    setExpandProductoId(null);
+  };
+
+  const handleCreateProductoFromModal = async (draftProducto) => {
+    // Insertar optimista en UI, luego persistir inmediatamente.
+    const productoConDefaults = {
+      activo: true,
+      ...draftProducto,
+    };
+    setProductos((prev) => [productoConDefaults, ...prev]);
 
     try {
-      // Procesar todas las actualizaciones
-      for (const id of idsParaGuardar) {
-        const producto = productos.find(p => p.id === id);
-        if (!producto) continue;
+      const nuevosIdsMap = await guardarCambiosProductos({
+        productos: [productoConDefaults],
+        idsParaGuardar: [productoConDefaults.id],
+      });
 
-        if (id < 0) {
-          // Es nuevo (INSERT)
-          const nuevoProductoBD = await guardarProductoBD(producto);
-          if (nuevoProductoBD) {
-            nuevosIdsMap[id] = nuevoProductoBD.id;
-          }
-        } else {
-          // Es existente (UPDATE)
-          await actualizarProductoBD(id, {
-            nombre: producto.nombre,
-            descripcion: producto.descripcion,
-            imagenUrl: producto.imagenUrl,
-            precioUSDT: producto.precioUSDT,
-            profit: producto.profit
-          });
-        }
+      const realId = nuevosIdsMap[productoConDefaults.id];
+      if (realId != null) {
+        setProductos((prev) => prev.map((p) => (p.id === productoConDefaults.id ? { ...p, id: realId } : p)));
+      }
+    } catch (e) {
+      // Revertir si falla
+      setProductos((prev) => prev.filter((p) => p.id !== productoConDefaults.id));
+      throw e;
+    }
+  };
+
+  const handleToggleVisible = async (prod) => {
+    const nextActivo = !(prod.activo !== false);
+
+    // Si aún no está persistido, tratamos esto como un cambio normal.
+    if (prod.id < 0) {
+      handleUpdateProducto(prod.id, 'activo', nextActivo);
+      return;
+    }
+
+    // Optimista (sin marcar como "pendiente" porque lo persistimos ahora)
+    setProductos((prev) => prev.map((p) => (p.id === prod.id ? { ...p, activo: nextActivo } : p)));
+
+    try {
+      await setProductoActivo({ id: prod.id, activo: nextActivo });
+      pushToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: 'Visibilidad actualizada',
+        message: nextActivo ? 'El producto ahora está visible en el catálogo.' : 'El producto fue ocultado del catálogo.',
+      });
+    } catch (e) {
+      // Revertir si falla
+      setProductos((prev) => prev.map((p) => (p.id === prod.id ? { ...p, activo: prod.activo } : p)));
+
+      const msg = e?.message || '';
+      const msgLower = String(msg).toLowerCase();
+      if (
+        msgLower.includes('activo') &&
+        (msgLower.includes('does not exist') || msgLower.includes('no existe'))
+      ) {
+        pushToast({
+          type: TOAST_TYPE.WARNING,
+          title: 'Falta migración',
+          message: 'Tu base de datos aún no tiene la columna "activo". Ejecuta el SQL actualizado en supabase-schema.sql.',
+          durationMs: 6000,
+        });
+      } else if (
+        msgLower.includes('row level security') ||
+        msgLower.includes('violates row-level security') ||
+        msgLower.includes('permission denied')
+      ) {
+        pushToast({
+          type: TOAST_TYPE.ERROR,
+          title: 'Bloqueado por RLS',
+          message: 'Supabase bloqueó el cambio. Verifica el UUID admin y que ejecutaste las policies de update en supabase-schema.sql.',
+          durationMs: 7000,
+        });
+      } else {
+        pushToast({
+          type: TOAST_TYPE.ERROR,
+          title: 'Error',
+          message: 'No se pudo actualizar la visibilidad del producto.',
+        });
+      }
+    }
+  };
+
+  const handleGuardarProducto = async (id) => {
+    if (!id) return;
+
+    setGuardando(true);
+    try {
+      const nuevosIdsMap = await guardarCambiosProductos({ productos, idsParaGuardar: [id] });
+
+      // Si por alguna razón era temporal, actualiza al ID real
+      if (nuevosIdsMap?.[id] != null) {
+        setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, id: nuevosIdsMap[id] } : p)));
       }
 
-      // Actualizar estado local con los nuevos IDs reales
-      if (Object.keys(nuevosIdsMap).length > 0) {
-        setProductos(prev => prev.map(p => 
-          nuevosIdsMap[p.id] ? { ...p, id: nuevosIdsMap[p.id] } : p
-        ));
-      }
+      setCambiosSinGuardar((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
 
-      // Limpiar cambios sin guardar
-      setCambiosSinGuardar(new Set());
-      alert('¡Cambios guardados correctamente!');
+      // Al guardar, el snapshot ya no sirve.
+      editSnapshotsRef.current.delete(id);
+      pushToast({ type: TOAST_TYPE.SUCCESS, title: 'Guardado', message: 'Cambios guardados.' });
     } catch (error) {
-      console.error('Error al guardar todo:', error);
-      alert('Ocurrió un error al guardar algunos cambios.');
+      console.error('Error al guardar producto:', error);
+      const msg = error?.message || '';
+      const msgLower = String(msg).toLowerCase();
+      if (msgLower.includes('activo') && msgLower.includes('does not exist')) {
+        pushToast({
+          type: TOAST_TYPE.WARNING,
+          title: 'Falta migración',
+          message: 'Tu base de datos aún no tiene la columna "activo". Ejecuta el SQL actualizado en supabase-schema.sql.',
+          durationMs: 6000,
+        });
+      } else if (msgLower.includes('categoria') && (msgLower.includes('does not exist') || msgLower.includes('no existe'))) {
+        pushToast({
+          type: TOAST_TYPE.WARNING,
+          title: 'Falta migración',
+          message: 'Tu base de datos aún no tiene la columna "categoria". Ejecuta el SQL actualizado en supabase-schema.sql.',
+          durationMs: 6000,
+        });
+      } else {
+        pushToast({ type: TOAST_TYPE.ERROR, title: 'Error', message: 'No se pudo guardar el producto.' });
+      }
     } finally {
       setGuardando(false);
     }
@@ -338,14 +257,25 @@ const DashboardPrecios = () => {
     
     // Si tiene ID positivo, borrar de BD
     if (id > 0) {
-      const exito = await eliminarProductoBD(id);
-      if (!exito) {
+      try {
+        await eliminarProducto(id);
+        pushToast({ type: TOAST_TYPE.SUCCESS, title: 'Eliminado', message: 'Producto eliminado.' });
+      } catch (e) {
+        console.error('Error al eliminar:', e);
         // Si falla, revertir (volver a agregar)
-        setProductos(prev => [...prev, productoEliminado]);
-        alert('No se pudo eliminar el producto');
+        if (productoEliminado) setProductos(prev => [...prev, productoEliminado]);
+        pushToast({ type: TOAST_TYPE.ERROR, title: 'Error', message: 'No se pudo eliminar el producto.' });
       }
     }
   };
+
+  const confirmarEliminarProducto = async (id) => {
+    const prod = productos.find((p) => p.id === id)
+    const nombre = prod?.nombre ? `“${prod.nombre}”` : 'este producto'
+    const ok = window.confirm(`¿Seguro que quieres eliminar ${nombre}? Esta acción no se puede deshacer.`)
+    if (!ok) return
+    await handleEliminarProducto(id)
+  }
 
   const setSubiendo = (id, value) => {
     setSubiendoImagen(prev => ({ ...prev, [id]: value }));
@@ -366,7 +296,12 @@ const DashboardPrecios = () => {
       setCambiosSinGuardar(prev => new Set(prev).add(id));
     } catch (error) {
       console.error('Error al subir imagen:', error);
-      alert('Error al subir imagen: ' + (error?.message || 'Desconocido'));
+      pushToast({
+        type: TOAST_TYPE.ERROR,
+        title: 'Error',
+        message: 'Error al subir imagen: ' + (error?.message || 'Desconocido'),
+        durationMs: 6000,
+      });
     } finally {
       setSubiendo(id, false);
     }
@@ -376,6 +311,15 @@ const DashboardPrecios = () => {
     setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: '' } : p)));
     setCambiosSinGuardar(prev => new Set(prev).add(id));
   };
+
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const productosRecientes = useMemo(() => {
+    return Array.isArray(productos) ? productos : [];
+  }, [productos]);
 
   if (cargandoProductos) {
     return (
@@ -389,473 +333,551 @@ const DashboardPrecios = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen font-sans">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 flex flex-col md:flex-row items-center gap-2 text-center md:text-left">
-          <Package className="text-blue-600 hidden md:block" /> 
-          <span className="flex items-center gap-2">
-            <Package className="text-blue-600 md:hidden" />
-            Tabulador de Precios
-          </span>
-        </h1>
+    <>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+    <div className="min-h-screen bg-gray-50">
+      <NuevoProductoModal
+        open={nuevoProductoOpen}
+        onClose={() => setNuevoProductoOpen(false)}
+        onCreate={handleCreateProductoFromModal}
+        notify={pushToast}
+        tasaBCV={tasaBCV}
+        tasaUSDT={tasaUSDT}
+        cargandoBCV={cargandoBCV}
+        cargandoUSDT={cargandoUSDT}
+        refrescarBCV={refrescarBCV}
+        refrescarUSDT={refrescarUSDT}
+        uploadImage={async (draftId, file) => {
+          const storageId = draftId < 0 ? `temp-${Math.abs(draftId)}` : String(draftId);
+          return uploadProductImage({ file, productId: storageId });
+        }}
+      />
 
-        {/* Sección de Tasas */}
-        <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <RefreshCw size={20} /> Configuración de Tasas
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="border-l-4 border-blue-500 pl-4">
-              <label className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                <DollarSign size={18} className="text-blue-600" /> TASA BCV (Bs.)
-                {cargandoBCV && (
-                  <span className="text-xs text-blue-500 animate-pulse">Cargando...</span>
-                )}
-              </label>
-              <div className="flex items-center gap-2">
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  value={tasaBCV} 
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Permitir valores vacíos o solo números y punto decimal
-                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                      setTasaBCV(value);
-                    }
-                  }}
-                  disabled={cargandoBCV}
-                  className="flex-1 min-w-0 text-2xl md:text-3xl font-bold text-blue-700 bg-transparent border-b-2 border-blue-300 focus:border-blue-500 outline-none py-2 disabled:opacity-50"
-                  placeholder="0.00"
-                />
-                <button
-                  onClick={obtenerTasaBCV}
-                  disabled={cargandoBCV}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  title="Actualizar tasa BCV"
-                >
-                  <RefreshCw size={20} className={cargandoBCV ? 'animate-spin' : ''} />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Tasa de cambio BCV en Bolívares (actualizada automáticamente)</p>
-            </div>
-            <div className="border-l-4 border-green-500 pl-4">
-              <label className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                <DollarSign size={18} className="text-green-600" /> TASA USDT (Bs.)
-                {cargandoUSDT && (
-                  <span className="text-xs text-green-500 animate-pulse">Cargando...</span>
-                )}
-              </label>
-              <div className="flex items-center gap-2">
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  value={tasaUSDT} 
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Permitir valores vacíos o solo números y punto decimal
-                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                      setTasaUSDT(value);
-                    }
-                  }}
-                  disabled={cargandoUSDT}
-                  className="flex-1 min-w-0 text-2xl md:text-3xl font-bold text-green-700 bg-transparent border-b-2 border-green-300 focus:border-green-500 outline-none py-2 disabled:opacity-50"
-                  placeholder="0.00"
-                />
-                <button
-                  onClick={obtenerTasaUSDT}
-                  disabled={cargandoUSDT}
-                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  title="Actualizar tasa USDT"
-                >
-                  <RefreshCw size={20} className={cargandoUSDT ? 'animate-spin' : ''} />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Tasa de cambio USDT en Bolívares (promedio de Binance P2P - actualizada automáticamente)</p>
-            </div>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 pb-28">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="min-w-0">
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
+              <Package className="text-blue-600" size={22} />
+              Dashboard
+            </h1>
           </div>
-        </div>
 
-        {/* Sección Catálogo Público */}
-        <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Catálogo Público</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Escoge cómo se verá tu catálogo en la ruta <span className="font-semibold">/</span>.
-          </p>
-
-          {catalogSettingsError ? (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
-              {catalogSettingsError}
-            </div>
-          ) : null}
-
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <label className="text-sm font-medium text-gray-700 md:w-48">Plantilla</label>
-            <select
-              value={catalogTemplate}
-              disabled={cargandoCatalogSettings || guardandoCatalogSettings}
-              onChange={(e) => handleCambiarPlantillaCatalogo(e.target.value)}
-              className="w-full md:max-w-sm p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={handleAgregarProducto}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 border border-blue-600"
+              title="Agregar producto"
             >
-              <option value={CATALOG_TEMPLATES.SIMPLE}>Simple</option>
-              <option value={CATALOG_TEMPLATES.BOUTIQUE}>Boutique (Maison)</option>
-              <option value={CATALOG_TEMPLATES.MODERN}>Moderna (Trendy)</option>
-            </select>
-
-            <span className="text-xs text-gray-500">
-              {cargandoCatalogSettings
-                ? 'Cargando…'
-                : guardandoCatalogSettings
-                  ? 'Guardando…'
-                  : 'Guardado'}
-            </span>
+              <Plus size={18} />
+              Agregar
+            </button>
           </div>
-
-          <p className="mt-3 text-xs text-gray-500">
-            Nota: En el catálogo público solo se muestran foto, nombre y precio.
-          </p>
         </div>
 
-        {/* Tabla de Productos */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-          <div className="flex flex-col md:flex-row justify-between items-center p-4 border-b border-gray-200 bg-gray-50 gap-4 md:gap-0">
-            <h2 className="text-lg font-semibold text-gray-800">Productos</h2>
-            <div className="flex w-full md:w-auto gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <div className="text-xs text-gray-500">Productos</div>
+            <div className="mt-1 text-2xl font-semibold text-gray-900">{productos.length}</div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <div className="text-xs text-gray-500">BCV (Bs.)</div>
+            <div className="mt-1 text-2xl font-semibold text-gray-900">{(parseFloat(tasaBCV) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <div className="text-xs text-gray-500">USDT (Bs.)</div>
+            <div className="mt-1 text-2xl font-semibold text-gray-900">{(parseFloat(tasaUSDT) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+
+        {productosError ? (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
+            {productosError}
+          </div>
+        ) : null}
+
+        <section id="tasas" className="mb-6">
+          <div className="rounded-2xl border border-slate-900 bg-slate-950 text-white overflow-hidden">
+            <div className="p-5 md:p-6 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                  <DollarSign size={18} /> Tasas
+                </h2>
+                <p className="text-xs md:text-sm text-slate-300 mt-1">
+                  Actualiza y usa las tasas para calcular precios.
+                </p>
+              </div>
               <button
-                onClick={handleGuardarTodo}
-                disabled={guardando || cambiosSinGuardar.size === 0}
-                className={`flex-1 md:flex-none justify-center flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-md ${
-                  cambiosSinGuardar.size > 0
-                    ? 'bg-green-600 text-white hover:bg-green-700 animate-pulse'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+                type="button"
+                onClick={() => {
+                  refrescarBCV();
+                  refrescarUSDT();
+                }}
+                className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-sm"
+                title="Actualizar ambas tasas"
               >
-                <Save size={18} />
-                <span className="md:hidden">Guardar</span>
-                <span className="hidden md:inline">{guardando ? 'Guardando...' : `Guardar Cambios${cambiosSinGuardar.size > 0 ? ` (${cambiosSinGuardar.size})` : ''}`}</span>
-              </button>
-              <button
-                onClick={handleAgregarProducto}
-                className="flex-1 md:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                <Plus size={18} /> <span className="md:hidden">Agregar</span><span className="hidden md:inline">Agregar Producto</span>
+                <RefreshCw size={16} className={(cargandoBCV || cargandoUSDT) ? 'animate-spin' : ''} />
+                Actualizar
               </button>
             </div>
-          </div>
-          
-          {/* Vista Móvil (Tarjetas) */}
-          <div className="md:hidden bg-gray-50 p-4 space-y-4">
-            {productos.map((prod) => (
-              <div key={prod.id} className="bg-white p-4 rounded-lg shadow border border-gray-200 space-y-3">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex-1">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Producto</label>
-                    <input 
-                      type="text" 
-                      value={prod.nombre}
-                      onChange={(e) => handleUpdateProducto(prod.id, 'nombre', e.target.value)}
-                      placeholder="Nombre del producto"
-                      className="w-full mt-1 p-2 border rounded text-gray-800 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
 
-                    <label className="mt-3 block text-xs font-bold text-gray-500 uppercase">Descripción</label>
-                    <textarea
-                      value={prod.descripcion || ''}
-                      onChange={(e) => handleUpdateProducto(prod.id, 'descripcion', e.target.value)}
-                      placeholder="Breve descripción (opcional)"
-                      rows={2}
-                      className="w-full mt-1 p-2 border rounded text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-
-                    <label className="mt-3 block text-xs font-bold text-gray-500 uppercase">Imagen (URL)</label>
-                    <input
-                      type="url"
-                      value={prod.imagenUrl || ''}
-                      onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
-                      placeholder="https://..."
-                      className="w-full mt-1 p-2 border rounded text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase">O subir archivo</label>
-                      {subiendoImagen[prod.id] ? (
-                        <span className="text-xs text-blue-600 animate-pulse">Subiendo...</span>
-                      ) : null}
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={!!subiendoImagen[prod.id]}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleSubirImagen(prod.id, file);
-                        // permitir volver a seleccionar el mismo archivo
-                        e.target.value = '';
-                      }}
-                      className="w-full mt-1 text-sm"
-                    />
-
-                    {prod.imagenUrl ? (
-                      <div className="mt-2 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => handleQuitarImagen(prod.id)}
-                          className="text-xs text-red-600 hover:underline"
-                        >
-                          Quitar imagen
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {prod.imagenUrl ? (
-                      <img
-                        src={prod.imagenUrl}
-                        alt={prod.nombre || 'Imagen del producto'}
-                        className="mt-3 w-full h-40 object-cover rounded-lg border border-gray-200"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : null}
-                  </div>
+            <div className="px-5 md:px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-medium text-slate-300">TASA BCV (Bs.)</label>
+                  {cargandoBCV ? <span className="text-xs text-slate-400 animate-pulse">Cargando…</span> : null}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={tasaBCV}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        setTasaBCV(value);
+                      }
+                    }}
+                    disabled={cargandoBCV}
+                    className="flex-1 min-w-0 text-2xl font-semibold bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    placeholder="0.00"
+                  />
                   <button
-                    onClick={() => handleEliminarProducto(prod.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-4"
-                    title="Eliminar producto"
+                    onClick={refrescarBCV}
+                    disabled={cargandoBCV}
+                    className="p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Actualizar tasa BCV"
                   >
-                    <Trash2 size={20} />
+                    <RefreshCw size={18} className={cargandoBCV ? 'animate-spin' : ''} />
                   </button>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase">Precio USDT</label>
-                    <div className="relative mt-1">
-                      <span className="absolute left-3 top-2 text-gray-400">$</span>
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={prod.precioUSDT || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            handleUpdateProducto(prod.id, 'precioUSDT', value);
-                          }
-                        }}
-                        className="w-full pl-6 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase">Profit %</label>
-                    <div className="relative mt-1">
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={prod.profit || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            handleUpdateProducto(prod.id, 'profit', value);
-                          }
-                        }}
-                        className="w-full p-2 border rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0"
-                      />
-                      <span className="absolute right-3 top-2 text-gray-400">%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                  <div className="bg-blue-50 p-2 rounded">
-                    <label className="text-[10px] font-bold text-blue-600 uppercase block">Real BCV</label>
-                    <span className="text-lg font-bold text-blue-700">
-                      ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                    </span>
-                  </div>
-                  <div className="bg-green-50 p-2 rounded">
-                    <label className="text-[10px] font-bold text-green-600 uppercase block">Venta Final</label>
-                    <span className="text-lg font-bold text-green-700">
-                      ${calcularPrecioVenta(prod.precioUSDT, prod.profit).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                    </span>
-                  </div>
-                </div>
+                <p className="mt-2 text-xs text-slate-400">Se usa para convertir a $ BCV.</p>
               </div>
-            ))}
-            {productos.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No hay productos. ¡Agrega uno nuevo!
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-medium text-slate-300">TASA USDT (Bs.)</label>
+                  {cargandoUSDT ? <span className="text-xs text-slate-400 animate-pulse">Cargando…</span> : null}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={tasaUSDT}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        setTasaUSDT(value);
+                      }
+                    }}
+                    disabled={cargandoUSDT}
+                    className="flex-1 min-w-0 text-2xl font-semibold bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                    placeholder="0.00"
+                  />
+                  <button
+                    onClick={refrescarUSDT}
+                    disabled={cargandoUSDT}
+                    className="p-3 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Actualizar tasa USDT"
+                  >
+                    <RefreshCw size={18} className={cargandoUSDT ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-400">Promedio (Binance P2P) según tu fuente.</p>
               </div>
-            )}
+            </div>
           </div>
+        </section>
 
-          {/* Vista Desktop (Tabla) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-800 text-white">
-                <tr>
-                  <th className="p-4 font-semibold">PRODUCTO</th>
-                  <th className="p-4 text-center font-semibold">PRECIO USDT ($)</th>
-                  <th className="p-4 text-center font-semibold">PRECIO REAL BCV ($)</th>
-                  <th className="p-4 text-center font-semibold">PROFIT (%)</th>
-                  <th className="p-4 text-center font-semibold">PRECIO DE VENTA ($)</th>
-                  <th className="p-4 text-center font-semibold">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {productos.map((prod) => (
-                  <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4">
-                      <input 
-                        type="text" 
-                        value={prod.nombre}
-                        onChange={(e) => handleUpdateProducto(prod.id, 'nombre', e.target.value)}
-                        placeholder="Nombre del producto"
-                        className="w-full p-2 border rounded text-gray-700 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
+        <section id="catalogo" className="mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 md:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-base md:text-lg font-semibold text-gray-900">Catálogo público</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Escoge cómo se verá tu catálogo en la ruta <span className="font-semibold">/</span>.
+                </p>
+              </div>
+              <div className="text-xs text-gray-500">
+                {cargandoCatalogSettings
+                  ? 'Cargando…'
+                  : guardandoCatalogSettings
+                    ? 'Guardando…'
+                    : 'Listo'}
+              </div>
+            </div>
 
-                      <textarea
-                        value={prod.descripcion || ''}
-                        onChange={(e) => handleUpdateProducto(prod.id, 'descripcion', e.target.value)}
-                        placeholder="Descripción breve (opcional)"
-                        rows={2}
-                        className="w-full mt-2 p-2 border rounded text-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
+            {catalogSettingsError ? (
+              <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">
+                {catalogSettingsError}
+              </div>
+            ) : null}
 
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          type="url"
-                          value={prod.imagenUrl || ''}
-                          onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
-                          placeholder="Imagen (URL)"
-                          className="flex-1 p-2 border rounded text-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {prod.imagenUrl ? (
-                          <img
-                            src={prod.imagenUrl}
-                            alt={prod.nombre || 'Imagen del producto'}
-                            className="w-14 h-14 object-cover rounded border border-gray-200"
-                            loading="lazy"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
+              <label className="text-sm font-medium text-gray-700">Plantilla</label>
+              <select
+                value={catalogTemplate}
+                disabled={cargandoCatalogSettings || guardandoCatalogSettings}
+                onChange={(e) => handleCambiarPlantillaCatalogo(e.target.value)}
+                className="w-full md:max-w-md p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white"
+              >
+                <option value={CATALOG_TEMPLATES.SIMPLE}>Simple</option>
+                <option value={CATALOG_TEMPLATES.BOUTIQUE}>Boutique (Maison)</option>
+                <option value={CATALOG_TEMPLATES.MODERN}>Moderna (Trendy)</option>
+              </select>
+            </div>
+
+            <p className="mt-3 text-xs text-gray-500">
+              Nota: en el catálogo público solo se muestran foto, nombre y precio.
+            </p>
+          </div>
+        </section>
+
+        <section id="productos" className="mb-6">
+          <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
+            <div className="p-4 md:p-6 bg-white border-b border-gray-100">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleAgregarProducto}
+                  className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-950 text-white shadow-sm hover:bg-slate-900"
+                >
+                  <Plus size={18} />
+                  <span className="font-semibold">Nuevo Producto</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProductosView('grid')}
+                    className={`p-3 rounded-2xl border ${productosView === 'grid' ? 'border-gray-300 text-gray-900' : 'border-gray-200 text-gray-500 hover:text-gray-900'}`}
+                    title="Vista en grilla"
+                  >
+                    <LayoutGrid size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProductosView('list')}
+                    className={`p-3 rounded-2xl border ${productosView === 'list' ? 'border-gray-300 text-gray-900' : 'border-gray-200 text-gray-500 hover:text-gray-900'}`}
+                    title="Vista en lista"
+                  >
+                    <List size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 md:p-6 bg-white">
+              {productos.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">
+                  No hay productos. ¡Agrega uno nuevo!
+                </div>
+              ) : (
+                <div className={productosView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-4'}>
+                  {productosRecientes.map((prod) => {
+                    const isVisible = prod.activo !== false;
+                    const profitPct = Math.round(Number(prod.profit) || 0);
+                    const usdtValue = Number(prod.precioUSDT) || 0;
+                    const isEditing = expandProductoId === prod.id;
+                    const hasChanges = cambiosSinGuardar.has(prod.id);
+                    return (
+                      <div
+                        key={prod.id}
+                        className={`rounded-3xl border border-gray-200 overflow-hidden ${isVisible ? 'bg-white' : 'bg-gray-50 opacity-80'}`}
+                      >
+                        <div className="p-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="w-20 h-20 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
+                              {prod.imagenUrl ? (
+                                <img
+                                  src={prod.imagenUrl}
+                                  alt={prod.nombre || 'Imagen del producto'}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="text-lg font-semibold text-gray-900 truncate">{prod.nombre || 'Sin nombre'}</div>
+                              <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                                  {profitPct}% PROFIT
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="truncate">{prod.categoria || 'General'}</span>
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-2 gap-6">
+                                <div>
+                                  <div className="text-xs font-bold text-gray-400 tracking-wider">USDT</div>
+                                  <div className="text-xl font-bold text-gray-900">
+                                    ${usdtValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-gray-400 tracking-wider">BCV (REAL)</div>
+                                  <div className="text-xl font-black text-emerald-500">
+                                    ${calcularPrecioRealBCV(usdtValue).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0 relative">
+                            {!isEditing ? (
+                              <button
+                                type="button"
+                                onClick={() => startEditingProducto(prod)}
+                                className="p-2 rounded-2xl text-gray-600 hover:bg-gray-50"
+                                title="Editar"
+                              >
+                                <Pencil size={18} />
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                {hasChanges ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGuardarProducto(prod.id)}
+                                    disabled={guardando}
+                                    className="p-2 rounded-2xl text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                    title="Guardar"
+                                  >
+                                    <Save size={18} />
+                                  </button>
+                                ) : null}
+
+                                <button
+                                  type="button"
+                                  onClick={() => discardEditingProducto(prod.id)}
+                                  className="p-2 rounded-2xl text-gray-600 hover:bg-gray-50"
+                                  title={hasChanges ? 'Cerrar y descartar cambios' : 'Cerrar edición'}
+                                >
+                                  <X size={18} />
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleVisible(prod)}
+                                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${isVisible ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                                aria-pressed={isVisible}
+                                title={isVisible ? 'Ocultar del catálogo' : 'Mostrar en el catálogo'}
+                              >
+                                <span
+                                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                                    isVisible ? 'translate-x-5' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="border-t border-gray-100 p-4 bg-gray-50">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                              <div className="text-sm font-semibold text-gray-900">Editar producto</div>
+                              <button
+                                type="button"
+                                onClick={() => confirmarEliminarProducto(prod.id)}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-red-700 hover:bg-red-50"
+                                title="Eliminar producto"
+                              >
+                                <Trash2 size={18} />
+                                Eliminar
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <div className="text-xs text-gray-500">Nombre</div>
+                                <input
+                                  type="text"
+                                  value={prod.nombre}
+                                  onChange={(e) => handleUpdateProducto(prod.id, 'nombre', e.target.value)}
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="Nombre del producto"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-xs text-gray-500">Categoría</div>
+                                <select
+                                  value={prod.categoria || 'General'}
+                                  onChange={(e) => handleUpdateProducto(prod.id, 'categoria', e.target.value)}
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  <option>General</option>
+                                  <option>Damas</option>
+                                  <option>Caballeros</option>
+                                  <option>Accesorios</option>
+                                </select>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500">Profit %</div>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={prod.profit || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                      handleUpdateProducto(prod.id, 'profit', value);
+                                    }
+                                  }}
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0"
+                                />
+                              </div>
+
+                              <div className="md:col-span-2">
+                                <div className="text-xs text-gray-500">Descripción</div>
+                                <textarea
+                                  value={prod.descripcion || ''}
+                                  onChange={(e) => handleUpdateProducto(prod.id, 'descripcion', e.target.value)}
+                                  placeholder="Breve descripción (opcional)"
+                                  rows={2}
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-xs text-gray-500">Imagen (URL)</div>
+                                <input
+                                  type="url"
+                                  value={prod.imagenUrl || ''}
+                                  onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
+                                  placeholder="https://…"
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <div className="mt-2 flex items-center justify-between gap-2">
+                                  <div className="text-xs text-gray-500">
+                                    {subiendoImagen[prod.id] ? <span className="text-blue-700 animate-pulse">Subiendo…</span> : 'Subir archivo'}
+                                  </div>
+                                  {prod.imagenUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuitarImagen(prod.id)}
+                                      className="text-xs text-red-600 hover:underline"
+                                    >
+                                      Quitar
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={!!subiendoImagen[prod.id]}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleSubirImagen(prod.id, file);
+                                    e.target.value = '';
+                                  }}
+                                  className="mt-1 w-full text-sm"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-xs text-gray-500">Precio USDT</div>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={prod.precioUSDT || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                      handleUpdateProducto(prod.id, 'precioUSDT', value);
+                                    }
+                                  }}
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0.00"
+                                />
+
+                                <div className="mt-3 grid grid-cols-2 gap-3">
+                                  <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3">
+                                    <div className="text-[11px] font-semibold text-blue-700">Real BCV ($)</div>
+                                    <div className="mt-1 text-base font-semibold text-blue-900">
+                                      ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3">
+                                    <div className="text-[11px] font-semibold text-emerald-700">Venta final ($)</div>
+                                    <div className="mt-1 text-base font-semibold text-emerald-900">
+                                      ${calcularPrecioVenta(prod.precioUSDT, prod.profit).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         ) : null}
                       </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={!!subiendoImagen[prod.id]}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleSubirImagen(prod.id, file);
-                            e.target.value = '';
-                          }}
-                          className="text-sm"
-                        />
-
-                        <div className="flex items-center gap-3">
-                          {subiendoImagen[prod.id] ? (
-                            <span className="text-xs text-blue-600 animate-pulse">Subiendo...</span>
-                          ) : null}
-                          {prod.imagenUrl ? (
-                            <button
-                              type="button"
-                              onClick={() => handleQuitarImagen(prod.id)}
-                              className="text-xs text-red-600 hover:underline"
-                            >
-                              Quitar imagen
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={prod.precioUSDT || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Permitir valores vacíos o solo números y punto decimal
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            handleUpdateProducto(prod.id, 'precioUSDT', value);
-                          }
-                        }}
-                        className="w-24 p-2 border rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0.00"
-                      />
-                    </td>
-                    <td className="p-4 text-center font-semibold text-blue-700 bg-blue-50">
-                      ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', {minimumFractionDigits: 4, maximumFractionDigits: 4})}
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          value={prod.profit || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // Permitir valores vacíos o solo números y punto decimal
-                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                              handleUpdateProducto(prod.id, 'profit', value);
-                            }
-                          }}
-                          className="w-20 p-2 border rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0"
-                        />
-                        <span className="text-gray-500 font-medium">%</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center font-bold text-green-700 bg-green-50">
-                      ${calcularPrecioVenta(prod.precioUSDT, prod.profit).toLocaleString('es-VE', {minimumFractionDigits: 4, maximumFractionDigits: 4})}
-                    </td>
-                    <td className="p-4 text-center flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleEliminarProducto(prod.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar producto"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* Información y Notas */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-              <Package size={16} /> Información del Cálculo
-            </h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• <strong>PRECIO REAL BCV ($)</strong> = (PRECIO USDT × TASA USDT) / TASA BCV</li>
-              <li>• <strong>PRECIO DE VENTA ($)</strong> = PRECIO REAL BCV ($) × (1 + PROFIT%)</li>
+        <section id="ayuda" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <h3 className="font-semibold text-gray-900 mb-2">Fórmulas</h3>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li><strong>Precio real BCV ($)</strong> = (Precio USDT × Tasa USDT) / Tasa BCV</li>
+              <li><strong>Precio de venta ($)</strong> = Precio real BCV ($) × (1 + Profit%)</li>
             </ul>
           </div>
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h3 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
-              <RefreshCw size={16} /> Notas
-            </h3>
-            <ul className="text-sm text-yellow-800 space-y-1">
-              <li>• Los cambios en las tasas se aplican instantáneamente</li>
-              <li>• Puedes agregar múltiples productos</li>
-              <li>• Todos los campos son editables</li>
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <h3 className="font-semibold text-gray-900 mb-2">Notas</h3>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li>Los cambios en tasas se aplican instantáneamente.</li>
+              <li>La imagen puede ser URL o subida desde archivo.</li>
+              <li>Guarda los cambios para persistir en la base de datos.</li>
             </ul>
+          </div>
+        </section>
+      </div>
+
+      <div className="fixed bottom-0 inset-x-0 md:hidden z-40">
+        <div className="bg-white/90 backdrop-blur border-t border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 py-2 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => scrollToSection('productos')}
+              className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Package size={18} />
+              Productos
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('tasas')}
+              className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <DollarSign size={18} />
+              Tasas
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('catalogo')}
+              className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <RefreshCw size={18} />
+              Catálogo
+            </button>
           </div>
         </div>
       </div>
     </div>
+    </>
   );
 };
 
