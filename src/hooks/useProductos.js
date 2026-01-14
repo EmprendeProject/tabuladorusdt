@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { productosRepository, PRODUCTOS_EVENT } from '../data/productosRepository'
 
-export const useProductos = ({ scope } = {}) => {
+export const useProductos = ({ scope, ownerId } = {}) => {
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -11,7 +11,10 @@ export const useProductos = ({ scope } = {}) => {
     setCargando(true)
 
     try {
-      const list = scope === 'public' ? await productosRepository.listPublic() : await productosRepository.listAll()
+      const list =
+        scope === 'public'
+          ? await productosRepository.listPublic(ownerId)
+          : await productosRepository.listAll(ownerId)
       setProductos(list)
     } catch (e) {
       console.error('Error al cargar productos:', e)
@@ -19,18 +22,21 @@ export const useProductos = ({ scope } = {}) => {
     } finally {
       setCargando(false)
     }
-  }, [scope])
+  }, [ownerId, scope])
 
   useEffect(() => {
     cargar()
 
     const unsubscribe = productosRepository.subscribe((event) => {
       const isPublic = scope === 'public'
+      const isDifferentOwner = ownerId && event?.producto?.ownerId && event.producto.ownerId !== ownerId
 
       if (event.type === PRODUCTOS_EVENT.INSERT) {
+        if (isDifferentOwner) return
         if (isPublic && event.producto?.activo === false) return
         setProductos((prev) => [event.producto, ...prev.filter((p) => p.id !== event.producto.id)])
       } else if (event.type === PRODUCTOS_EVENT.UPDATE) {
+        if (isDifferentOwner) return
         if (isPublic && event.producto?.activo === false) {
           setProductos((prev) => prev.filter((p) => p.id !== event.producto.id))
           return
@@ -49,7 +55,7 @@ export const useProductos = ({ scope } = {}) => {
     return () => {
       unsubscribe?.()
     }
-  }, [cargar, scope])
+  }, [cargar, ownerId, scope])
 
   return { productos, setProductos, cargando, error, recargar: cargar }
 }

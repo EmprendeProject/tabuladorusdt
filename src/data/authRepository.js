@@ -22,6 +22,17 @@ export const authRepository = {
     if (error) throw error
   },
 
+  async signUp({ email, password, data }) {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: data || {},
+      },
+    })
+    if (error) throw error
+  },
+
   async signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error

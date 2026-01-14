@@ -10,6 +10,7 @@ export const productoFromDb = (row) => {
 
   return {
     id: row.id,
+    ownerId: row.ownerId ?? row.owner_id ?? null,
     nombre: row.nombre ?? '',
     descripcion: row.descripcion ?? '',
     categoria: row.categoria ?? '',
@@ -23,7 +24,7 @@ export const productoFromDb = (row) => {
 };
 
 export const productoToInsertDb = (producto) => {
-  return {
+  const payload = {
     nombre: producto?.nombre ?? '',
     descripcion: (producto?.descripcion ?? '') || null,
     categoria: (producto?.categoria ?? '') || null,
@@ -32,6 +33,9 @@ export const productoToInsertDb = (producto) => {
     profit: Number(producto?.profit) || 0,
     activo: producto?.activo !== undefined ? Boolean(producto.activo) : true,
   };
+
+  if (producto?.ownerId) payload.owner_id = producto.ownerId;
+  return payload;
 };
 
 export const productoToUpdateDb = (cambios) => {

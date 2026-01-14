@@ -10,6 +10,53 @@ const getBucketName = () => {
   return import.meta?.env?.VITE_SUPABASE_PRODUCT_IMAGES_BUCKET || DEFAULT_BUCKET;
 };
 
+export const getProductImagesBucketName = () => getBucketName();
+
+const safeDecode = (value) => {
+  if (value == null) return '';
+  try {
+    return decodeURIComponent(String(value));
+  } catch {
+    return String(value);
+  }
+};
+
+export const getStorageObjectFromPublicUrl = (publicUrl) => {
+  const url = String(publicUrl || '').trim();
+  if (!url) return null;
+
+  // Formato típico:
+  // https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+  const marker = '/storage/v1/object/public/';
+  const idx = url.indexOf(marker);
+  if (idx < 0) return null;
+
+  const rest = url.slice(idx + marker.length);
+  const withoutQuery = rest.split('?')[0] || '';
+  const parts = withoutQuery.split('/').filter(Boolean);
+  if (parts.length < 2) return null;
+
+  const bucket = safeDecode(parts[0]);
+  const path = safeDecode(parts.slice(1).join('/'));
+  if (!bucket || !path) return null;
+
+  return { bucket, path };
+};
+
+export const deleteStorageObject = async ({ bucket, path }) => {
+  const b = String(bucket || '').trim();
+  const p = String(path || '').trim();
+  if (!b || !p) return;
+
+  const { error } = await supabase.storage.from(b).remove([p]);
+  if (error) {
+    const msg = String(error?.message || '').toLowerCase();
+    // Si ya no existe, no es crítico.
+    if (msg.includes('not found') || msg.includes('does not exist') || msg.includes('no existe')) return;
+    throw error;
+  }
+};
+
 const getFileExtension = (file) => {
   const name = file?.name || '';
   const match = name.match(/\.([a-zA-Z0-9]+)$/);
@@ -140,7 +187,7 @@ const compressImageFile = async (file, opts = {}) => {
   return new File([bestBlob], outName, { type: bestBlob.type });
 };
 
-export const uploadProductImage = async ({ file, productId }) => {
+export const uploadProductImage = async ({ file, productId, ownerId }) => {
   if (!file) throw new Error('No se seleccionó ningún archivo.');
 
   const bucket = getBucketName();
@@ -162,9 +209,14 @@ export const uploadProductImage = async ({ file, productId }) => {
 
   const ext = getFileExtension(fileToUpload);
   const idPart = productId ? safeId(productId) : 'sin-id';
+  const ownerPart = ownerId ? safeId(ownerId) : '';
   const uuid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now());
 
-  const path = `productos/${idPart}/${uuid}.${ext}`;
+  // Multi-tenant: separar por usuario cuando exista ownerId.
+  // Compatibilidad: si no hay ownerId, conservamos la estructura previa.
+  const path = ownerPart
+    ? `productos/${ownerPart}/${idPart}/${uuid}.${ext}`
+    : `productos/${idPart}/${uuid}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)

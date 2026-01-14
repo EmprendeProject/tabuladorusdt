@@ -91,6 +91,12 @@ Si te aparece el error:
 
 significa que **Storage tiene RLS activo** y te falta la política de `INSERT` (y normalmente `UPDATE` si usas `upsert`).
 
+En este proyecto (modo multiusuario), las imágenes se suben a rutas como:
+
+- `productos/{userId}/{productId}/{uuid}.webp`
+
+Por eso, las policies recomendadas permiten a cada usuario autenticado escribir **solo** dentro de su carpeta `productos/{auth.uid()}/...`.
+
 Puedes crear políticas desde el **SQL Editor** (recomendado) con este ejemplo para el bucket `product-images`:
 
 ```sql
@@ -99,25 +105,36 @@ CREATE POLICY "Public read product images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'product-images');
 
--- Permitir subir imágenes (INSERT) SOLO a tu usuario admin
--- Reemplaza el UUID por tu usuario en Auth -> Users
-CREATE POLICY "Admin insert product images"
+-- Permitir subir imágenes (INSERT) solo dentro de la carpeta del usuario autenticado
+CREATE POLICY "User insert own product images"
 ON storage.objects FOR INSERT
 WITH CHECK (
    bucket_id = 'product-images'
-   AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+   AND auth.uid() IS NOT NULL
+   AND name LIKE ('productos/' || auth.uid()::text || '/%')
 );
 
--- Permitir upsert (UPDATE) SOLO a tu usuario admin (necesario si usas upsert=true)
-CREATE POLICY "Admin update product images"
+-- Permitir upsert (UPDATE) solo dentro de la carpeta del usuario autenticado (necesario si usas upsert=true)
+CREATE POLICY "User update own product images"
 ON storage.objects FOR UPDATE
 USING (
    bucket_id = 'product-images'
-   AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+   AND auth.uid() IS NOT NULL
+   AND name LIKE ('productos/' || auth.uid()::text || '/%')
 )
 WITH CHECK (
    bucket_id = 'product-images'
-   AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+   AND auth.uid() IS NOT NULL
+   AND name LIKE ('productos/' || auth.uid()::text || '/%')
+);
+
+-- (Opcional) Permitir borrar solo dentro de la carpeta del usuario
+CREATE POLICY "User delete own product images"
+ON storage.objects FOR DELETE
+USING (
+   bucket_id = 'product-images'
+   AND auth.uid() IS NOT NULL
+   AND name LIKE ('productos/' || auth.uid()::text || '/%')
 );
 ```
 
@@ -130,13 +147,7 @@ ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'product-images' AND name LIKE 'productos/%');
 ```
 
-Nota: con estas políticas, aunque tu app use `anon key`, solo tu usuario admin podrá subir/editar objetos en el bucket (porque exige `auth.uid() = ...`).
-
-En este proyecto, como el objetivo es **catálogo público** pero **admin privado**, la recomendación es:
-- `storage.objects`: `SELECT` público, `INSERT/UPDATE` solo admin.
-- `public.productos`: `SELECT` público, `INSERT/UPDATE/DELETE` solo admin.
-
-Si quieres que sea solo para 1 admin (tú), usa `auth.uid() = '<TU_UUID>'` como está en el ejemplo.
+Nota: aunque tu app use `anon key`, estas operaciones de Storage se validan con la sesión del usuario autenticado. Si estás sin sesión, te dará error de RLS al subir.
 
 Más fácil: usa el script listo del repo:
 - [supabase-storage-policies.sql](supabase-storage-policies.sql)

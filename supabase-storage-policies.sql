@@ -3,10 +3,8 @@
 -- ============================================
 -- Objetivo:
 -- - Lectura pública de imágenes (para el catálogo)
--- - Subida/edición/borrado SOLO por tu usuario admin
---
--- Admin UUID:
--- 3513c316-f794-4e72-9e5d-543551565730
+-- - Subida/edición/borrado SOLO por el dueño de la carpeta
+--   (multiusuario): productos/{auth.uid()}/...
 --
 -- Nota: este script asume que el bucket se llama "product-images".
 -- Si usas otro nombre, cambia bucket_id en todas las policies.
@@ -27,6 +25,10 @@ DROP POLICY IF EXISTS "Admin update product images" ON storage.objects;
 DROP POLICY IF EXISTS "Admin delete product images" ON storage.objects;
 DROP POLICY IF EXISTS "Public read product images (productos folder)" ON storage.objects;
 
+DROP POLICY IF EXISTS "User insert own product images" ON storage.objects;
+DROP POLICY IF EXISTS "User update own product images" ON storage.objects;
+DROP POLICY IF EXISTS "User delete own product images" ON storage.objects;
+
 -- 1) Lectura pública (solo el bucket de imágenes)
 CREATE POLICY "Public read product images"
 ON storage.objects FOR SELECT
@@ -34,34 +36,34 @@ USING (
   bucket_id = 'product-images'
 );
 
--- 2) Insert (subir) solo admin, y además restringido a la carpeta productos/
-CREATE POLICY "Admin insert product images"
+-- 2) Insert (subir) solo usuario autenticado dentro de su carpeta productos/{uid}/
+CREATE POLICY "User insert own product images"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'product-images'
-  AND name LIKE 'productos/%'
-  AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('productos/' || auth.uid()::text || '/%')
 );
 
--- 3) Update (necesario si usas upsert=true) solo admin, misma carpeta
-CREATE POLICY "Admin update product images"
+-- 3) Update (necesario si usas upsert=true) solo usuario dentro de su carpeta
+CREATE POLICY "User update own product images"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'product-images'
-  AND name LIKE 'productos/%'
-  AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('productos/' || auth.uid()::text || '/%')
 )
 WITH CHECK (
   bucket_id = 'product-images'
-  AND name LIKE 'productos/%'
-  AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('productos/' || auth.uid()::text || '/%')
 );
 
--- 4) Delete (por si algún día quieres limpiar imágenes viejas) solo admin
-CREATE POLICY "Admin delete product images"
+-- 4) Delete (por si algún día quieres limpiar imágenes viejas) solo usuario dentro de su carpeta
+CREATE POLICY "User delete own product images"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'product-images'
-  AND name LIKE 'productos/%'
-  AND auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('productos/' || auth.uid()::text || '/%')
 );

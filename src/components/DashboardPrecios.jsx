@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List, Tags } from 'lucide-react';
-import { uploadProductImage } from '../lib/storage';
+import { deleteStorageObject, getProductImagesBucketName, getStorageObjectFromPublicUrl, uploadProductImage } from '../lib/storage';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
 import { useCategorias } from '../hooks/useCategorias';
@@ -11,7 +11,7 @@ import GestionCategoriasModal from './GestionCategoriasModal';
 import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
-const DashboardPrecios = () => {
+const DashboardPrecios = ({ ownerId } = {}) => {
   const {
     tasaBCV,
     tasaUSDT,
@@ -27,7 +27,7 @@ const DashboardPrecios = () => {
     setProductos,
     cargando: cargandoProductos,
     error: productosError,
-  } = useProductos();
+  } = useProductos({ ownerId });
   const [cambiosSinGuardar, setCambiosSinGuardar] = useState(new Set()); // Set de IDs con cambios
   const [guardando, setGuardando] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
@@ -38,6 +38,7 @@ const DashboardPrecios = () => {
   const [productosView, setProductosView] = useState('list'); // list | grid
   const [expandProductoId, setExpandProductoId] = useState(null);
   const editSnapshotsRef = useRef(new Map());
+  const pendingImageDeletesRef = useRef(new Map()); // id -> Set("bucket::path")
 
   const { toasts, pushToast, dismissToast } = useToasts();
 
@@ -110,13 +111,49 @@ const DashboardPrecios = () => {
       return next;
     });
     editSnapshotsRef.current.delete(id);
+    pendingImageDeletesRef.current.delete(id);
     setExpandProductoId(null);
+  };
+
+  const queueImageDeleteFromUrl = (id, imageUrl) => {
+    if (!ownerId) return;
+    const meta = getStorageObjectFromPublicUrl(imageUrl);
+    if (!meta) return;
+
+    const bucket = getProductImagesBucketName();
+    if (meta.bucket !== bucket) return;
+
+    // Multi-tenant: solo borrar dentro de la carpeta del usuario.
+    const allowedPrefix = `productos/${String(ownerId)}/`;
+    if (!String(meta.path || '').startsWith(allowedPrefix)) return;
+
+    const key = `${meta.bucket}::${meta.path}`;
+    const set = pendingImageDeletesRef.current.get(id) || new Set();
+    set.add(key);
+    pendingImageDeletesRef.current.set(id, set);
+  };
+
+  const flushQueuedImageDeletes = async (id) => {
+    const set = pendingImageDeletesRef.current.get(id);
+    if (!set || set.size === 0) return;
+    pendingImageDeletesRef.current.delete(id);
+
+    for (const key of set) {
+      const [bucket, path] = String(key).split('::');
+      if (!bucket || !path) continue;
+      try {
+        await deleteStorageObject({ bucket, path });
+      } catch (e) {
+        console.warn('No se pudo borrar una imagen vieja:', e);
+      }
+    }
   };
 
   const handleCreateProductoFromModal = async (draftProducto) => {
     // Insertar optimista en UI, luego persistir inmediatamente.
     const productoConDefaults = {
       activo: true,
+      ...(ownerId ? { ownerId } : {}),
       ...draftProducto,
     };
     setProductos((prev) => [productoConDefaults, ...prev]);
@@ -217,9 +254,18 @@ const DashboardPrecios = () => {
     try {
       const nuevosIdsMap = await guardarCambiosProductos({ productos, idsParaGuardar: [id] });
 
+      const realId = nuevosIdsMap?.[id] != null ? nuevosIdsMap[id] : id;
+
       // Si por alguna razón era temporal, actualiza al ID real
-      if (nuevosIdsMap?.[id] != null) {
-        setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, id: nuevosIdsMap[id] } : p)));
+      if (realId !== id) {
+        setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, id: realId } : p)));
+
+        // Mover cola de borrado del id temporal al real.
+        const queued = pendingImageDeletesRef.current.get(id);
+        if (queued) {
+          pendingImageDeletesRef.current.set(realId, queued);
+          pendingImageDeletesRef.current.delete(id);
+        }
       }
 
       setCambiosSinGuardar((prev) => {
@@ -230,6 +276,9 @@ const DashboardPrecios = () => {
 
       // Al guardar, el snapshot ya no sirve.
       editSnapshotsRef.current.delete(id);
+
+      // Limpieza: ahora sí borramos imágenes viejas encoladas.
+      await flushQueuedImageDeletes(realId);
       pushToast({ type: TOAST_TYPE.SUCCESS, title: 'Guardado', message: 'Cambios guardados.' });
     } catch (error) {
       console.error('Error al guardar producto:', error);
@@ -275,6 +324,21 @@ const DashboardPrecios = () => {
     if (id > 0) {
       try {
         await eliminarProducto(id);
+
+        // Limpieza: intentar borrar la imagen del producto eliminado (solo dentro de la carpeta del usuario).
+        if (productoEliminado?.imagenUrl && ownerId) {
+          const meta = getStorageObjectFromPublicUrl(productoEliminado.imagenUrl);
+          const bucket = getProductImagesBucketName();
+          const allowedPrefix = `productos/${String(ownerId)}/`;
+          if (meta && meta.bucket === bucket && String(meta.path || '').startsWith(allowedPrefix)) {
+            try {
+              await deleteStorageObject(meta);
+            } catch (e) {
+              console.warn('No se pudo borrar la imagen del producto eliminado:', e);
+            }
+          }
+        }
+
         pushToast({ type: TOAST_TYPE.SUCCESS, title: 'Eliminado', message: 'Producto eliminado.' });
       } catch (e) {
         console.error('Error al eliminar:', e);
@@ -300,13 +364,19 @@ const DashboardPrecios = () => {
   const handleSubirImagen = async (id, file) => {
     if (!file) return;
 
+    const current = productos.find((p) => p.id === id);
+    if (current?.imagenUrl) {
+      // Borrado diferido: solo se ejecuta al guardar.
+      queueImageDeleteFromUrl(id, current.imagenUrl);
+    }
+
     try {
       setSubiendo(id, true);
 
       // Si el producto aún no existe en BD, igual subimos y guardamos URL.
       // Quedará pendiente de persistir cuando se presione "Guardar Cambios".
       const storageId = id > 0 ? String(id) : `temp-${Math.abs(id)}`;
-      const { publicUrl } = await uploadProductImage({ file, productId: storageId });
+      const { publicUrl } = await uploadProductImage({ file, productId: storageId, ownerId });
 
       setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: publicUrl } : p)));
       setCambiosSinGuardar(prev => new Set(prev).add(id));
@@ -324,6 +394,10 @@ const DashboardPrecios = () => {
   };
 
   const handleQuitarImagen = (id) => {
+    const current = productos.find((p) => p.id === id);
+    if (current?.imagenUrl) {
+      queueImageDeleteFromUrl(id, current.imagenUrl);
+    }
     setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: '' } : p)));
     setCambiosSinGuardar(prev => new Set(prev).add(id));
   };
@@ -398,7 +472,7 @@ const DashboardPrecios = () => {
         refrescarUSDT={refrescarUSDT}
         uploadImage={async (draftId, file) => {
           const storageId = draftId < 0 ? `temp-${Math.abs(draftId)}` : String(draftId);
-          return uploadProductImage({ file, productId: storageId });
+          return uploadProductImage({ file, productId: storageId, ownerId });
         }}
       />
 

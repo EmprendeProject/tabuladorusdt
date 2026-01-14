@@ -25,30 +25,34 @@ const isMissingColumn = (error, columnName) => {
 }
 
 export const productosRepository = {
-  async listAll() {
-    const { data, error } = await supabase
+  async listAll(ownerId) {
+    let q = supabase
       .from('productos')
       .select('*')
-      .order('created_at', { ascending: false })
+
+    if (ownerId) q = q.eq('owner_id', ownerId)
+
+    const { data, error } = await q.order('created_at', { ascending: false })
 
     if (error) throw error
     return mapRows(data)
   },
 
-  async listPublic() {
-    const baseQuery = (select, filterActivo) => {
+  async listPublic(ownerId) {
+    const baseQuery = (select, filterActivo, ownerIdFilter) => {
       let q = supabase.from('productos').select(select)
       if (filterActivo) q = q.eq('activo', true)
+      if (ownerIdFilter) q = q.eq('owner_id', ownerIdFilter)
       return q.order('created_at', { ascending: false })
     }
 
     const run = async (fields, filterActivo) => {
       const select = fields.join(',')
-      return baseQuery(select, filterActivo)
+      return baseQuery(select, filterActivo, ownerId)
     }
 
     // Intentamos con el set más completo, con fallbacks si faltan columnas.
-    let fields = ['id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'activo']
+    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'activo']
 
     // 1) Con filtro activo
     let { data, error } = await run(fields, true)
@@ -57,6 +61,12 @@ export const productosRepository = {
     // Si faltan columnas opcionales, reintentamos con una versión reducida.
     if (isMissingColumn(error, 'profit')) {
       fields = fields.filter((f) => f !== 'profit')
+      ;({ data, error } = await run(fields, true))
+      if (!error) return mapRows(data)
+    }
+
+    if (isMissingColumn(error, 'owner_id')) {
+      fields = fields.filter((f) => f !== 'owner_id')
       ;({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
@@ -86,6 +96,12 @@ export const productosRepository = {
         if (!error) return mapRows(data)
       }
 
+      if (isMissingColumn(error, 'owner_id')) {
+        fields = fields.filter((f) => f !== 'owner_id')
+        ;({ data, error } = await run(fields, false))
+        if (!error) return mapRows(data)
+      }
+
       if (isMissingColumn(error, 'descripcion')) {
         fields = fields.filter((f) => f !== 'descripcion')
         ;({ data, error } = await run(fields, false))
@@ -105,6 +121,13 @@ export const productosRepository = {
   async create(producto) {
     const payload = productoToInsertDb(producto)
 
+    // Si no vino owner_id explícito, intentamos inferirlo de la sesión.
+    if (!payload.owner_id) {
+      const { data: authData } = await supabase.auth.getUser()
+      const uid = authData?.user?.id
+      if (uid) payload.owner_id = uid
+    }
+
     const { data, error } = await supabase
       .from('productos')
       .insert([payload])
@@ -112,6 +135,18 @@ export const productosRepository = {
       .maybeSingle()
 
     if (!error) return productoFromDb(data)
+
+    // Compatibilidad hacia atrás: si aún no existe `owner_id`, reintentar sin ese campo.
+    if (payload?.owner_id !== undefined && isMissingColumn(error, 'owner_id')) {
+      const { owner_id: _ownerId, ...payload2 } = payload
+      const { data: data2, error: error2 } = await supabase
+        .from('productos')
+        .insert([payload2])
+        .select('*')
+        .maybeSingle()
+      if (error2) throw error2
+      return productoFromDb(data2)
+    }
 
     // Compatibilidad hacia atrás: si aún no existe `activo`, reintentar sin ese campo.
     if (payload?.activo !== undefined && isMissingColumn(error, 'activo')) {

@@ -9,10 +9,10 @@ import CatalogTemplateBoutique from './catalog/CatalogTemplateBoutique';
 import CatalogTemplateModern from './catalog/CatalogTemplateModern';
 import ProductoDetalleModal from './ProductoDetalleModal';
 
-const CatalogoProductos = () => {
+const CatalogoProductos = ({ ownerId } = {}) => {
   const [query, setQuery] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-  const { productos, cargando, error, recargar } = useProductos({ scope: 'public' });
+  const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
   const { catalogTemplate } = useCatalogTemplate();
   const { tasaBCV, tasaUSDT } = useTasas();
 
