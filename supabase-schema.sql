@@ -94,10 +94,10 @@ CREATE TABLE IF NOT EXISTS tasas (
   fecha TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
--- Configuración del catálogo público (1 fila)
--- Permite escoger entre 2 plantillas: simple | boutique
+-- Configuración del catálogo público (por tienda/usuario)
+-- Permite escoger plantilla: simple | boutique | modern
 CREATE TABLE IF NOT EXISTS public.catalog_settings (
-  id INTEGER PRIMARY KEY,
+  owner_id uuid primary key references auth.users(id) on delete cascade,
   catalog_template TEXT NOT NULL DEFAULT 'simple' CHECK (catalog_template IN ('simple', 'boutique', 'modern')),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
@@ -109,10 +109,8 @@ ALTER TABLE public.catalog_settings
   ADD CONSTRAINT catalog_settings_catalog_template_check
   CHECK (catalog_template IN ('simple', 'boutique', 'modern'));
 
--- Asegurar que exista la fila única
-INSERT INTO public.catalog_settings (id, catalog_template)
-VALUES (1, 'simple')
-ON CONFLICT (id) DO NOTHING;
+-- Nota: no insertamos filas aquí.
+-- La app crea la fila del usuario al guardar.
 
 -- Crear índices para mejorar el rendimiento
 CREATE INDEX IF NOT EXISTS idx_productos_nombre ON productos(nombre);
@@ -215,22 +213,17 @@ DROP POLICY IF EXISTS "Admin insert catalog_settings" ON public.catalog_settings
 DROP POLICY IF EXISTS "Admin update catalog_settings" ON public.catalog_settings;
 DROP POLICY IF EXISTS "Admin delete catalog_settings" ON public.catalog_settings;
 
-CREATE POLICY "Public read catalog_settings"
+DROP POLICY IF EXISTS "catalog_settings_select_public" ON public.catalog_settings;
+DROP POLICY IF EXISTS "catalog_settings_write_own" ON public.catalog_settings;
+
+CREATE POLICY "catalog_settings_select_public"
   ON public.catalog_settings FOR SELECT
   USING (true);
 
-CREATE POLICY "Admin insert catalog_settings"
-  ON public.catalog_settings FOR INSERT
-  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
-
-CREATE POLICY "Admin update catalog_settings"
-  ON public.catalog_settings FOR UPDATE
-  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid)
-  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
-
-CREATE POLICY "Admin delete catalog_settings"
-  ON public.catalog_settings FOR DELETE
-  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+CREATE POLICY "catalog_settings_write_own"
+  ON public.catalog_settings FOR ALL
+  USING (auth.uid() = owner_id)
+  WITH CHECK (auth.uid() = owner_id);
 
 -- Función para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()

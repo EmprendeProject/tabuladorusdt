@@ -208,6 +208,41 @@ create policy "productos_delete_own"
   using (auth.uid() = owner_id);
 
 -- =========================================================
+-- CATALOG_SETTINGS (plantilla del catálogo por usuario)
+-- =========================================================
+
+create table if not exists public.catalog_settings (
+  owner_id uuid primary key references auth.users(id) on delete cascade,
+  catalog_template text not null default 'simple' check (catalog_template in ('simple', 'boutique', 'modern')),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.catalog_settings enable row level security;
+
+drop policy if exists "catalog_settings_select_public" on public.catalog_settings;
+drop policy if exists "catalog_settings_write_own" on public.catalog_settings;
+
+create policy "catalog_settings_select_public"
+  on public.catalog_settings
+  for select
+  using (true);
+
+create policy "catalog_settings_write_own"
+  on public.catalog_settings
+  for all
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
+drop trigger if exists update_catalog_settings_updated_at on public.catalog_settings;
+create trigger update_catalog_settings_updated_at
+  before update on public.catalog_settings
+  for each row
+  execute function public.update_updated_at_column();
+
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.catalog_settings to authenticated;
+
+-- =========================================================
 -- CATEGORIAS (privado por usuario)
 --
 -- Nota:

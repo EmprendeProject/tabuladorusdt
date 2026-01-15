@@ -179,7 +179,6 @@ export default function SuperAdminPage() {
     if (!session) return
     if (isSuperadmin !== true) return
     reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, isSuperadmin])
 
   const filtered = useMemo(() => {

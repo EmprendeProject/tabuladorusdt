@@ -13,7 +13,7 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
   const [query, setQuery] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
-  const { catalogTemplate } = useCatalogTemplate();
+  const { catalogTemplate } = useCatalogTemplate({ ownerId });
   const { tasaBCV, tasaUSDT } = useTasas();
 
   const tasaBCVNum = useMemo(() => parseFloat(tasaBCV) || 0, [tasaBCV]);

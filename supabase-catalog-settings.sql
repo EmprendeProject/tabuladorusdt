@@ -3,53 +3,50 @@
 -- ============================================
 -- Ejecuta esto en Supabase -> SQL Editor -> New query -> Run
 --
--- Admin UUID:
--- 3513c316-f794-4e72-9e5d-543551565730
+-- Este script configura la plantilla POR USUARIO/TIENDA.
+-- Cada usuario podrá cambiar su propia plantilla.
 
--- 1) Tabla (1 fila)
-CREATE TABLE IF NOT EXISTS public.catalog_settings (
-  id INTEGER PRIMARY KEY,
-  catalog_template TEXT NOT NULL DEFAULT 'simple' CHECK (catalog_template IN ('simple', 'boutique', 'modern')),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+-- 1) Tabla (por owner)
+drop table if exists public.catalog_settings cascade;
+
+create table public.catalog_settings (
+  owner_id uuid primary key references auth.users(id) on delete cascade,
+  catalog_template text not null default 'simple' check (catalog_template in ('simple', 'boutique', 'modern')),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
--- Si la tabla ya existía con un CHECK anterior, lo actualizamos (idempotente)
-ALTER TABLE public.catalog_settings
-  DROP CONSTRAINT IF EXISTS catalog_settings_catalog_template_check;
-ALTER TABLE public.catalog_settings
-  ADD CONSTRAINT catalog_settings_catalog_template_check
-  CHECK (catalog_template IN ('simple', 'boutique', 'modern'));
+-- Si la tabla existía con un CHECK anterior, lo actualizamos (idempotente)
+alter table public.catalog_settings
+  drop constraint if exists catalog_settings_catalog_template_check;
+alter table public.catalog_settings
+  add constraint catalog_settings_catalog_template_check
+  check (catalog_template in ('simple', 'boutique', 'modern'));
 
--- 2) Fila única
-INSERT INTO public.catalog_settings (id, catalog_template)
-VALUES (1, 'simple')
-ON CONFLICT (id) DO NOTHING;
+-- 2) Nota: no insertamos filas aquí.
+-- La app crea/actualiza la fila del usuario al guardar.
 
 -- 3) RLS
 ALTER TABLE public.catalog_settings ENABLE ROW LEVEL SECURITY;
 
--- 4) Policies (público lee / solo admin escribe)
-DROP POLICY IF EXISTS "Public read catalog_settings" ON public.catalog_settings;
-DROP POLICY IF EXISTS "Admin insert catalog_settings" ON public.catalog_settings;
-DROP POLICY IF EXISTS "Admin update catalog_settings" ON public.catalog_settings;
-DROP POLICY IF EXISTS "Admin delete catalog_settings" ON public.catalog_settings;
+-- 4) Policies (público lee / dueño escribe)
+drop policy if exists "Public read catalog_settings" on public.catalog_settings;
+drop policy if exists "Admin insert catalog_settings" on public.catalog_settings;
+drop policy if exists "Admin update catalog_settings" on public.catalog_settings;
+drop policy if exists "Admin delete catalog_settings" on public.catalog_settings;
+drop policy if exists "catalog_settings_select_public" on public.catalog_settings;
+drop policy if exists "catalog_settings_select_own" on public.catalog_settings;
+drop policy if exists "catalog_settings_write_own" on public.catalog_settings;
 
-CREATE POLICY "Public read catalog_settings"
-  ON public.catalog_settings FOR SELECT
-  USING (true);
+create policy "catalog_settings_select_public"
+  on public.catalog_settings
+  for select
+  using (true);
 
-CREATE POLICY "Admin insert catalog_settings"
-  ON public.catalog_settings FOR INSERT
-  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
-
-CREATE POLICY "Admin update catalog_settings"
-  ON public.catalog_settings FOR UPDATE
-  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid)
-  WITH CHECK (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
-
-CREATE POLICY "Admin delete catalog_settings"
-  ON public.catalog_settings FOR DELETE
-  USING (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+create policy "catalog_settings_write_own"
+  on public.catalog_settings
+  for all
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
 
 -- 5) Trigger updated_at (requiere la función update_updated_at_column)
 -- Si tu proyecto NO tiene la función, ejecuta este bloque primero:
@@ -67,3 +64,7 @@ CREATE TRIGGER update_catalog_settings_updated_at
   BEFORE UPDATE ON public.catalog_settings
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
+
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.catalog_settings to authenticated;
+

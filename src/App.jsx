@@ -49,7 +49,7 @@ const AdminPage = () => {
     setCatalogTemplate: guardarCatalogTemplate,
     cargando: cargandoCatalogSettings,
     guardando: guardandoCatalogSettings,
-  } = useCatalogTemplate({ enableSave: true })
+  } = useCatalogTemplate({ enableSave: true, ownerId: sessionUserId })
 
   const avatarLabel = useMemo(() => {
     const email = session?.user?.email || ''
@@ -553,7 +553,11 @@ const CatalogoTiendaPublica = () => {
   useEffect(() => {
     let mounted = true
     if (!tienda?.ownerId) {
-      setTelefonoWhatsApp('')
+      // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
+      Promise.resolve().then(() => {
+        if (!mounted) return
+        setTelefonoWhatsApp('')
+      })
       return () => {
         mounted = false
       }

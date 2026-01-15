@@ -66,11 +66,11 @@ const AdminLogin = () => {
                 Esta sección es solo para ti. El catálogo público está en <span className="font-semibold">/</span>.
               </p>
 
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
-            {error}
-          </div>
-        ) : null}
+              {error ? (
+                <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
+                  {error}
+                </div>
+              ) : null}
 
               <form onSubmit={onSubmit} className="mt-6 space-y-4">
                 <div className="flex flex-col gap-2">
@@ -119,6 +119,7 @@ const AdminLogin = () => {
             </div>
           </div>
         </div>
+      </div>
     </div>
   );
 };

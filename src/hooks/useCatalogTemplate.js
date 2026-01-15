@@ -4,7 +4,7 @@ import {
   DEFAULT_CATALOG_TEMPLATE,
 } from '../data/catalogSettingsRepository'
 
-export const useCatalogTemplate = ({ enableSave = false } = {}) => {
+export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
   const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -13,8 +13,10 @@ export const useCatalogTemplate = ({ enableSave = false } = {}) => {
   useEffect(() => {
     let mounted = true
 
+    setCargando(true)
+
     catalogSettingsRepository
-      .fetchTemplate()
+      .fetchTemplate({ ownerId })
       .then((t) => {
         if (!mounted) return
         setCatalogTemplate(t)
@@ -29,15 +31,18 @@ export const useCatalogTemplate = ({ enableSave = false } = {}) => {
         setCargando(false)
       })
 
-    const unsubscribe = catalogSettingsRepository.subscribeTemplate((next) => {
-      setCatalogTemplate(next)
-    })
+    const unsubscribe = ownerId
+      ? catalogSettingsRepository.subscribeTemplate({
+          ownerId,
+          onChange: (next) => setCatalogTemplate(next),
+        })
+      : null
 
     return () => {
       mounted = false
       unsubscribe?.()
     }
-  }, [])
+  }, [ownerId])
 
   const guardar = async (nextTemplate) => {
     if (!enableSave) return
@@ -46,7 +51,7 @@ export const useCatalogTemplate = ({ enableSave = false } = {}) => {
     setGuardando(true)
 
     try {
-      const saved = await catalogSettingsRepository.saveTemplate(nextTemplate)
+      const saved = await catalogSettingsRepository.saveTemplate(nextTemplate, { ownerId })
       setCatalogTemplate(saved)
     } catch (e) {
       setError(e?.message || 'No se pudo guardar la plantilla del catálogo')

@@ -14,37 +14,72 @@ const normalizeTemplate = (value) => {
   return DEFAULT_CATALOG_TEMPLATE
 }
 
+const toFriendlyCatalogSettingsError = (error) => {
+  const msg = String(error?.message || '')
+  const code = String(error?.code || '')
+
+  const looksLikeRls = msg.toLowerCase().includes('row-level security')
+  const looksLikePermission = msg.toLowerCase().includes('permission denied') || code === '42501'
+  const looksLikeMissingColumn = code === '42703' || msg.toLowerCase().includes('column')
+
+  if (looksLikeMissingColumn || looksLikeRls || looksLikePermission) {
+    return new Error(
+      'No se pudo leer/guardar la plantilla por permisos o porque falta la migración. ' +
+        'Solución: migra `catalog_settings` a multiusuario (owner_id + policies) ejecutando el bloque “CATALOG_SETTINGS” actualizado.'
+    )
+  }
+
+  return error
+}
+
+const getOwnerIdFromSession = async () => {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+  if (error) throw error
+  return user?.id || null
+}
+
 export const catalogSettingsRepository = {
-  async fetchTemplate() {
+  async fetchTemplate({ ownerId } = {}) {
+    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
+    if (!effectiveOwnerId) return DEFAULT_CATALOG_TEMPLATE
+
     const { data, error } = await supabase
       .from('catalog_settings')
-      .select('id,catalog_template')
-      .eq('id', 1)
+      .select('owner_id,catalog_template')
+      .eq('owner_id', effectiveOwnerId)
       .maybeSingle()
 
-    if (error) throw error
+    if (error) throw toFriendlyCatalogSettingsError(error)
 
     return normalizeTemplate(data?.catalog_template)
   },
 
-  async saveTemplate(template) {
+  async saveTemplate(template, { ownerId } = {}) {
     const next = normalizeTemplate(template)
+    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
+    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar la plantilla.')
 
     const { error } = await supabase
       .from('catalog_settings')
-      .upsert({ id: 1, catalog_template: next }, { onConflict: 'id' })
+      .upsert({ owner_id: effectiveOwnerId, catalog_template: next }, { onConflict: 'owner_id' })
 
-    if (error) throw error
+    if (error) throw toFriendlyCatalogSettingsError(error)
 
     return next
   },
 
-  subscribeTemplate(onChange) {
+  subscribeTemplate({ ownerId, onChange } = {}) {
+    const effectiveOwnerId = String(ownerId || '').trim()
+    if (!effectiveOwnerId) return () => {}
+
     const channel = supabase
       .channel('catalog-settings-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'catalog_settings', filter: 'id=eq.1' },
+        { event: '*', schema: 'public', table: 'catalog_settings', filter: `owner_id=eq.${effectiveOwnerId}` },
         (payload) => {
           const next = payload?.new?.catalog_template
           if (typeof onChange === 'function') onChange(normalizeTemplate(next))
