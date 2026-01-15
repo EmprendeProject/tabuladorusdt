@@ -36,6 +36,8 @@ const DashboardPrecios = ({ ownerId } = {}) => {
   const [gestionarCategoriasOpen, setGestionarCategoriasOpen] = useState(false);
   const [categoriaTargetProductoId, setCategoriaTargetProductoId] = useState(null);
   const [productosView, setProductosView] = useState('list'); // list | grid
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
   const [expandProductoId, setExpandProductoId] = useState(null);
   const editSnapshotsRef = useRef(new Map());
   const pendingImageDeletesRef = useRef(new Map()); // id -> Set("bucket::path")
@@ -402,14 +404,36 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     setCambiosSinGuardar(prev => new Set(prev).add(id));
   };
 
-  const scrollToSection = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   const productosRecientes = useMemo(() => {
     return Array.isArray(productos) ? productos : [];
   }, [productos]);
+
+  const categoriasParaFiltro = useMemo(() => {
+    const fromCatalog = Array.isArray(categoriasNombres) ? categoriasNombres : [];
+    const fromProductos = (Array.isArray(productosRecientes) ? productosRecientes : [])
+      .map((p) => String(p?.categoria || '').trim())
+      .filter(Boolean);
+
+    return Array.from(new Set([...fromCatalog, ...fromProductos])).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    );
+  }, [categoriasNombres, productosRecientes]);
+
+  const productosFiltradosDashboard = useMemo(() => {
+    const list = Array.isArray(productosRecientes) ? productosRecientes : [];
+    const q = String(searchQuery || '').trim().toLowerCase();
+    const cat = String(categoriaFiltro || '').trim();
+
+    return list.filter((p) => {
+      if (cat && String(p?.categoria || '').trim() !== cat) return false;
+      if (!q) return true;
+
+      const nombre = String(p?.nombre || '').toLowerCase();
+      const descripcion = String(p?.descripcion || '').toLowerCase();
+      const categoria = String(p?.categoria || '').toLowerCase();
+      return nombre.includes(q) || descripcion.includes(q) || categoria.includes(q);
+    });
+  }, [productosRecientes, searchQuery, categoriaFiltro]);
 
   if (cargandoProductos) {
     return (
@@ -476,7 +500,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
         }}
       />
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 pb-28">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 pb-10">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="min-w-0">
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
@@ -565,6 +589,54 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                   </button>
                 </div>
               </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500">Buscar</label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="mt-1 w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Buscar por nombre, descripción o categoría"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500">Categoría</label>
+                  <select
+                    value={categoriaFiltro}
+                    onChange={(e) => setCategoriaFiltro(e.target.value)}
+                    className="mt-1 w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Todas</option>
+                    {categoriasParaFiltro.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {searchQuery || categoriaFiltro ? (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="text-xs text-gray-500">
+                    Mostrando <span className="font-semibold text-gray-900">{productosFiltradosDashboard.length}</span> de{' '}
+                    <span className="font-semibold text-gray-900">{productosRecientes.length}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setCategoriaFiltro('');
+                    }}
+                    className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="p-4 md:p-6 bg-white">
@@ -572,9 +644,24 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                 <div className="text-center py-10 text-gray-500">
                   No hay productos. ¡Agrega uno nuevo!
                 </div>
+              ) : productosFiltradosDashboard.length === 0 ? (
+                <div className="text-center py-10">
+                  <div className="text-gray-700 font-semibold">No se encontraron productos</div>
+                  <div className="mt-1 text-sm text-gray-500">Prueba otra búsqueda o cambia la categoría.</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setCategoriaFiltro('');
+                    }}
+                    className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
               ) : (
                 <div className={productosView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-4'}>
-                  {productosRecientes.map((prod) => {
+                  {productosFiltradosDashboard.map((prod) => {
                     const isVisible = prod.activo !== false;
                     const profitPct = Math.round(Number(prod.profit) || 0);
                     const usdtValue = Number(prod.precioUSDT) || 0;
@@ -853,22 +940,6 @@ const DashboardPrecios = ({ ownerId } = {}) => {
           </div>
         </section>
 
-        
-      </div>
-
-      <div className="fixed bottom-0 inset-x-0 md:hidden z-40">
-        <div className="bg-white/90 backdrop-blur border-t border-gray-200">
-          <div className="max-w-6xl mx-auto px-4 py-2 grid grid-cols-1 gap-2">
-            <button
-              type="button"
-              onClick={() => scrollToSection('productos')}
-              className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Package size={18} />
-              Productos
-            </button>
-          </div>
-        </div>
       </div>
     </div>
     </>
