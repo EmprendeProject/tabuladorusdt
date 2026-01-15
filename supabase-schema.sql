@@ -74,8 +74,15 @@ CREATE TABLE IF NOT EXISTS productos (
 -- Si tu tabla ya existe, puedes ejecutar este bloque para agregar columnas sin perder datos:
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS descripcion TEXT;
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagenes_urls TEXT[];
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS activo BOOLEAN;
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS categoria TEXT;
+
+-- Máx 3 fotos por producto (idempotente)
+ALTER TABLE public.productos DROP CONSTRAINT IF EXISTS productos_imagenes_urls_max_3;
+ALTER TABLE public.productos
+  ADD CONSTRAINT productos_imagenes_urls_max_3
+  CHECK (coalesce(array_length(imagenes_urls, 1), 0) <= 3);
 
 -- Backfill y asegurar NOT NULL + DEFAULT (idempotente)
 UPDATE productos SET activo = true WHERE activo IS NULL;

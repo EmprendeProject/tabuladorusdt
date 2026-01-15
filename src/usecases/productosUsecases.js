@@ -17,7 +17,7 @@ export const guardarCambiosProductos = async ({ productos, idsParaGuardar }) => 
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       categoria: producto.categoria,
-      imagenUrl: producto.imagenUrl,
+      imagenes: Array.isArray(producto.imagenes) ? producto.imagenes : (producto.imagenUrl ? [producto.imagenUrl] : []),
       precioUSDT: producto.precioUSDT,
       profit: producto.profit,
       activo: producto.activo,

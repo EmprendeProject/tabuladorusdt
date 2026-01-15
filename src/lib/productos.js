@@ -14,7 +14,23 @@ export const productoFromDb = (row) => {
     nombre: row.nombre ?? '',
     descripcion: row.descripcion ?? '',
     categoria: row.categoria ?? '',
-    imagenUrl: row.imagenUrl ?? row.imagen_url ?? '',
+    imagenes: Array.isArray(row.imagenes)
+      ? row.imagenes.filter(Boolean)
+      : Array.isArray(row.imagenes_urls)
+        ? row.imagenes_urls.filter(Boolean)
+        : (row.imagenUrl ?? row.imagen_url)
+          ? [String(row.imagenUrl ?? row.imagen_url)].filter(Boolean)
+          : [],
+    // Compatibilidad: mantenemos `imagenUrl` como “cover” para templates existentes.
+    imagenUrl: (() => {
+      const fromArray = Array.isArray(row.imagenes)
+        ? row.imagenes
+        : Array.isArray(row.imagenes_urls)
+          ? row.imagenes_urls
+          : null;
+      const first = Array.isArray(fromArray) ? String(fromArray[0] || '').trim() : '';
+      return first || String(row.imagenUrl ?? row.imagen_url ?? '').trim();
+    })(),
     precioUSDT: typeof precioUSDT === 'string' ? parseFloat(precioUSDT) || 0 : Number(precioUSDT) || 0,
     profit: typeof row.profit === 'string' ? parseFloat(row.profit) || 0 : Number(row.profit) || 0,
     activo: row.activo !== undefined ? Boolean(row.activo) : true,
@@ -24,11 +40,16 @@ export const productoFromDb = (row) => {
 };
 
 export const productoToInsertDb = (producto) => {
+  const imagenes = Array.isArray(producto?.imagenes)
+    ? producto.imagenes.filter(Boolean).slice(0, 3)
+    : (producto?.imagenUrl ? [String(producto.imagenUrl)].filter(Boolean) : []);
+
   const payload = {
     nombre: producto?.nombre ?? '',
     descripcion: (producto?.descripcion ?? '') || null,
     categoria: (producto?.categoria ?? '') || null,
-    imagen_url: (producto?.imagenUrl ?? '') || null,
+    imagen_url: (imagenes[0] ?? '') || null,
+    imagenes_urls: imagenes.length ? imagenes : null,
     precio_usdt: Number(producto?.precioUSDT) || 0,
     profit: Number(producto?.profit) || 0,
     activo: producto?.activo !== undefined ? Boolean(producto.activo) : true,
@@ -44,7 +65,16 @@ export const productoToUpdateDb = (cambios) => {
   if (cambios?.nombre !== undefined) cambiosDb.nombre = cambios.nombre;
   if (cambios?.descripcion !== undefined) cambiosDb.descripcion = cambios.descripcion || null;
   if (cambios?.categoria !== undefined) cambiosDb.categoria = cambios.categoria || null;
-  if (cambios?.imagenUrl !== undefined) cambiosDb.imagen_url = cambios.imagenUrl || null;
+  if (cambios?.imagenes !== undefined) {
+    const imagenes = Array.isArray(cambios.imagenes) ? cambios.imagenes.filter(Boolean).slice(0, 3) : [];
+    cambiosDb.imagenes_urls = imagenes.length ? imagenes : null;
+    // Mantener cover en sync
+    cambiosDb.imagen_url = (imagenes[0] ?? '') || null;
+  } else if (cambios?.imagenUrl !== undefined) {
+    // Compatibilidad: si solo actualizan `imagenUrl`, lo tratamos como cover.
+    cambiosDb.imagen_url = cambios.imagenUrl || null;
+    cambiosDb.imagenes_urls = cambios.imagenUrl ? [String(cambios.imagenUrl)] : null;
+  }
   if (cambios?.precioUSDT !== undefined) cambiosDb.precio_usdt = Number(cambios.precioUSDT) || 0;
   if (cambios?.profit !== undefined) cambiosDb.profit = Number(cambios.profit) || 0;
   if (cambios?.activo !== undefined) cambiosDb.activo = Boolean(cambios.activo);

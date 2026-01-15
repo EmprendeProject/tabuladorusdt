@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DollarSign, Plus, RefreshCw, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, DollarSign, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 
 const formatMoney = (value) => {
   const num = Number(value) || 0
@@ -33,8 +33,8 @@ export default function NuevoProductoModal({
   const [precioUSDT, setPrecioUSDT] = useState('')
   const [profit, setProfit] = useState(40)
 
-  const [imagenUrl, setImagenUrl] = useState('')
-  const [previewUrl, setPreviewUrl] = useState('')
+  const [imagenes, setImagenes] = useState([]) // array de URLs públicas (máx 3)
+  const [previewUrls, setPreviewUrls] = useState([]) // object URLs para preview inmediato
   const [subiendo, setSubiendo] = useState(false)
 
   const [step, setStep] = useState(1)
@@ -71,8 +71,8 @@ export default function NuevoProductoModal({
     setNuevaCategoria('')
     setPrecioUSDT('')
     setProfit(40)
-    setImagenUrl('')
-    setPreviewUrl('')
+    setImagenes([])
+    setPreviewUrls([])
     setSubiendo(false)
     setStep(1)
     setGuardando(false)
@@ -80,9 +80,15 @@ export default function NuevoProductoModal({
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      for (const u of previewUrls) {
+        try {
+          if (u) URL.revokeObjectURL(u)
+        } catch {
+          // noop
+        }
+      }
     }
-  }, [previewUrl])
+  }, [previewUrls])
 
   if (!open) return null
 
@@ -98,19 +104,33 @@ export default function NuevoProductoModal({
 
   const handleFileSelected = async (file) => {
     if (!file || !draftId) return
+    if (imagenes.length >= 3) {
+      if (typeof notify === 'function') {
+        notify({ type: 'warning', title: 'Límite', message: 'Máximo 3 fotos por producto.' })
+      }
+      return
+    }
 
     const nextPreviewUrl = URL.createObjectURL(file)
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return nextPreviewUrl
-    })
+    setPreviewUrls((prev) => [...prev, nextPreviewUrl])
 
     try {
       setSubiendo(true)
       const { publicUrl } = await uploadImage(draftId, file)
-      setImagenUrl(publicUrl)
+      setImagenes((prev) => {
+        const next = [...prev, publicUrl].filter(Boolean).slice(0, 3)
+        return next
+      })
     } catch (e) {
       console.error('Error subiendo imagen:', e)
+      // quitar el último preview si falla
+      setPreviewUrls((prev) => {
+        const next = [...prev]
+        const last = next.pop()
+        if (last) URL.revokeObjectURL(last)
+        return next
+      })
+
       if (typeof notify === 'function') {
         notify({
           type: 'error',
@@ -121,18 +141,44 @@ export default function NuevoProductoModal({
       } else {
         alert('No se pudo subir la imagen: ' + (e?.message || 'Desconocido'))
       }
-      setImagenUrl('')
     } finally {
       setSubiendo(false)
     }
   }
 
-  const handleRemoveImage = () => {
+  const handleRemoveImageAt = (idx) => {
     if (subiendo || guardando) return
-    setImagenUrl('')
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return ''
+    setImagenes((prev) => prev.filter((_, i) => i !== idx))
+    setPreviewUrls((prev) => {
+      const next = prev.filter((_, i) => i !== idx)
+      const removed = prev[idx]
+      if (removed) {
+        try {
+          URL.revokeObjectURL(removed)
+        } catch {
+          // noop
+        }
+      }
+      return next
+    })
+  }
+
+  const moveImage = (fromIdx, direction) => {
+    if (subiendo || guardando) return
+    const toIdx = fromIdx + (direction === 'left' ? -1 : 1)
+    if (toIdx < 0 || toIdx > 2) return
+
+    setImagenes((prev) => {
+      const next = [...prev]
+      if (fromIdx >= next.length || toIdx >= next.length) return prev
+      ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]]
+      return next
+    })
+    setPreviewUrls((prev) => {
+      const next = [...prev]
+      if (fromIdx >= next.length || toIdx >= next.length) return prev
+      ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]]
+      return next
     })
   }
 
@@ -150,7 +196,8 @@ export default function NuevoProductoModal({
         nombre: nombre.trim(),
         descripcion,
         categoria,
-        imagenUrl,
+        imagenUrl: imagenes?.[0] || '',
+        imagenes,
         activo: true,
         precioUSDT: costoUSDTNum,
         profit: Number(profit) || 0,
@@ -307,55 +354,91 @@ export default function NuevoProductoModal({
 
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
-                    {previewUrl || imagenUrl ? (
-                      <img
-                        alt="Vista previa"
-                        className="w-full h-full object-cover"
-                        src={previewUrl || imagenUrl}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                        Sin imagen
+                  {[0, 1, 2].map((idx) => {
+                    const url = imagenes[idx]
+                    const preview = previewUrls[idx]
+                    const src = url || preview
+
+                    // Slot vacío: lo usamos como botón de subir (solo el primero vacío y si hay cupo)
+                    if (!src) {
+                      const canUploadHere = idx === imagenes.length && imagenes.length < 3
+                      return (
+                        <div key={idx} className="aspect-square">
+                          {canUploadHere ? (
+                            <label className="h-full w-full rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={subiendo || guardando}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleFileSelected(file)
+                                  e.target.value = ''
+                                }}
+                              />
+                              <Plus size={18} />
+                              <span className="text-[10px] mt-1 font-medium">Subir</span>
+                              {subiendo ? (
+                                <span className="mt-1 text-[10px] text-blue-600 animate-pulse">Subiendo…</span>
+                              ) : null}
+                            </label>
+                          ) : (
+                            <div className="h-full w-full rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center text-gray-300 text-xs">
+                              Vacío
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                        <img alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" src={src} />
+
+                        <div className="absolute top-1 left-1 flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveImage(idx, 'left')}
+                            disabled={idx === 0 || subiendo || guardando}
+                            className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
+                            title="Mover a la izquierda"
+                            aria-label="Mover a la izquierda"
+                          >
+                            <ArrowLeft size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveImage(idx, 'right')}
+                            disabled={idx === imagenes.length - 1 || subiendo || guardando}
+                            className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
+                            title="Mover a la derecha"
+                            aria-label="Mover a la derecha"
+                          >
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImageAt(idx)}
+                          className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"
+                          aria-label={`Quitar foto ${idx + 1}`}
+                          title="Quitar"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                    )}
-
-                    {previewUrl || imagenUrl ? (
-                      <button
-                        type="button"
-                        onClick={handleRemoveImage}
-                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"
-                        aria-label="Quitar imagen"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <label className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={subiendo || guardando}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleFileSelected(file)
-                        e.target.value = ''
-                      }}
-                    />
-                    <Plus size={18} />
-                    <span className="text-[10px] mt-1 font-medium">Subir</span>
-                    {subiendo ? (
-                      <span className="mt-1 text-[10px] text-blue-600 animate-pulse">Subiendo…</span>
-                    ) : null}
-                  </label>
+                    )
+                  })}
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400">
                   <span>Formatos: JPG/PNG</span>
                   <span>•</span>
                   <span>Máx 5MB</span>
+                  <span>•</span>
+                  <span>Máx 3 fotos</span>
                 </div>
               </div>
             </section>

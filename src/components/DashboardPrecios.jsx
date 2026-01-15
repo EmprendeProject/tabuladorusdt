@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List, Tags } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List, Tags } from 'lucide-react';
 import { deleteStorageObject, getProductImagesBucketName, getStorageObjectFromPublicUrl, uploadProductImage } from '../lib/storage';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
@@ -133,6 +133,29 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     const set = pendingImageDeletesRef.current.get(id) || new Set();
     set.add(key);
     pendingImageDeletesRef.current.set(id, set);
+  };
+
+  const getProductoImagenes = (p) => {
+    const list = Array.isArray(p?.imagenes) ? p.imagenes : [];
+    const cleaned = list.map((u) => String(u || '').trim()).filter(Boolean);
+    const fallback = String(p?.imagenUrl || '').trim();
+    return cleaned.length ? cleaned : (fallback ? [fallback] : []);
+  };
+
+  const setProductoImagenes = (id, imagenes) => {
+    const next = Array.isArray(imagenes) ? imagenes.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 3) : [];
+    setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, imagenes: next, imagenUrl: next[0] || '' } : p)));
+    setCambiosSinGuardar((prev) => new Set(prev).add(id));
+  };
+
+  const moveProductoImagen = (id, fromIdx, direction) => {
+    const current = productos.find((p) => p.id === id);
+    const imgs = getProductoImagenes(current);
+    const toIdx = fromIdx + (direction === 'left' ? -1 : 1);
+    if (toIdx < 0 || toIdx >= imgs.length) return;
+    const next = [...imgs];
+    ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]];
+    setProductoImagenes(id, next);
   };
 
   const flushQueuedImageDeletes = async (id) => {
@@ -328,15 +351,22 @@ const DashboardPrecios = ({ ownerId } = {}) => {
         await eliminarProducto(id);
 
         // Limpieza: intentar borrar la imagen del producto eliminado (solo dentro de la carpeta del usuario).
-        if (productoEliminado?.imagenUrl && ownerId) {
-          const meta = getStorageObjectFromPublicUrl(productoEliminado.imagenUrl);
+        if (ownerId) {
           const bucket = getProductImagesBucketName();
           const allowedPrefix = `productos/${String(ownerId)}/`;
-          if (meta && meta.bucket === bucket && String(meta.path || '').startsWith(allowedPrefix)) {
+          const imgs = Array.isArray(productoEliminado?.imagenes)
+            ? productoEliminado.imagenes
+            : (productoEliminado?.imagenUrl ? [productoEliminado.imagenUrl] : []);
+
+          for (const url of imgs) {
+            const meta = getStorageObjectFromPublicUrl(url);
+            if (!meta) continue;
+            if (meta.bucket !== bucket) continue;
+            if (!String(meta.path || '').startsWith(allowedPrefix)) continue;
             try {
               await deleteStorageObject(meta);
             } catch (e) {
-              console.warn('No se pudo borrar la imagen del producto eliminado:', e);
+              console.warn('No se pudo borrar una imagen del producto eliminado:', e);
             }
           }
         }
@@ -367,9 +397,15 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     if (!file) return;
 
     const current = productos.find((p) => p.id === id);
-    if (current?.imagenUrl) {
-      // Borrado diferido: solo se ejecuta al guardar.
-      queueImageDeleteFromUrl(id, current.imagenUrl);
+    const currentImages = getProductoImagenes(current);
+    if (currentImages.length >= 3) {
+      pushToast({
+        type: TOAST_TYPE.WARNING,
+        title: 'Límite de fotos',
+        message: 'Máximo 3 fotos por producto.',
+        durationMs: 3500,
+      });
+      return;
     }
 
     try {
@@ -380,8 +416,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
       const storageId = id > 0 ? String(id) : `temp-${Math.abs(id)}`;
       const { publicUrl } = await uploadProductImage({ file, productId: storageId, ownerId });
 
-      setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: publicUrl } : p)));
-      setCambiosSinGuardar(prev => new Set(prev).add(id));
+      setProductoImagenes(id, [...currentImages, publicUrl]);
     } catch (error) {
       console.error('Error al subir imagen:', error);
       pushToast({
@@ -395,13 +430,13 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     }
   };
 
-  const handleQuitarImagen = (id) => {
+  const handleQuitarImagen = (id, idx) => {
     const current = productos.find((p) => p.id === id);
-    if (current?.imagenUrl) {
-      queueImageDeleteFromUrl(id, current.imagenUrl);
-    }
-    setProductos(prev => prev.map(p => (p.id === id ? { ...p, imagenUrl: '' } : p)));
-    setCambiosSinGuardar(prev => new Set(prev).add(id));
+    const imgs = getProductoImagenes(current);
+    const toRemove = imgs[idx];
+    if (toRemove) queueImageDeleteFromUrl(id, toRemove);
+    const next = imgs.filter((_, i) => i !== idx);
+    setProductoImagenes(id, next);
   };
 
   const productosRecientes = useMemo(() => {
@@ -862,39 +897,80 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               </div>
 
                               <div>
-                                <div className="text-xs text-gray-500">Imagen (URL)</div>
-                                <input
-                                  type="url"
-                                  value={prod.imagenUrl || ''}
-                                  onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
-                                  placeholder="https://…"
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                                <div className="mt-2 flex items-center justify-between gap-2">
-                                  <div className="text-xs text-gray-500">
-                                    {subiendoImagen[prod.id] ? <span className="text-blue-700 animate-pulse">Subiendo…</span> : 'Subir archivo'}
-                                  </div>
-                                  {prod.imagenUrl ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuitarImagen(prod.id)}
-                                      className="text-xs text-red-600 hover:underline"
-                                    >
-                                      Quitar
-                                    </button>
-                                  ) : null}
+                                <div className="text-xs text-gray-500">Fotos (máx. 3)</div>
+                                <div className="mt-2 grid grid-cols-3 gap-2">
+                                  {(() => {
+                                    const imgs = getProductoImagenes(prod).slice(0, 3)
+                                    return [0, 1, 2].map((idx) => {
+                                      const url = imgs[idx]
+
+                                      if (!url) {
+                                        const canUploadHere = idx === imgs.length && imgs.length < 3
+                                        return (
+                                          <div key={idx} className="aspect-square rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                                            {canUploadHere ? (
+                                              <label className="h-full w-full flex flex-col items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors cursor-pointer">
+                                                <input
+                                                  type="file"
+                                                  accept="image/*"
+                                                  className="hidden"
+                                                  disabled={!!subiendoImagen[prod.id]}
+                                                  onChange={(e) => {
+                                                    const file = e.target.files?.[0]
+                                                    if (file) handleSubirImagen(prod.id, file)
+                                                    e.target.value = ''
+                                                  }}
+                                                />
+                                                <span className="text-xs font-semibold">Subir</span>
+                                                <span className="text-[10px]">{subiendoImagen[prod.id] ? 'Subiendo…' : 'Foto'}</span>
+                                              </label>
+                                            ) : (
+                                              <div className="h-full w-full flex items-center justify-center text-gray-300 text-[10px]">Vacío</div>
+                                            )}
+                                          </div>
+                                        )
+                                      }
+
+                                      return (
+                                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                                          <img src={url} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" loading="lazy" />
+
+                                          <div className="absolute top-1 left-1 flex gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => moveProductoImagen(prod.id, idx, 'left')}
+                                              disabled={idx === 0 || !!subiendoImagen[prod.id]}
+                                              className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
+                                              title="Mover a la izquierda"
+                                              aria-label="Mover a la izquierda"
+                                            >
+                                              <ArrowLeft size={14} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => moveProductoImagen(prod.id, idx, 'right')}
+                                              disabled={idx === imgs.length - 1 || !!subiendoImagen[prod.id]}
+                                              className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
+                                              title="Mover a la derecha"
+                                              aria-label="Mover a la derecha"
+                                            >
+                                              <ArrowRight size={14} />
+                                            </button>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleQuitarImagen(prod.id, idx)}
+                                            className="absolute top-1 right-1 rounded-full bg-white/90 text-red-600 shadow px-2 py-1 text-[10px] font-semibold hover:bg-white"
+                                            title="Quitar"
+                                          >
+                                            Quitar
+                                          </button>
+                                        </div>
+                                      )
+                                    })
+                                  })()}
                                 </div>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  disabled={!!subiendoImagen[prod.id]}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleSubirImagen(prod.id, file);
-                                    e.target.value = '';
-                                  }}
-                                  className="mt-1 w-full text-sm"
-                                />
                               </div>
 
                               <div>

@@ -52,7 +52,7 @@ export const productosRepository = {
     }
 
     // Intentamos con el set más completo, con fallbacks si faltan columnas.
-    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'activo']
+    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo']
 
     // 1) Con filtro activo
     let { data, error } = await run(fields, true)
@@ -61,6 +61,12 @@ export const productosRepository = {
     // Si faltan columnas opcionales, reintentamos con una versión reducida.
     if (isMissingColumn(error, 'profit')) {
       fields = fields.filter((f) => f !== 'profit')
+      ;({ data, error } = await run(fields, true))
+      if (!error) return mapRows(data)
+    }
+
+    if (isMissingColumn(error, 'imagenes_urls')) {
+      fields = fields.filter((f) => f !== 'imagenes_urls')
       ;({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
@@ -92,6 +98,12 @@ export const productosRepository = {
       // Si faltan opcionales en este camino, reintentamos también.
       if (isMissingColumn(error, 'profit')) {
         fields = fields.filter((f) => f !== 'profit')
+        ;({ data, error } = await run(fields, false))
+        if (!error) return mapRows(data)
+      }
+
+      if (isMissingColumn(error, 'imagenes_urls')) {
+        fields = fields.filter((f) => f !== 'imagenes_urls')
         ;({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }
@@ -172,6 +184,18 @@ export const productosRepository = {
       return productoFromDb(data2)
     }
 
+    // Compatibilidad hacia atrás: si aún no existe `imagenes_urls`, reintentar sin ese campo.
+    if (payload?.imagenes_urls !== undefined && isMissingColumn(error, 'imagenes_urls')) {
+      const { imagenes_urls: _imagenes, ...payload2 } = payload
+      const { data: data2, error: error2 } = await supabase
+        .from('productos')
+        .insert([payload2])
+        .select('*')
+        .maybeSingle()
+      if (error2) throw error2
+      return productoFromDb(data2)
+    }
+
     throw error
   },
 
@@ -205,6 +229,17 @@ export const productosRepository = {
         .eq('id', id)
       if (error2) throw error2
       return { ignoredFields: ['categoria'] }
+    }
+
+    // Compatibilidad hacia atrás: si aún no existe `imagenes_urls`, reintentar sin ese campo.
+    if (cambiosBD?.imagenes_urls !== undefined && isMissingColumn(error, 'imagenes_urls')) {
+      const { imagenes_urls: _imagenes, ...cambiosBD2 } = cambiosBD
+      const { error: error2 } = await supabase
+        .from('productos')
+        .update(cambiosBD2)
+        .eq('id', id)
+      if (error2) throw error2
+      return { ignoredFields: ['imagenes_urls'] }
     }
 
     throw error
