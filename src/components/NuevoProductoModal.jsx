@@ -425,7 +425,7 @@ export default function NuevoProductoModal({
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-600">Margen de Ganancia (%)</label>
+                    <label className="text-sm font-medium text-gray-600">Margen de Ganancia (0–200%)</label>
                     <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold">
                       {Math.round(profit)}%
                     </span>
@@ -433,11 +433,11 @@ export default function NuevoProductoModal({
 
                   <input
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    max={100}
+                    max={200}
                     min={0}
                     type="range"
                     value={profit}
-                    onChange={(e) => setProfit(clamp(Number(e.target.value) || 0, 0, 100))}
+                    onChange={(e) => setProfit(clamp(Number(e.target.value) || 0, 0, 200))}
                   />
                 </div>
 
