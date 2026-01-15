@@ -213,7 +213,7 @@ create policy "productos_delete_own"
 
 create table if not exists public.catalog_settings (
   owner_id uuid primary key references auth.users(id) on delete cascade,
-  catalog_template text not null default 'simple' check (catalog_template in ('simple', 'boutique', 'modern')),
+  catalog_template text not null default 'simple' check (catalog_template in ('simple', 'boutique', 'modern', 'heavy')),
   updated_at timestamptz not null default timezone('utc', now())
 );
 

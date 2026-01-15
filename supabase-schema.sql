@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS tasas (
 -- Permite escoger plantilla: simple | boutique | modern
 CREATE TABLE IF NOT EXISTS public.catalog_settings (
   owner_id uuid primary key references auth.users(id) on delete cascade,
-  catalog_template TEXT NOT NULL DEFAULT 'simple' CHECK (catalog_template IN ('simple', 'boutique', 'modern')),
+    catalog_template TEXT NOT NULL DEFAULT 'simple' CHECK (catalog_template IN ('simple', 'boutique', 'modern', 'heavy')),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
@@ -107,7 +107,7 @@ ALTER TABLE public.catalog_settings
   DROP CONSTRAINT IF EXISTS catalog_settings_catalog_template_check;
 ALTER TABLE public.catalog_settings
   ADD CONSTRAINT catalog_settings_catalog_template_check
-  CHECK (catalog_template IN ('simple', 'boutique', 'modern'));
+    CHECK (catalog_template IN ('simple', 'boutique', 'modern', 'heavy'));
 
 -- Nota: no insertamos filas aquí.
 -- La app crea la fila del usuario al guardar.

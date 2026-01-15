@@ -57,6 +57,7 @@ const AdminPage = () => {
     setCatalogTemplate: guardarCatalogTemplate,
     cargando: cargandoCatalogSettings,
     guardando: guardandoCatalogSettings,
+    error: catalogSettingsError,
   } = useCatalogTemplate({ enableSave: true, ownerId: sessionUserId })
 
   const avatarLabel = useMemo(() => {
@@ -316,7 +317,7 @@ const AdminPage = () => {
                 }}
                 disabled={cargandoCatalogSettings}
                 className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                title="Temas del catálogo"
+                title={catalogSettingsError ? catalogSettingsError : 'Temas del catálogo'}
                 aria-label="Temas del catálogo"
               >
                 <Palette size={18} />
@@ -332,6 +333,9 @@ const AdminPage = () => {
                     <div className="text-sm font-semibold text-gray-900">
                       {guardandoCatalogSettings ? 'Guardando…' : 'Selecciona un tema'}
                     </div>
+                    {catalogSettingsError ? (
+                      <div className="mt-1 text-xs text-rose-600">{catalogSettingsError}</div>
+                    ) : null}
                   </div>
 
                   {[{
@@ -343,6 +347,9 @@ const AdminPage = () => {
                   }, {
                     value: CATALOG_TEMPLATES.MODERN,
                     label: 'Moderna',
+                  }, {
+                    value: CATALOG_TEMPLATES.HEAVY,
+                    label: 'Heavy',
                   }].map((opt) => {
                     const active = catalogTemplate === opt.value
                     return (

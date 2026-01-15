@@ -11,7 +11,7 @@ drop table if exists public.catalog_settings cascade;
 
 create table public.catalog_settings (
   owner_id uuid primary key references auth.users(id) on delete cascade,
-  catalog_template text not null default 'simple' check (catalog_template in ('simple', 'boutique', 'modern')),
+  catalog_template text not null default 'simple' check (catalog_template in ('simple', 'boutique', 'modern', 'heavy')),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
@@ -20,7 +20,7 @@ alter table public.catalog_settings
   drop constraint if exists catalog_settings_catalog_template_check;
 alter table public.catalog_settings
   add constraint catalog_settings_catalog_template_check
-  check (catalog_template in ('simple', 'boutique', 'modern'));
+  check (catalog_template in ('simple', 'boutique', 'modern', 'heavy'));
 
 -- 2) Nota: no insertamos filas aquí.
 -- La app crea/actualiza la fila del usuario al guardar.

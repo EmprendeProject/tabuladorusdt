@@ -4,6 +4,7 @@ export const CATALOG_TEMPLATES = {
   SIMPLE: 'simple',
   BOUTIQUE: 'boutique',
   MODERN: 'modern',
+  HEAVY: 'heavy',
 }
 
 export const DEFAULT_CATALOG_TEMPLATE = CATALOG_TEMPLATES.SIMPLE
@@ -11,6 +12,7 @@ export const DEFAULT_CATALOG_TEMPLATE = CATALOG_TEMPLATES.SIMPLE
 const normalizeTemplate = (value) => {
   if (value === CATALOG_TEMPLATES.BOUTIQUE) return CATALOG_TEMPLATES.BOUTIQUE
   if (value === CATALOG_TEMPLATES.MODERN) return CATALOG_TEMPLATES.MODERN
+  if (value === CATALOG_TEMPLATES.HEAVY) return CATALOG_TEMPLATES.HEAVY
   return DEFAULT_CATALOG_TEMPLATE
 }
 
@@ -21,11 +23,22 @@ const toFriendlyCatalogSettingsError = (error) => {
   const looksLikeRls = msg.toLowerCase().includes('row-level security')
   const looksLikePermission = msg.toLowerCase().includes('permission denied') || code === '42501'
   const looksLikeMissingColumn = code === '42703' || msg.toLowerCase().includes('column')
+  const looksLikeCheckConstraint =
+    code === '23514' ||
+    msg.toLowerCase().includes('violates check constraint') ||
+    msg.toLowerCase().includes('check constraint')
 
   if (looksLikeMissingColumn || looksLikeRls || looksLikePermission) {
     return new Error(
       'No se pudo leer/guardar la plantilla por permisos o porque falta la migración. ' +
         'Solución: migra `catalog_settings` a multiusuario (owner_id + policies) ejecutando el bloque “CATALOG_SETTINGS” actualizado.'
+    )
+  }
+
+  if (looksLikeCheckConstraint) {
+    return new Error(
+      'Tu base de datos está rechazando el valor de plantilla (constraint/CHECK). ' +
+        'Solución: actualiza el CHECK de `catalog_settings.catalog_template` para incluir `heavy` y vuelve a intentar.'
     )
   }
 
