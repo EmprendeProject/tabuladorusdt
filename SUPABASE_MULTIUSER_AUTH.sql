@@ -56,6 +56,52 @@ create policy "perfiles_update_own"
   with check (auth.uid() = user_id);
 
 -- =========================================================
+-- CONTACTO PÚBLICO DEL CATÁLOGO (recomendado)
+--
+-- Objetivo:
+-- - El botón de WhatsApp del catálogo público necesita un teléfono.
+-- - Mantener `perfiles` privado (incluye email/dirección).
+-- - Exponer SOLO el teléfono en una tabla aparte con lectura pública.
+--
+-- Nota:
+-- - La app sincroniza este valor cuando el usuario guarda su perfil.
+-- =========================================================
+create table if not exists public.catalog_contactos (
+  owner_id uuid primary key references auth.users(id) on delete cascade,
+  telefono text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.catalog_contactos enable row level security;
+
+drop policy if exists "catalog_contactos_select_public" on public.catalog_contactos;
+drop policy if exists "catalog_contactos_insert_own" on public.catalog_contactos;
+drop policy if exists "catalog_contactos_update_own" on public.catalog_contactos;
+
+create policy "catalog_contactos_select_public"
+  on public.catalog_contactos
+  for select
+  using (true);
+
+create policy "catalog_contactos_insert_own"
+  on public.catalog_contactos
+  for insert
+  with check (auth.uid() = owner_id);
+
+create policy "catalog_contactos_update_own"
+  on public.catalog_contactos
+  for update
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
+drop trigger if exists update_catalog_contactos_updated_at on public.catalog_contactos;
+create trigger update_catalog_contactos_updated_at
+  before update on public.catalog_contactos
+  for each row
+  execute function public.update_updated_at_column();
+
+-- =========================================================
 -- TIENDAS (público): handle + nombre del negocio
 -- =========================================================
 create table if not exists public.tiendas (

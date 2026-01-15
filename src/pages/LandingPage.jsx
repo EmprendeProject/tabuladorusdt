@@ -9,8 +9,6 @@ import {
   Quote,
   Sparkles,
 } from 'lucide-react'
-
-import FloatingWhatsAppButton from '../components/FloatingWhatsAppButton'
 import { tiendasRepository } from '../data/tiendasRepository'
 
 export default function LandingPage() {
@@ -222,8 +220,6 @@ export default function LandingPage() {
               <p className="text-xs text-[#1c0d16]/40 font-sans">© {new Date().getFullYear()} Cataly. Todos los derechos reservados.</p>
             </div>
           </div>
-
-          <FloatingWhatsAppButton />
         </footer>
       </div>
     </div>

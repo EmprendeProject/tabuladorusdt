@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { authRepository } from '../data/authRepository'
 import { perfilesRepository } from '../data/perfilesRepository'
@@ -11,7 +12,6 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [nombreNegocio, setNombreNegocio] = useState('')
   const [email, setEmail] = useState('')
-  const [telefono, setTelefono] = useState('')
   const [direccion, setDireccion] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -41,7 +41,6 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
         data: {
           full_name: String(nombreCompleto).trim(),
           business_name: String(nombreNegocio).trim(),
-          telefono: String(telefono || '').trim(),
           direccion: direccion ? String(direccion).trim() : null,
         },
       })
@@ -51,7 +50,6 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
       try {
         await perfilesRepository.upsertMine({
           nombreCompleto,
-          telefono,
           direccion,
         })
       } catch {
@@ -75,84 +73,80 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
 
   return (
     <AuthShell
-      title="Create Admin Account"
-      subtitle="Set up your business catalog management tool"
+      title="Crea tu cuenta en Cataly"
+      subtitle="Configura la herramienta de gestión de tu catálogo de negocios"
       backTo="/"
     >
-      <form onSubmit={onSubmit} className="mt-8 space-y-4 max-w-[480px] mx-auto">
+      <form onSubmit={onSubmit} className="space-y-4">
         {error ? (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-200 dark:text-red-200 rounded-xl p-3 text-sm">
+          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Full Name</p>
-          <input
-            className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base"
-            placeholder="John Doe"
-            type="text"
-            value={nombreCompleto}
-            onChange={(e) => setNombreCompleto(e.target.value)}
-            autoComplete="name"
-            required
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Business Name</p>
-          <input
-            className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base"
-            placeholder="Enter your business name"
-            type="text"
-            value={nombreNegocio}
-            onChange={(e) => setNombreNegocio(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Email Address</p>
-          <input
-            className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base"
-            placeholder="admin@company.com"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Phone Number</p>
-          <input
-            className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base"
-            placeholder="+58 412 000 0000"
-            type="tel"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            autoComplete="tel"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Business Address (optional)</p>
-          <input
-            className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base"
-            placeholder="Av. Principal, Local 3"
-            type="text"
-            value={direccion}
-            onChange={(e) => setDireccion(e.target.value)}
-            autoComplete="street-address"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Password</p>
-          <div className="relative">
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Nombre completo</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
             <input
-              className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base pr-14"
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              placeholder="Tu nombre"
+              type="text"
+              value={nombreCompleto}
+              onChange={(e) => setNombreCompleto(e.target.value)}
+              autoComplete="name"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Nombre de tu negocio</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+            <input
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              placeholder="Nombre de tu negocio"
+              type="text"
+              value={nombreNegocio}
+              onChange={(e) => setNombreNegocio(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Correo electrónico</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+            <input
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              placeholder="correo@mail.com"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Dirección del negocio (opcional)</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+            <input
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              placeholder="Av. Principal, Local 3"
+              type="text"
+              value={direccion}
+              onChange={(e) => setDireccion(e.target.value)}
+              autoComplete="street-address"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Contraseña</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+            <input
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
               placeholder="••••••••"
               type={showPass ? 'text' : 'password'}
               value={password}
@@ -163,41 +157,39 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
             <button
               type="button"
               onClick={() => setShowPass((v) => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#92adc9]"
+              className="ml-2 inline-flex items-center justify-center rounded-xl p-2 text-[#1c0d16]/60 hover:bg-white/60"
               aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              title={showPass ? 'Ocultar' : 'Mostrar'}
+              title={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {showPass ? '🙈' : '👁️'}
+              {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Mínimo 6 caracteres
-          </p>
+          <p className="mt-1 font-sans text-xs text-[#1c0d16]/60">Mínimo 6 caracteres</p>
         </div>
 
-        <div className="pt-6">
+        <div className="pt-2">
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="w-full h-14 bg-[#137fec] text-white font-bold rounded-xl text-lg hover:bg-[#137fec]/90 transition-colors shadow-lg shadow-[#137fec]/20 disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? 'Creando…' : 'Create Account'}
+            {loading ? 'Creando…' : 'Crear cuenta'}
           </button>
         </div>
 
-        <div className="pt-4 text-center">
-          <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Already have an account?
-            <Link className="text-[#137fec] font-semibold ml-1 hover:underline" to="/login">
-              Log in
+        <div className="pt-2 text-center">
+          <p className="font-sans text-sm text-[#1c0d16]/70">
+            ¿Ya tienes una cuenta?
+            <Link className="text-primary font-semibold ml-1 hover:underline" to="/login">
+              Iniciar sesión
             </Link>
           </p>
         </div>
 
-        <div className="mt-12 text-center px-8">
-          <p className="text-[11px] text-slate-400 leading-relaxed uppercase tracking-wider">
-            By signing up, you agree to our <br />
-            <span className="underline">Terms of Service</span> and <span className="underline">Privacy Policy</span>
+        <div className="mt-10 text-center px-6">
+          <p className="font-sans text-[11px] text-[#1c0d16]/45 leading-relaxed uppercase tracking-wider">
+            Al registrarte, aceptas nuestros <br />
+            <span className="underline">Términos del servicio</span> y <span className="underline">Política de privacidad</span>
           </p>
         </div>
       </form>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { LogIn, Shield } from 'lucide-react';
+import { ArrowLeft, LogIn, Shield, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { authRepository } from '../data/authRepository';
 
 const AdminLogin = () => {
@@ -24,64 +25,100 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">Acceso Admin</h1>
-        </div>
+    <div className="min-h-screen bg-background-light text-[#1c0d16]">
+      <div className="relative min-h-screen w-full overflow-x-hidden">
+        <div className="organic-shape-1" aria-hidden="true" />
+        <div className="organic-shape-2" aria-hidden="true" />
 
-        <p className="text-sm text-gray-600 mb-6">
-          Esta sección es solo para ti. El catálogo público está en <span className="font-medium">/</span>.
-        </p>
+        <nav className="sticky top-0 z-50 border-b border-black/5 bg-background-light/80 backdrop-blur-md">
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
+            <Link to="/" className="flex items-center gap-2">
+              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Sparkles size={20} />
+              </span>
+              <div className="leading-tight">
+                <div className="text-base font-bold tracking-tight font-display">Cataly</div>
+                <div className="text-xs text-[#1c0d16]/60 font-sans">Tu catálogo en 1 link</div>
+              </div>
+            </Link>
+
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold hover:bg-white"
+              aria-label="Volver"
+              title="Volver"
+            >
+              <ArrowLeft size={16} />
+              Volver
+            </Link>
+          </div>
+        </nav>
+
+        <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-14">
+          <div className="max-w-xl mx-auto">
+            <div className="glass-card rounded-2xl p-6 md:p-8 shadow-sm border border-white/40">
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="text-primary" />
+                <h1 className="font-display text-3xl font-bold tracking-tight">Acceso Admin</h1>
+              </div>
+
+              <p className="mt-3 text-center font-sans text-sm text-[#1c0d16]/70">
+                Esta sección es solo para ti. El catálogo público está en <span className="font-semibold">/</span>.
+              </p>
 
         {error ? (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
             {error}
           </div>
         ) : null}
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="tu@email.com"
-              required
-              autoComplete="email"
-            />
+              <form onSubmit={onSubmit} className="mt-6 space-y-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold font-sans text-[#1c0d16]/80">Correo electrónico</label>
+                  <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+                      placeholder="tu@correo.com"
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold font-sans text-[#1c0d16]/80">Contraseña</label>
+                  <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+                      placeholder="••••••••"
+                      required
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50"
+                >
+                  <LogIn size={18} />
+                  {loading ? 'Ingresando…' : 'Entrar'}
+                </button>
+              </form>
+
+              <p className="mt-4 text-center font-sans text-xs text-[#1c0d16]/60">
+                Consejo: crea tu usuario en Supabase (Auth → Users) y usa esas credenciales aquí.
+              </p>
+            </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            <LogIn size={18} />
-            {loading ? 'Ingresando…' : 'Entrar'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-xs text-gray-500">
-          Tip: crea tu usuario en Supabase (Auth → Users) y usa esas credenciales aquí.
-        </p>
-      </div>
+        </div>
     </div>
   );
 };

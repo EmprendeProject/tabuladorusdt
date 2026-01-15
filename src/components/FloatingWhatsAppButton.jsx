@@ -34,16 +34,16 @@ const WhatsAppIcon = ({ className = '' }) => {
 }
 
 const FloatingWhatsAppButton = ({
-  number = import.meta.env.VITE_WHATSAPP_NUMBER,
-  message = import.meta.env.VITE_WHATSAPP_MESSAGE,
-  url = import.meta.env.VITE_WHATSAPP_URL,
+  number,
+  message,
+  url,
 }) => {
   const href = buildWhatsAppUrl({ number, message, url })
   if (!href) {
     // Ayuda a diagnosticar en dev cuando falta configurar WhatsApp.
     if (import.meta.env.DEV) {
       console.warn(
-        '[WhatsApp] Botón oculto: define VITE_WHATSAPP_NUMBER o VITE_WHATSAPP_URL en tu .env y reinicia el servidor dev.',
+        '[WhatsApp] Botón oculto: define un número (prop `number`) o una URL (prop `url`).',
       )
     }
     return null

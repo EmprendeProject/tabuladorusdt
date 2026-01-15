@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { authRepository } from '../data/authRepository'
 import { perfilesRepository } from '../data/perfilesRepository'
@@ -69,32 +70,34 @@ export default function LoginPage({ redirectTo = '/admin', preferredHandle } = {
   }
 
   return (
-    <AuthShell title="Log in" subtitle="Access your dashboard" backTo="/">
-      <form onSubmit={onSubmit} className="mt-8 space-y-4 max-w-[480px] mx-auto">
+    <AuthShell title="Iniciar sesión" subtitle="Accede a tu panel" backTo="/">
+      <form onSubmit={onSubmit} className="space-y-4">
         {error ? (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-200 dark:text-red-200 rounded-xl p-3 text-sm">
+          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Email</p>
-          <input
-            className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base"
-            placeholder="admin@company.com"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Correo electrónico</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+            <input
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              placeholder="tu@correo.com"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-slate-900 dark:text-white text-base font-medium">Password</p>
-          <div className="relative">
+          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Contraseña</p>
+          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
             <input
-              className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#137fec] border border-slate-300 dark:border-[#324d67] bg-white dark:bg-[#192633] h-14 placeholder:text-slate-400 dark:placeholder:text-[#92adc9] px-4 text-base pr-14"
+              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
               placeholder="••••••••"
               type={showPass ? 'text' : 'password'}
               value={password}
@@ -105,30 +108,30 @@ export default function LoginPage({ redirectTo = '/admin', preferredHandle } = {
             <button
               type="button"
               onClick={() => setShowPass((v) => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#92adc9]"
+              className="ml-2 inline-flex items-center justify-center rounded-xl p-2 text-[#1c0d16]/60 hover:bg-white/60"
               aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              title={showPass ? 'Ocultar' : 'Mostrar'}
+              title={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {showPass ? '🙈' : '👁️'}
+              {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
         </div>
 
-        <div className="pt-6">
+        <div className="pt-2">
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="w-full h-14 bg-[#137fec] text-white font-bold rounded-xl text-lg hover:bg-[#137fec]/90 transition-colors shadow-lg shadow-[#137fec]/20 disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? 'Entrando…' : 'Log in'}
+            {loading ? 'Entrando…' : 'Iniciar sesión'}
           </button>
         </div>
 
-        <div className="pt-4 text-center">
-          <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Don’t have an account?
+        <div className="pt-2 text-center">
+          <p className="font-sans text-sm text-[#1c0d16]/70">
+            ¿No tienes una cuenta?
             <Link className="text-[#137fec] font-semibold ml-1 hover:underline" to="/register">
-              Create one
+              Crear una
             </Link>
           </p>
         </div>
