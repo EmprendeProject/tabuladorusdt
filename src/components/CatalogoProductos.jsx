@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CATALOG_TEMPLATES } from '../data/catalogSettingsRepository';
 import { useCatalogTemplate } from '../hooks/useCatalogTemplate';
 import { useProductos } from '../hooks/useProductos';
@@ -11,10 +11,18 @@ import ProductoDetalleModal from './ProductoDetalleModal';
 
 const CatalogoProductos = ({ ownerId, brandName } = {}) => {
   const [query, setQuery] = useState('');
+  const [categoriaActiva, setCategoriaActiva] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
   const { catalogTemplate } = useCatalogTemplate({ ownerId });
   const { tasaBCV, tasaUSDT } = useTasas();
+
+  useEffect(() => {
+    // Si el usuario cambia de plantilla, no mantenemos un filtro oculto.
+    if (catalogTemplate !== CATALOG_TEMPLATES.MODERN) {
+      setCategoriaActiva('');
+    }
+  }, [catalogTemplate]);
 
   const tasaBCVNum = useMemo(() => parseFloat(tasaBCV) || 0, [tasaBCV]);
   const tasaUSDTNum = useMemo(() => parseFloat(tasaUSDT) || 0, [tasaUSDT]);
@@ -36,15 +44,43 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
 
   const productosFiltradosConPrecioSugerido = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return productosConPrecioSugerido;
-    return productosConPrecioSugerido.filter((p) => (p.nombre || '').toLowerCase().includes(q));
-  }, [productosConPrecioSugerido, query]);
+    const cat = String(categoriaActiva || '').trim().toLowerCase();
+    const isModern = catalogTemplate === CATALOG_TEMPLATES.MODERN;
+
+    return productosConPrecioSugerido.filter((p) => {
+      const nombre = String(p?.nombre || '').toLowerCase();
+      if (q && !nombre.includes(q)) return false;
+
+      if (isModern && cat) {
+        const pc = String(p?.categoria || '').trim().toLowerCase();
+        if (pc !== cat) return false;
+      }
+
+      return true;
+    });
+  }, [productosConPrecioSugerido, query, categoriaActiva, catalogTemplate]);
+
+  const categorias = useMemo(() => {
+    // Categorías “del usuario” derivadas de sus productos (visible en catálogo público).
+    const list = Array.isArray(productosConPrecioSugerido) ? productosConPrecioSugerido : [];
+    const map = new Map();
+    for (const p of list) {
+      const raw = String(p?.categoria || '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!map.has(key)) map.set(key, raw);
+    }
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [productosConPrecioSugerido]);
 
   const templateProps = {
     productos: productosConPrecioSugerido,
     productosFiltrados: productosFiltradosConPrecioSugerido,
     query,
     setQuery,
+    categorias,
+    categoriaActiva,
+    setCategoriaActiva,
     cargando,
     error,
     onReload: recargar,

@@ -29,6 +29,14 @@ const AdminPage = () => {
   const [tiendaLoading, setTiendaLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // URL pública “canónica” para compartir links.
+  // Configura en Vercel: VITE_PUBLIC_BASE_URL=https://cataly.shop
+  const publicBaseUrl = useMemo(() => {
+    const fromEnv = import.meta?.env?.VITE_PUBLIC_BASE_URL || import.meta?.env?.VITE_PUBLIC_ORIGIN || ''
+    const origin = String(fromEnv || globalThis?.location?.origin || '').trim()
+    return origin.replace(/\/+$/, '')
+  }, [])
+
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
@@ -139,7 +147,10 @@ const AdminPage = () => {
         // Si el handle fue generado desde el email (viejo comportamiento), intentamos migrarlo
         // al nombre del negocio (si existe y no choca).
         const emailSlug = sessionEmail ? tiendasRepository.normalizeHandle(sessionEmail) : ''
-        const desiredSlug = sessionBusinessName ? tiendasRepository.normalizeHandle(sessionBusinessName) : ''
+        const desiredBase = (mine?.nombreNegocio || sessionBusinessName || '').trim()
+        const desiredSlug = desiredBase ? tiendasRepository.normalizeHandle(desiredBase) : ''
+
+        const randomSuffix = () => String(Math.floor(Math.random() * 9000) + 1000)
 
         let finalTienda = mine
         if (
@@ -150,7 +161,18 @@ const AdminPage = () => {
           desiredSlug !== mine.handle
         ) {
           try {
-            finalTienda = await tiendasRepository.updateMine({ handle: desiredSlug })
+            // Intentamos migrar a nombredelnegocio. Si choca, agregamos sufijo.
+            let migrated = null
+            for (let attempt = 0; attempt < 6; attempt += 1) {
+              const next = attempt === 0 ? desiredSlug : `${desiredSlug}-${randomSuffix()}`
+              try {
+                migrated = await tiendasRepository.updateMine({ handle: next })
+                break
+              } catch {
+                // reintenta
+              }
+            }
+            finalTienda = migrated || mine
           } catch {
             // Si falla (por ejemplo, ya existe), no bloqueamos el flujo.
             finalTienda = mine
@@ -224,7 +246,7 @@ const AdminPage = () => {
             <span className="text-sm font-semibold text-gray-800">{dashboardLabel}</span>
             {tienda?.handle ? (
               <span className="hidden sm:inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600">
-                /{tienda.handle}
+                {publicBaseUrl ? `${publicBaseUrl}/${tienda.handle}` : `/${tienda.handle}`}
               </span>
             ) : (
               <button
@@ -258,7 +280,7 @@ const AdminPage = () => {
                   if (!t?.handle) return
 
                   const path = `/${t.handle}`
-                  const url = `${globalThis?.location?.origin || ''}${path}`
+                  const url = publicBaseUrl ? `${publicBaseUrl}${path}` : `${globalThis?.location?.origin || ''}${path}`
                   if (globalThis?.navigator?.clipboard?.writeText) {
                     await globalThis.navigator.clipboard.writeText(url)
                   } else {
@@ -271,7 +293,7 @@ const AdminPage = () => {
                   try {
                     const t = tienda?.handle ? tienda : null
                     const path = t?.handle ? `/${t.handle}` : catalogPath
-                    const url = `${globalThis?.location?.origin || ''}${path}`
+                    const url = publicBaseUrl ? `${publicBaseUrl}${path}` : `${globalThis?.location?.origin || ''}${path}`
                     globalThis?.prompt?.('Copia el link de tu catálogo:', url)
                   } catch {
                     // noop
@@ -597,7 +619,7 @@ const CatalogoTiendaPublica = () => {
         <div className="border-b bg-white">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
             <span className="text-sm font-semibold text-gray-800">Catálogo</span>
-            <Link to="/admin" className="text-sm text-gray-600 hover:text-gray-900">Ir al admin</Link>
+            <Link to="/admin" className="text-sm text-gray-600 hover:text-gray-900">Mi catálogo</Link>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-10 text-gray-600">No se encontró esta tienda.</div>
@@ -610,7 +632,7 @@ const CatalogoTiendaPublica = () => {
       <div className="border-b bg-white">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-gray-800">{tienda.nombreNegocio || 'Catálogo'}</span>
-          <Link to="/admin" className="text-sm text-gray-600 hover:text-gray-900">Ir al admin</Link>
+          <Link to="/admin" className="text-sm text-gray-600 hover:text-gray-900">Mi catálogo</Link>
         </div>
       </div>
 

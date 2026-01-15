@@ -34,13 +34,19 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
     setLoading(true)
 
     try {
+      const negocio = String(nombreNegocio || '').trim()
+      if (!negocio) {
+        setError('El nombre de tu negocio es requerido.')
+        return
+      }
+
       // 1) Crear usuario (email/password)
       await authRepository.signUp({
         email: String(email).trim(),
         password,
         data: {
           full_name: String(nombreCompleto).trim(),
-          business_name: String(nombreNegocio).trim(),
+          business_name: negocio,
           direccion: direccion ? String(direccion).trim() : null,
         },
       })
@@ -57,7 +63,7 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
       }
 
       try {
-        await tiendasRepository.ensureMine({ nombreNegocio, preferredHandle })
+        await tiendasRepository.ensureMine({ nombreNegocio: negocio, preferredHandle })
       } catch {
         // noop por misma razón.
       }
@@ -109,6 +115,8 @@ export default function RegisterPage({ redirectTo = '/admin', preferredHandle } 
               value={nombreNegocio}
               onChange={(e) => setNombreNegocio(e.target.value)}
               required
+              minLength={2}
+              title="Escribe al menos 2 caracteres."
             />
           </div>
         </div>

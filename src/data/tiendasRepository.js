@@ -100,8 +100,7 @@ export const tiendasRepository = {
       nombreNegocio ||
       user.user_metadata?.business_name ||
       user.user_metadata?.businessName ||
-      user.email ||
-      'tienda'
+      'mi-catalogo'
     const baseSlug = makeSafeHandle(base)
 
     // Intentamos crear con sufijos hasta que no choque.
