@@ -4,16 +4,20 @@
 -- CATEGORIAS
 -- =============================================
 
--- Tabla simple de categorías (lista sugerida). Los productos siguen usando `productos.categoria` (texto).
+-- Tabla de categorías por usuario (lista sugerida).
+-- Los productos siguen usando `productos.categoria` (texto).
 create table if not exists public.categorias (
   id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
   nombre text not null,
   created_at timestamptz not null default now()
 );
 
--- Nombre único (case-insensitive) para evitar duplicados.
-create unique index if not exists categorias_nombre_unique_ci
-  on public.categorias (lower(nombre));
+create index if not exists idx_categorias_owner_id on public.categorias(owner_id);
+
+-- Único por usuario (case-insensitive)
+create unique index if not exists categorias_owner_nombre_unique_ci
+  on public.categorias (owner_id, lower(nombre));
 
 alter table public.categorias enable row level security;
 
@@ -22,28 +26,32 @@ drop policy if exists "categorias_select_public" on public.categorias;
 drop policy if exists "categorias_insert_admin" on public.categorias;
 drop policy if exists "categorias_update_admin" on public.categorias;
 drop policy if exists "categorias_delete_admin" on public.categorias;
+drop policy if exists "categorias_select_own" on public.categorias;
+drop policy if exists "categorias_insert_own" on public.categorias;
+drop policy if exists "categorias_update_own" on public.categorias;
+drop policy if exists "categorias_delete_own" on public.categorias;
 
--- Lectura pública (útil para poblar selects sin exponer dashboard)
-create policy "categorias_select_public"
+-- Solo el dueño ve/crea/edita/borra
+create policy "categorias_select_own"
   on public.categorias
   for select
-  using (true);
+  using (auth.uid() = owner_id);
 
--- Solo admin (UUID fijo) puede crear/editar/borrar
-create policy "categorias_insert_admin"
+create policy "categorias_insert_own"
   on public.categorias
   for insert
-  with check (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+  with check (auth.uid() = owner_id);
 
-create policy "categorias_update_admin"
+create policy "categorias_update_own"
   on public.categorias
   for update
-  using (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
 
-create policy "categorias_delete_admin"
+create policy "categorias_delete_own"
   on public.categorias
   for delete
-  using (auth.uid() = '3513c316-f794-4e72-9e5d-543551565730'::uuid);
+  using (auth.uid() = owner_id);
 -- Para usar este esquema:
 -- 1. Ve a tu proyecto en Supabase
 -- 2. Abre el SQL Editor

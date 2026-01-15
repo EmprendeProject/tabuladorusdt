@@ -34,6 +34,7 @@ const AdminPage = () => {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileError, setProfileError] = useState('')
   const [profileNombreCompleto, setProfileNombreCompleto] = useState('')
+  const [profileNombreNegocio, setProfileNombreNegocio] = useState('')
   const [profileDireccion, setProfileDireccion] = useState('')
   const [profileTelefono, setProfileTelefono] = useState('')
 
@@ -67,8 +68,10 @@ const AdminPage = () => {
     setProfileLoading(true)
     try {
       const perfil = await perfilesRepository.getMine()
+      const myTienda = (await tiendasRepository.getMine()) || (await tiendasRepository.ensureMine({ nombreNegocio: sessionBusinessName }))
       const fallbackNombre = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || ''
       setProfileNombreCompleto(perfil?.nombreCompleto || fallbackNombre)
+      setProfileNombreNegocio((myTienda?.nombreNegocio || sessionBusinessName || '').trim())
       setProfileDireccion(perfil?.direccion || '')
       // No mostramos teléfono en UI (se eliminó del registro), pero lo preservamos para no pisarlo al guardar.
       setProfileTelefono(perfil?.telefono || '')
@@ -84,6 +87,12 @@ const AdminPage = () => {
     setProfileError('')
     setProfileSaving(true)
     try {
+      const negocio = String(profileNombreNegocio || '').trim()
+      if (!negocio) {
+        setProfileError('El nombre del negocio es requerido.')
+        return
+      }
+
       const telefonoDigits = normalizeTelefono(profileTelefono)
       if (String(profileTelefono || '').trim() && telefonoDigits.length < 7) {
         setProfileError('Escribe un teléfono válido (mínimo 7 dígitos) o déjalo vacío.')
@@ -95,6 +104,12 @@ const AdminPage = () => {
         telefono: telefonoDigits,
         direccion: profileDireccion,
       })
+
+      // Asegurar tienda y actualizar nombre de negocio.
+      await tiendasRepository.ensureMine({ nombreNegocio: negocio })
+      const updatedTienda = await tiendasRepository.updateMine({ nombreNegocio: negocio })
+      setTienda(updatedTienda)
+
       setProfileOpen(false)
     } catch (err) {
       setProfileError(err?.message || 'No se pudieron guardar tus datos.')
@@ -404,6 +419,19 @@ const AdminPage = () => {
                     </div>
 
                     <div>
+                      <label className="block text-sm font-medium text-gray-700">Nombre del negocio</label>
+                      <input
+                        type="text"
+                        value={profileNombreNegocio}
+                        onChange={(e) => setProfileNombreNegocio(e.target.value)}
+                        className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+                        placeholder="Nombre de tu tienda"
+                        autoComplete="organization"
+                        required
+                      />
+                    </div>
+
+                    <div>
                       <label className="block text-sm font-medium text-gray-700">Nombre completo</label>
                       <input
                         type="text"
@@ -582,7 +610,7 @@ const CatalogoTiendaPublica = () => {
         </div>
       </div>
 
-      <CatalogoProductos ownerId={tienda.ownerId} />
+      <CatalogoProductos ownerId={tienda.ownerId} brandName={tienda?.nombreNegocio || ''} />
 
       <FloatingWhatsAppButton
         number={telefonoWhatsApp}

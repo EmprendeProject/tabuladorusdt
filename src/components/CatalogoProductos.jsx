@@ -9,7 +9,7 @@ import CatalogTemplateBoutique from './catalog/CatalogTemplateBoutique';
 import CatalogTemplateModern from './catalog/CatalogTemplateModern';
 import ProductoDetalleModal from './ProductoDetalleModal';
 
-const CatalogoProductos = ({ ownerId } = {}) => {
+const CatalogoProductos = ({ ownerId, brandName } = {}) => {
   const [query, setQuery] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
@@ -48,6 +48,7 @@ const CatalogoProductos = ({ ownerId } = {}) => {
     cargando,
     error,
     onReload: recargar,
+    brandName,
     onSelectProducto: (p) => setProductoSeleccionado({ ...p, _tasaBCV: tasaBCVNum }),
   };
 

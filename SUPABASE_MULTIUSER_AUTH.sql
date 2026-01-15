@@ -208,6 +208,56 @@ create policy "productos_delete_own"
   using (auth.uid() = owner_id);
 
 -- =========================================================
+-- CATEGORIAS (privado por usuario)
+--
+-- Nota:
+-- - `productos.categoria` sigue siendo texto.
+-- - Esta tabla es solo para sugerencias/lista en el dashboard.
+-- - Cada usuario ve y gestiona SOLO sus categorías.
+-- =========================================================
+
+create table if not exists public.categorias (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  nombre text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_categorias_owner_id on public.categorias(owner_id);
+
+-- Evita duplicados por usuario (case-insensitive)
+create unique index if not exists categorias_owner_nombre_unique_ci
+  on public.categorias (owner_id, lower(nombre));
+
+alter table public.categorias enable row level security;
+
+drop policy if exists "categorias_select_own" on public.categorias;
+drop policy if exists "categorias_insert_own" on public.categorias;
+drop policy if exists "categorias_update_own" on public.categorias;
+drop policy if exists "categorias_delete_own" on public.categorias;
+
+create policy "categorias_select_own"
+  on public.categorias
+  for select
+  using (auth.uid() = owner_id);
+
+create policy "categorias_insert_own"
+  on public.categorias
+  for insert
+  with check (auth.uid() = owner_id);
+
+create policy "categorias_update_own"
+  on public.categorias
+  for update
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
+create policy "categorias_delete_own"
+  on public.categorias
+  for delete
+  using (auth.uid() = owner_id);
+
+-- =========================================================
 -- updated_at automático (reusa tu función si ya existe)
 -- =========================================================
 create or replace function public.update_updated_at_column()
