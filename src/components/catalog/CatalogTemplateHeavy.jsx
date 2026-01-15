@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Share2, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 const money = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -31,29 +31,6 @@ const brushedMetalStyle = {
   backgroundImage:
     'linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.05) 75%, transparent 75%, transparent)',
   backgroundSize: '4px 4px',
-}
-
-const shareProduct = async ({ title, text, url }) => {
-  const t = String(title || '').trim()
-  const body = String(text || '').trim()
-  const u = String(url || '').trim()
-
-  try {
-    if (globalThis?.navigator?.share) {
-      await globalThis.navigator.share({ title: t || undefined, text: body || undefined, url: u || undefined })
-      return
-    }
-  } catch {
-    // ignore and fallback
-  }
-
-  const payload = [t, body, u].filter(Boolean).join('\n')
-  if (globalThis?.navigator?.clipboard?.writeText) {
-    await globalThis.navigator.clipboard.writeText(payload)
-    return
-  }
-
-  globalThis?.prompt?.('Copia:', payload)
 }
 
 const CatalogTemplateHeavy = ({
@@ -98,8 +75,8 @@ const CatalogTemplateHeavy = ({
                 <Search className="text-zinc-500" size={18} />
               </div>
               <input
-                className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded text-white focus:outline-0 focus:ring-0 border-none bg-transparent h-full placeholder:text-zinc-500 px-2 text-base font-medium tracking-tight"
-                placeholder="BUSCAR EN EL INVENTARIO..."
+                className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded text-white outline-none border-none bg-transparent h-full placeholder:text-zinc-500 px-2 text-base font-medium tracking-tight focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                placeholder="BUSCAR"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -180,22 +157,6 @@ const CatalogTemplateHeavy = ({
                     </h4>
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-[#ec6d13] font-bold text-lg">${money(precio, 2)}</span>
-                      <button
-                        type="button"
-                        className="bg-zinc-800 p-1.5 rounded flex items-center justify-center hover:bg-zinc-700"
-                        title="Compartir"
-                        aria-label="Compartir"
-                        onClick={async (e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          await shareProduct({
-                            title: p?.nombre || 'Producto',
-                            text: `Precio: $${money(precio, 2)}`,
-                          })
-                        }}
-                      >
-                        <Share2 className="text-white" size={16} />
-                      </button>
                     </div>
                   </div>
                 </button>
