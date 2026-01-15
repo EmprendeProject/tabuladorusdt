@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { Check, Copy, LogOut, Palette, Store } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
@@ -11,6 +11,7 @@ import FloatingWhatsAppButton from './components/FloatingWhatsAppButton'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import LandingPage from './pages/LandingPage'
 import { tiendasRepository } from './data/tiendasRepository'
 
 const LegacyCatalogRedirect = () => {
@@ -405,93 +406,11 @@ const CatalogoTiendaPublica = () => {
   )
 }
 
-const CatalogoPublico = () => {
-  const showAdminLink = import.meta.env.VITE_SHOW_ADMIN_LINK !== 'false'
-  const navigate = useNavigate()
-  const [handle, setHandle] = useState('')
-
-  const goToCatalog = (e) => {
-    e?.preventDefault?.()
-    const h = tiendasRepository.normalizeHandle(handle)
-    if (!h) return
-    navigate(`/${h}`)
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="border-b bg-white">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-gray-800">Catálogo</span>
-          {showAdminLink ? (
-            <div className="flex items-center gap-3">
-              <Link to="/admin" className="text-sm text-gray-600 hover:text-gray-900">Ir al admin</Link>
-              <Link to="/register" className="text-sm text-gray-600 hover:text-gray-900">Crear cuenta</Link>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-12">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm">
-          <div className="text-2xl md:text-3xl font-extrabold text-gray-900">Tu catálogo en 1 link</div>
-          <div className="mt-2 text-gray-600">
-            Entra al catálogo de un negocio usando su link: <span className="font-semibold">cataly.shop/tu-link</span>
-          </div>
-
-          <form onSubmit={goToCatalog} className="mt-6 flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="handle">
-                Link del catálogo
-              </label>
-              <div className="mt-2 flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-3">
-                <span className="text-sm text-gray-500 select-none">cataly.shop/</span>
-                <input
-                  id="handle"
-                  value={handle}
-                  onChange={(e) => setHandle(e.target.value)}
-                  placeholder="micatalogo"
-                  className="w-full bg-transparent py-3 px-2 text-gray-900 outline-none"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="h-12 sm:mt-[28px] rounded-2xl bg-slate-900 text-white px-5 font-semibold hover:bg-slate-800"
-            >
-              Ir
-            </button>
-          </form>
-
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <Link
-              to="/admin"
-              className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-            >
-              Entrar al admin
-            </Link>
-            <Link
-              to="/register"
-              className="inline-flex items-center justify-center rounded-2xl bg-[#137fec] px-4 py-3 text-sm font-semibold text-white hover:bg-[#137fec]/90"
-            >
-              Crear mi cuenta
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <FloatingWhatsAppButton />
-    </div>
-  )
-}
-
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<CatalogoPublico />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/catalogo" element={<Navigate to="/" replace />} />
         <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
         <Route path="/:handle" element={<CatalogoTiendaPublica />} />
