@@ -3,6 +3,7 @@ import { slugifyHandle } from '../lib/slug'
 
 const RESERVED_HANDLES = new Set([
   'admin',
+  'superadmin',
   'login',
   'register',
   'dashboard',

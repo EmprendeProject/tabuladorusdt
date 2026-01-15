@@ -232,8 +232,139 @@ create trigger update_tiendas_updated_at
   execute function public.update_updated_at_column();
 
 -- =========================================================
+-- SUPERADMIN + SUSCRIPCIONES
+--
+-- Objetivo:
+-- - Tener un panel /superadmin para ver todas las cuentas (tiendas)
+-- - Marcar si una suscripción está activa/inactiva con un toggle
+-- - Controlar acceso con RLS (solo superadmin)
+--
+-- Nota:
+-- - Para darte permisos de superadmin, debes insertar tu user_id en `app_admins`
+--   desde el SQL Editor (como admin del proyecto).
+-- =========================================================
+
+create table if not exists public.app_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'superadmin',
+  created_at timestamptz not null default now()
+);
+
+alter table public.app_admins enable row level security;
+
+create or replace function public.is_superadmin()
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+    from public.app_admins a
+    where a.user_id = auth.uid()
+      and a.role = 'superadmin'
+  );
+$$;
+
+drop policy if exists "app_admins_select_self" on public.app_admins;
+drop policy if exists "app_admins_select_superadmin" on public.app_admins;
+drop policy if exists "app_admins_write_superadmin" on public.app_admins;
+
+-- Permite que un usuario consulte si él mismo es superadmin.
+create policy "app_admins_select_self"
+  on public.app_admins
+  for select
+  using (auth.uid() = user_id);
+
+-- Permite que un superadmin liste admins.
+create policy "app_admins_select_superadmin"
+  on public.app_admins
+  for select
+  using (public.is_superadmin());
+
+-- Solo superadmin puede insertar/actualizar/eliminar.
+create policy "app_admins_write_superadmin"
+  on public.app_admins
+  for all
+  using (public.is_superadmin())
+  with check (public.is_superadmin());
+
+create table if not exists public.suscripciones (
+  owner_id uuid primary key references auth.users(id) on delete cascade,
+  plan text not null default 'Free',
+  activa boolean not null default false,
+  expires_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.suscripciones enable row level security;
+
+drop policy if exists "suscripciones_select" on public.suscripciones;
+drop policy if exists "suscripciones_insert_superadmin" on public.suscripciones;
+drop policy if exists "suscripciones_update_superadmin" on public.suscripciones;
+drop policy if exists "suscripciones_delete_superadmin" on public.suscripciones;
+
+-- El superadmin puede ver todas; el dueño puede ver la suya (opcional, útil para futuro)
+create policy "suscripciones_select"
+  on public.suscripciones
+  for select
+  using (public.is_superadmin() or auth.uid() = owner_id);
+
+create policy "suscripciones_insert_superadmin"
+  on public.suscripciones
+  for insert
+  with check (public.is_superadmin());
+
+create policy "suscripciones_update_superadmin"
+  on public.suscripciones
+  for update
+  using (public.is_superadmin())
+  with check (public.is_superadmin());
+
+create policy "suscripciones_delete_superadmin"
+  on public.suscripciones
+  for delete
+  using (public.is_superadmin());
+
+drop trigger if exists update_suscripciones_updated_at on public.suscripciones;
+create trigger update_suscripciones_updated_at
+  before update on public.suscripciones
+  for each row
+  execute function public.update_updated_at_column();
+
+-- Permitir al superadmin leer perfiles (email) para el panel.
+drop policy if exists "perfiles_select_superadmin" on public.perfiles;
+create policy "perfiles_select_superadmin"
+  on public.perfiles
+  for select
+  using (public.is_superadmin());
+
+-- =========================================================
 -- NOTA sobre email/clave
 -- =========================================================
 -- Email y contraseña se gestionan en: Authentication -> Users
 -- Este script NO crea columna de contraseña (por seguridad).
 -- Para "jugar" con el email desde SQL/joins en tu esquema public, guardamos una copia del email en public.perfiles.email.
+
+-- =========================================================
+-- BOOTSTRAP SUPERADMIN (ejemplo)
+-- =========================================================
+-- Reemplaza el UUID por tu usuario (Auth -> Users) y ejecútalo UNA VEZ:
+-- insert into public.app_admins (user_id, role)
+-- values ('REEMPLAZA_CON_TU_UUID'::uuid, 'superadmin')
+-- on conflict (user_id) do update set role = excluded.role;
+
+-- =========================================================
+-- PERMISOS (GRANTS) recomendados
+--
+-- Nota:
+-- - RLS controla QUÉ filas puedes ver.
+-- - GRANT controla SI puedes acceder a la tabla.
+-- - Si faltan GRANTs, la app puede fallar con "permission denied" aunque tengas policies.
+-- =========================================================
+
+grant usage on schema public to anon, authenticated;
+
+grant select on table public.app_admins to anon, authenticated;
+grant select, insert, update, delete on table public.suscripciones to authenticated;
+

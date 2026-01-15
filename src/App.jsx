@@ -12,6 +12,7 @@ import FloatingWhatsAppButton from './components/FloatingWhatsAppButton'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import LandingPage from './pages/LandingPage'
+import SuperAdminPage from './pages/SuperAdminPage'
 import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
 
@@ -602,6 +603,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/catalogo" element={<Navigate to="/" replace />} />
         <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
+        <Route path="/superadmin" element={<SuperAdminPage />} />
         <Route path="/:handle" element={<CatalogoTiendaPublica />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
