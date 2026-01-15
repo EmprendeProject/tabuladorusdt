@@ -20,7 +20,11 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
 
   useEffect(() => {
     // Si el usuario cambia de plantilla, no mantenemos un filtro oculto.
-    if (catalogTemplate !== CATALOG_TEMPLATES.MODERN && catalogTemplate !== CATALOG_TEMPLATES.HEAVY) {
+    if (
+      catalogTemplate !== CATALOG_TEMPLATES.MODERN &&
+      catalogTemplate !== CATALOG_TEMPLATES.HEAVY &&
+      catalogTemplate !== CATALOG_TEMPLATES.SIMPLE
+    ) {
       // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
       Promise.resolve().then(() => {
         setCategoriaActiva('');
@@ -50,7 +54,9 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
     const q = query.trim().toLowerCase();
     const cat = String(categoriaActiva || '').trim().toLowerCase();
     const supportsCategoryFilter =
-      catalogTemplate === CATALOG_TEMPLATES.MODERN || catalogTemplate === CATALOG_TEMPLATES.HEAVY;
+      catalogTemplate === CATALOG_TEMPLATES.MODERN ||
+      catalogTemplate === CATALOG_TEMPLATES.HEAVY ||
+      catalogTemplate === CATALOG_TEMPLATES.SIMPLE;
 
     return productosConPrecioSugerido.filter((p) => {
       const nombre = String(p?.nombre || '').toLowerCase();

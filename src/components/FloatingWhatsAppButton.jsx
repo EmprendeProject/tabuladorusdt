@@ -54,7 +54,11 @@ const FloatingWhatsAppButton = ({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="fixed bottom-6 right-6 z-50 inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#25D366] text-white shadow-2xl shadow-emerald-500/30 hover:brightness-95 active:brightness-90 focus:outline-none focus:ring-4 focus:ring-emerald-200"
+      className="fixed z-50 inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#25D366] text-white shadow-2xl shadow-emerald-500/30 hover:brightness-95 active:brightness-90 focus:outline-none focus:ring-4 focus:ring-emerald-200"
+      style={{
+        right: 'var(--catalog-fab-right, 1.5rem)',
+        bottom: 'var(--catalog-fab-bottom, 1.5rem)',
+      }}
       aria-label="Contactar por WhatsApp"
       title="WhatsApp"
     >

@@ -340,7 +340,7 @@ const AdminPage = () => {
 
                   {[{
                     value: CATALOG_TEMPLATES.SIMPLE,
-                    label: 'Simple',
+                    label: 'Elegance',
                   }, {
                     value: CATALOG_TEMPLATES.BOUTIQUE,
                     label: 'Boutique',
