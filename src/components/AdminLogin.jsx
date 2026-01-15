@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ArrowLeft, LogIn, Shield, Sparkles } from 'lucide-react';
+import { ArrowLeft, LogIn, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { authRepository } from '../data/authRepository';
+import logoApp from '../assets/logo app.png';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -33,8 +34,8 @@ const AdminLogin = () => {
         <nav className="sticky top-0 z-50 border-b border-black/5 bg-background-light/80 backdrop-blur-md">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
             <Link to="/" className="flex items-center gap-2">
-              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Sparkles size={20} />
+              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-white/70 border border-black/10 overflow-hidden">
+                <img src={logoApp} alt="Cataly" className="h-8 w-8 object-contain" />
               </span>
               <div className="leading-tight">
                 <div className="text-base font-bold tracking-tight font-display">Cataly</div>

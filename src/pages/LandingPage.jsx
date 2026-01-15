@@ -7,9 +7,9 @@ import {
   LayoutTemplate,
   MessageCircle,
   Quote,
-  Sparkles,
 } from 'lucide-react'
 import { tiendasRepository } from '../data/tiendasRepository'
+import logoApp from '../assets/logo app.png'
 
 export default function LandingPage() {
   const showAdminLink = import.meta.env.VITE_SHOW_ADMIN_LINK !== 'false'
@@ -33,8 +33,8 @@ export default function LandingPage() {
         <nav className="sticky top-0 z-50 border-b border-black/5 bg-background-light/80 backdrop-blur-md">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
             <Link to="/" className="flex items-center gap-2">
-              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Sparkles size={20} />
+              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-white/70 border border-black/10 overflow-hidden">
+                <img src={logoApp} alt="Cataly" className="h-8 w-8 object-contain" />
               </span>
               <div className="leading-tight">
                 <div className="text-base font-bold tracking-tight font-display">Cataly</div>
