@@ -15,10 +15,13 @@ import LandingPage from './pages/LandingPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import PricingPage from './pages/PricingPage'
 import CheckoutPage from './pages/CheckoutPage'
+import PaymentPendingPage from './pages/PaymentPendingPage'
+import PaymentThanksPage from './pages/PaymentThanksPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
 import { suscripcionesRepository } from './data/suscripcionesRepository'
+import { solicitudesPagoRepository } from './data/solicitudesPagoRepository'
 
 const LegacyCatalogRedirect = () => {
   const { handle } = useParams()
@@ -60,6 +63,9 @@ const AdminPage = () => {
   const [subStatus, setSubStatus] = useState(null)
   const [subLoading, setSubLoading] = useState(false)
   const [subError, setSubError] = useState('')
+
+  const [pendingSolicitud, setPendingSolicitud] = useState(null)
+  const [pendingSolicitudLoading, setPendingSolicitudLoading] = useState(false)
 
   const {
     catalogTemplate,
@@ -238,6 +244,36 @@ const AdminPage = () => {
     }
   }, [sessionUserId])
 
+  useEffect(() => {
+    let mounted = true
+
+    if (!sessionUserId) {
+      setPendingSolicitud(null)
+      setPendingSolicitudLoading(false)
+      return () => {
+        mounted = false
+      }
+    }
+
+    ;(async () => {
+      setPendingSolicitudLoading(true)
+      try {
+        const row = await solicitudesPagoRepository.getMyPendingSolicitud()
+        if (!mounted) return
+        setPendingSolicitud(row)
+      } catch {
+        if (!mounted) return
+        setPendingSolicitud(null)
+      } finally {
+        if (mounted) setPendingSolicitudLoading(false)
+      }
+    })()
+
+    return () => {
+      mounted = false
+    }
+  }, [sessionUserId])
+
   const catalogPath = tienda?.handle ? `/${tienda.handle}` : '/'
 
   const dashboardLabel = useMemo(() => {
@@ -310,6 +346,19 @@ const AdminPage = () => {
 
   if (!subStatus?.hasAccess) {
     const expired = Boolean(subStatus?.isExpired)
+
+    if (pendingSolicitudLoading) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
+          Verificando tu pago…
+        </div>
+      )
+    }
+
+    // Si el usuario ya envió comprobante y está en revisión, mostramos la pantalla de espera.
+    if (pendingSolicitud) {
+      return <Navigate to="/pago/pendiente" replace />
+    }
 
     return (
       <div className="min-h-screen bg-background-dark font-[Manrope] antialiased">
@@ -904,6 +953,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/precios" element={<PricingPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/pago/gracias" element={<PaymentThanksPage />} />
+        <Route path="/pago/pendiente" element={<PaymentPendingPage />} />
         <Route path="/catalogo" element={<Navigate to="/" replace />} />
         <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
         <Route path="/superadmin" element={<SuperAdminPage />} />

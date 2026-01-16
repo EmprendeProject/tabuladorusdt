@@ -140,7 +140,7 @@ export default function CheckoutPage() {
 
     setSending(true)
     try {
-      await solicitudesPagoRepository.createSolicitud({
+      const created = await solicitudesPagoRepository.createSolicitud({
         planId: plan?.id,
         planPriceUsd: plan?.price,
         metodo: methodId,
@@ -151,6 +151,13 @@ export default function CheckoutPage() {
       })
 
       setSentOk(true)
+      const query = new URLSearchParams({
+        plan: String(plan?.id || ''),
+        price: String(plan?.price || ''),
+        ref: String(ref || ''),
+        solicitud: String(created?.id || ''),
+      })
+      navigate(`/pago/gracias?${query.toString()}`, { replace: true })
     } catch (e) {
       const msg = String(e?.message || '').trim()
       setSendError(msg || 'No se pudo enviar la solicitud. Revisa tu conexión e inténtalo de nuevo.')

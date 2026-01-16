@@ -695,7 +695,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                   </button>
                 </div>
               ) : (
-                <div className={productosView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-4'}>
+                <div className={productosView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4' : 'space-y-3 sm:space-y-4'}>
                   {productosFiltradosDashboard.map((prod) => {
                     const isVisible = prod.activo !== false;
                     const profitPct = Math.round(Number(prod.profit) || 0);
@@ -705,11 +705,11 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                     return (
                       <div
                         key={prod.id}
-                        className={`rounded-3xl border border-gray-200 overflow-hidden ${isVisible ? 'bg-white' : 'bg-gray-50 opacity-80'}`}
+                        className={`rounded-2xl sm:rounded-3xl border border-gray-200 overflow-hidden ${isVisible ? 'bg-white' : 'bg-gray-50 opacity-80'}`}
                       >
-                        <div className="p-4 flex items-start sm:items-center justify-between gap-3 sm:gap-4">
-                          <div className="flex items-center gap-4 min-w-0">
-                            <div className="w-20 h-20 sm:w-20 sm:h-20 rounded-3xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
+                        <div className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4">
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
                               {prod.imagenUrl ? (
                                 <img
                                   src={prod.imagenUrl}
@@ -724,11 +724,11 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                             </div>
 
                             <div className="min-w-0">
-                              <div className="text-xl sm:text-lg font-extrabold text-gray-900 truncate text-center sm:text-left">
+                              <div className="text-lg sm:text-xl font-extrabold text-gray-900 truncate text-left">
                                 {prod.nombre || 'Sin nombre'}
                               </div>
-                              <div className="mt-2 flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-500">
-                                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                              <div className="mt-1.5 sm:mt-2 flex items-center justify-start gap-2 text-xs text-gray-500">
+                                <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] sm:text-xs font-bold">
                                   {profitPct}% PROFIT
                                 </span>
                                 {prod.categoria ? (
@@ -753,8 +753,8 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-xs font-bold text-gray-400 tracking-wider">PÚBLICO</div>
-                                  <div className="text-3xl sm:text-xl font-black text-blue-600 tabular-nums leading-none">
+                                  <div className="text-[11px] sm:text-xs font-bold text-gray-400 tracking-wider">PÚBLICO</div>
+                                  <div className="text-2xl sm:text-xl md:text-2xl font-black text-blue-600 tabular-nums leading-none">
                                     ${calcularPrecioVenta(usdtValue, Number(prod.profit) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </div>
                                 </div>
@@ -767,7 +767,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               <button
                                 type="button"
                                 onClick={() => startEditingProducto(prod)}
-                                className="p-2 rounded-2xl text-gray-600 hover:bg-gray-50"
+                                className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-gray-600 hover:bg-gray-50"
                                 title="Editar"
                               >
                                 <Pencil size={18} />
@@ -779,7 +779,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                                     type="button"
                                     onClick={() => handleGuardarProducto(prod.id)}
                                     disabled={guardando}
-                                    className="p-2 rounded-2xl text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                    className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                                     title="Guardar"
                                   >
                                     <Save size={18} />
@@ -789,7 +789,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                                 <button
                                   type="button"
                                   onClick={() => discardEditingProducto(prod.id)}
-                                  className="p-2 rounded-2xl text-gray-600 hover:bg-gray-50"
+                                  className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-gray-600 hover:bg-gray-50"
                                   title={hasChanges ? 'Cerrar y descartar cambios' : 'Cerrar edición'}
                                 >
                                   <X size={18} />
@@ -801,13 +801,13 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               <button
                                 type="button"
                                 onClick={() => handleToggleVisible(prod)}
-                                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${isVisible ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                                className={`relative inline-flex h-6 w-10 sm:h-7 sm:w-12 items-center rounded-full transition-colors ${isVisible ? 'bg-emerald-500' : 'bg-gray-300'}`}
                                 aria-pressed={isVisible}
                                 title={isVisible ? 'Ocultar del catálogo' : 'Mostrar en el catálogo'}
                               >
                                 <span
-                                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                                    isVisible ? 'translate-x-5' : 'translate-x-1'
+                                  className={`inline-block h-5 w-5 sm:h-6 sm:w-6 transform rounded-full bg-white transition-transform ${
+                                    isVisible ? 'translate-x-4 sm:translate-x-5' : 'translate-x-1'
                                   }`}
                                 />
                               </button>

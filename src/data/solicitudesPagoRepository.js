@@ -114,6 +114,49 @@ export const solicitudesPagoRepository = {
     return data
   },
 
+  async getMyLatestSolicitud() {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) throw authError
+    if (!user) throw new Error('No hay sesión activa.')
+
+    const { data, error } = await supabase
+      .from('solicitudes_pago')
+      .select('*')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) throw error
+    return data || null
+  },
+
+  async getMyPendingSolicitud() {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) throw authError
+    if (!user) throw new Error('No hay sesión activa.')
+
+    const { data, error } = await supabase
+      .from('solicitudes_pago')
+      .select('*')
+      .eq('owner_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) throw error
+    return data || null
+  },
+
   async listSolicitudes({ status } = {}) {
     const statusNorm = safeTrim(status)
 
