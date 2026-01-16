@@ -544,23 +544,23 @@ const DashboardPrecios = ({ ownerId } = {}) => {
             </h1>
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
             <button
               onClick={() => setGestionarCategoriasOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white text-gray-900 hover:bg-gray-50 border border-gray-200"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-white text-gray-900 hover:bg-gray-50 border border-gray-200"
               title="Gestionar categorías"
               type="button"
             >
               <Tags size={18} />
-              Categorías
+              <span className="hidden sm:inline">Categorías</span>
             </button>
             <button
               onClick={handleAgregarProducto}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 border border-blue-600"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 border border-blue-600"
               title="Agregar producto"
             >
               <Plus size={18} />
-              Agregar
+              <span className="hidden sm:inline">Agregar</span>
             </button>
           </div>
         </div>
