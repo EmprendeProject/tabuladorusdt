@@ -12,13 +12,53 @@ const formatearNumero = (value, digits = 2) => {
 export default function ProductoDetalleModal({ open, producto, onClose }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const touchStartRef = useRef(null)
+  const [shouldRender, setShouldRender] = useState(false)
+  const [isShowing, setIsShowing] = useState(false)
+  const [renderProducto, setRenderProducto] = useState(null)
+
+  const closeTimeoutRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) window.clearTimeout(closeTimeoutRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open && producto) {
+      if (closeTimeoutRef.current) window.clearTimeout(closeTimeoutRef.current)
+      // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
+      Promise.resolve().then(() => {
+        setRenderProducto(producto)
+        setShouldRender(true)
+        // Forzar transición de entrada (montar -> siguiente tick).
+        requestAnimationFrame(() => setIsShowing(true))
+      })
+      return
+    }
+
+    // Animación de salida (mantener montado un rato aunque `open` sea false).
+    // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
+    Promise.resolve().then(() => {
+      setIsShowing(false)
+      if (shouldRender) {
+        if (closeTimeoutRef.current) window.clearTimeout(closeTimeoutRef.current)
+        closeTimeoutRef.current = window.setTimeout(() => {
+          setShouldRender(false)
+          setRenderProducto(null)
+        }, 260)
+      }
+    })
+  }, [open, producto, shouldRender])
+
+  const productoActual = renderProducto || producto
 
   const imagenes = useMemo(() => {
-    const list = Array.isArray(producto?.imagenes) ? producto.imagenes : []
+    const list = Array.isArray(productoActual?.imagenes) ? productoActual.imagenes : []
     const cleaned = list.map((u) => String(u || '').trim()).filter(Boolean)
-    const fallback = String(producto?.imagenUrl || '').trim()
+    const fallback = String(productoActual?.imagenUrl || '').trim()
     return cleaned.length ? cleaned : (fallback ? [fallback] : [])
-  }, [producto])
+  }, [productoActual])
 
   const maxIndex = useMemo(() => Math.max(0, imagenes.length - 1), [imagenes.length])
 
@@ -55,14 +95,14 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
     if (!open) return
     // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
     Promise.resolve().then(() => setActiveIndex(0))
-  }, [open, producto?.id])
+  }, [open, productoActual?.id])
 
-  if (!open || !producto) return null
+  if (!shouldRender || !productoActual) return null
 
-  const nombre = producto?.nombre || 'Producto'
-  const descripcion = String(producto?.descripcion || '').trim()
-  const precio = producto?.precioSugeridoUsd ?? producto?.precioUSDT
-  const tasaBCV = Number(producto?._tasaBCV) || 0
+  const nombre = productoActual?.nombre || 'Producto'
+  const descripcion = String(productoActual?.descripcion || '').trim()
+  const precio = productoActual?.precioSugeridoUsd ?? productoActual?.precioUSDT
+  const tasaBCV = Number(productoActual?._tasaBCV) || 0
   const precioBs = tasaBCV > 0 ? Number(precio || 0) * tasaBCV : null
 
   const onTouchStart = (e) => {
@@ -90,11 +130,28 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[80]">
-      <div className="absolute inset-0 bg-black/50" onClick={() => onClose?.()} aria-hidden="true" />
+      <div
+        className={
+          'absolute inset-0 bg-black/50 transition-opacity duration-300 ' +
+          (isShowing ? 'opacity-100' : 'opacity-0')
+        }
+        onClick={() => onClose?.()}
+        aria-hidden="true"
+      />
 
-      <div className="absolute inset-0 flex items-center justify-center p-3" role="dialog" aria-modal="true">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[92vh]">
-          <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
+      <div
+        className="absolute inset-0 flex items-end sm:items-center justify-center p-0 sm:p-3"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          className={
+            'w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col ' +
+            'transform transition-transform duration-300 ease-out ' +
+            (isShowing ? 'translate-y-0' : 'translate-y-full')
+          }
+        >
+          <header className="shrink-0 sticky top-0 z-10 bg-white flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
             <div className="min-w-0">
               <div className="text-sm font-semibold text-gray-900 truncate">{nombre}</div>
               <div className="text-xs text-gray-500">Detalle del producto</div>
@@ -110,7 +167,7 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
             </button>
           </header>
 
-          <div className="p-4 overflow-y-auto">
+          <div className="flex-1 min-h-0 p-4 overflow-y-auto overscroll-contain">
             <div
               className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-100"
               onTouchStart={onTouchStart}
