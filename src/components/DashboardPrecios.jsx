@@ -540,7 +540,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
           <div className="min-w-0">
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
               <Package className="text-blue-600" size={22} />
-              Dashboard
+              Panel de Control
             </h1>
           </div>
 
@@ -553,14 +553,6 @@ const DashboardPrecios = ({ ownerId } = {}) => {
             >
               <Tags size={18} />
               <span className="hidden sm:inline">Categorías</span>
-            </button>
-            <button
-              onClick={handleAgregarProducto}
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 border border-blue-600"
-              title="Agregar producto"
-            >
-              <Plus size={18} />
-              <span className="hidden sm:inline">Agregar</span>
             </button>
           </div>
         </div>
