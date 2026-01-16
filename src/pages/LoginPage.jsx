@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { authRepository } from '../data/authRepository'
@@ -7,8 +7,10 @@ import { perfilesRepository } from '../data/perfilesRepository'
 import { tiendasRepository } from '../data/tiendasRepository'
 import { supabase } from '../lib/supabase'
 
-export default function LoginPage({ redirectTo = '/admin', preferredHandle } = {}) {
+export default function LoginPage({ redirectTo: redirectToProp = '/admin', preferredHandle } = {}) {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const redirectTo = params.get('redirectTo') || redirectToProp
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

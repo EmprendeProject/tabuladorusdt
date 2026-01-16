@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getPricingPlanById, PRICING_PLANS } from '../data/pricingPlans'
 import { useTasas } from '../hooks/useTasas'
+import { useAuthSession } from '../hooks/useAuthSession'
+import { solicitudesPagoRepository } from '../data/solicitudesPagoRepository'
 
 const METHODS = [
   {
@@ -54,6 +56,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { tasaUSDT, cargandoUSDT } = useTasas()
+  const { session } = useAuthSession()
 
   const planId = params.get('plan')
   const plan = useMemo(() => getPricingPlanById(planId) || PRICING_PLANS.find((p) => p.featured) || PRICING_PLANS[0], [planId])
@@ -62,6 +65,10 @@ export default function CheckoutPage() {
   const [referenceNumber, setReferenceNumber] = useState('')
   const [paymentDate, setPaymentDate] = useState(() => formatLocalDateInputValue(new Date()))
   const [proofFile, setProofFile] = useState(null)
+
+  const [sending, setSending] = useState(false)
+  const [sentOk, setSentOk] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   const fileInputRef = useRef(null)
 
@@ -91,10 +98,65 @@ export default function CheckoutPage() {
     setProofFile(file)
   }
 
-  const onConfirm = () => {
-    // Placeholder: aquí puedes integrar Supabase/Stripe, etc.
-    // Por ahora solo dejamos listo el UI.
-    navigate('/register')
+  const onConfirm = async () => {
+    setSendError('')
+
+    const planIdSafe = plan?.id || ''
+    const returnTo = `/checkout?plan=${encodeURIComponent(planIdSafe)}`
+
+    if (!session) {
+      navigate(`/register?redirectTo=${encodeURIComponent(returnTo)}`)
+      return
+    }
+
+    if (sending) return
+
+    const ref = String(referenceNumber || '').trim()
+    if (!/^[0-9]{6,8}$/.test(ref)) {
+      setSendError('La referencia debe tener 6 a 8 dígitos.')
+      return
+    }
+
+    if (!paymentDate) {
+      setSendError('Selecciona la fecha de pago.')
+      return
+    }
+
+    if (!proofFile) {
+      setSendError('Adjunta el comprobante de pago (imagen o PDF).')
+      return
+    }
+
+    const maxBytes = 5 * 1024 * 1024
+    if (proofFile.size > maxBytes) {
+      setSendError('El comprobante supera 5MB. Intenta con una imagen más liviana o PDF comprimido.')
+      return
+    }
+
+    if (methodId === 'ves' && (cargandoUSDT || !amountBs)) {
+      setSendError('Aún estamos calculando el monto en bolívares. Intenta de nuevo en unos segundos.')
+      return
+    }
+
+    setSending(true)
+    try {
+      await solicitudesPagoRepository.createSolicitud({
+        planId: plan?.id,
+        planPriceUsd: plan?.price,
+        metodo: methodId,
+        montoBs: methodId === 'ves' ? amountBs : null,
+        referencia: ref,
+        fechaPago: paymentDate,
+        comprobanteFile: proofFile,
+      })
+
+      setSentOk(true)
+    } catch (e) {
+      const msg = String(e?.message || '').trim()
+      setSendError(msg || 'No se pudo enviar la solicitud. Revisa tu conexión e inténtalo de nuevo.')
+    } finally {
+      setSending(false)
+    }
   }
 
   const method = METHODS.find((m) => m.id === methodId) || METHODS[0]
@@ -221,6 +283,41 @@ export default function CheckoutPage() {
         </section>
 
         <section className="px-6 space-y-6">
+          {sentOk ? (
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
+              <h5 className="mb-1 text-sm font-bold uppercase tracking-wide text-emerald-300">Solicitud enviada</h5>
+              <p className="text-xs leading-relaxed text-white/70">
+                Recibimos tu comprobante. Nuestro equipo lo verificará y activará tu acceso.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin')}
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/15"
+                >
+                  Ir al panel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSentOk(false)
+                    setProofFile(null)
+                    setReferenceNumber('')
+                  }}
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 text-sm font-semibold text-white/80 hover:bg-white/5"
+                >
+                  Enviar otro
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {sendError ? (
+            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-200">
+              {sendError}
+            </div>
+          ) : null}
+
           <div className="space-y-4">
             <div>
               <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
@@ -318,9 +415,10 @@ export default function CheckoutPage() {
           <button
             type="button"
             onClick={onConfirm}
-            className="flex h-16 w-full max-w-[432px] items-center justify-center gap-2 rounded-2xl bg-primary text-xl font-black text-white shadow-[0_8px_30px_rgba(255,45,146,0.4)] transition-transform active:scale-95 uppercase tracking-tight"
+            disabled={sending || sentOk}
+            className="flex h-16 w-full max-w-[432px] items-center justify-center gap-2 rounded-2xl bg-primary text-xl font-black text-white shadow-[0_8px_30px_rgba(255,45,146,0.4)] transition-transform active:scale-95 uppercase tracking-tight disabled:opacity-60 disabled:active:scale-100"
           >
-            Confirmar pago
+            {sending ? 'Enviando…' : sentOk ? 'Enviado' : 'Confirmar pago'}
             <span className="material-symbols-outlined font-bold">check_circle</span>
           </button>
         </div>

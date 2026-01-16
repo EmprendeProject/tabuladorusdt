@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { Check, Copy, LogOut, Palette, Store, User, X } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
@@ -15,8 +15,10 @@ import LandingPage from './pages/LandingPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import PricingPage from './pages/PricingPage'
 import CheckoutPage from './pages/CheckoutPage'
+import NotFoundPage from './pages/NotFoundPage'
 import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
+import { suscripcionesRepository } from './data/suscripcionesRepository'
 
 const LegacyCatalogRedirect = () => {
   const { handle } = useParams()
@@ -24,6 +26,7 @@ const LegacyCatalogRedirect = () => {
 }
 
 const AdminPage = () => {
+  const navigate = useNavigate()
   const { session, cargando, error, cerrarSesion } = useAuthSession()
   const [themesOpen, setThemesOpen] = useState(false)
   const [tienda, setTienda] = useState(null)
@@ -53,6 +56,10 @@ const AdminPage = () => {
   const sessionUserId = session?.user?.id
   const sessionEmail = session?.user?.email
   const sessionBusinessName = session?.user?.user_metadata?.business_name || session?.user?.user_metadata?.businessName
+
+  const [subStatus, setSubStatus] = useState(null)
+  const [subLoading, setSubLoading] = useState(false)
+  const [subError, setSubError] = useState('')
 
   const {
     catalogTemplate,
@@ -198,6 +205,39 @@ const AdminPage = () => {
     }
   }, [sessionUserId, sessionEmail, sessionBusinessName])
 
+  useEffect(() => {
+    let mounted = true
+
+    if (!sessionUserId) {
+      setSubStatus(null)
+      setSubError('')
+      setSubLoading(false)
+      return () => {
+        mounted = false
+      }
+    }
+
+    ;(async () => {
+      setSubLoading(true)
+      setSubError('')
+      try {
+        const status = await suscripcionesRepository.getMyStatus()
+        if (!mounted) return
+        setSubStatus(status)
+      } catch (e) {
+        if (!mounted) return
+        setSubStatus(null)
+        setSubError(e?.message || 'No se pudo verificar tu suscripción.')
+      } finally {
+        if (mounted) setSubLoading(false)
+      }
+    })()
+
+    return () => {
+      mounted = false
+    }
+  }, [sessionUserId])
+
   const catalogPath = tienda?.handle ? `/${tienda.handle}` : '/'
 
   const dashboardLabel = useMemo(() => {
@@ -239,6 +279,143 @@ const AdminPage = () => {
 
   if (!session) {
     return <Navigate to="/login" replace />
+  }
+
+  if (subLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
+        Verificando tu suscripción…
+      </div>
+    )
+  }
+
+  if (subError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
+          <div className="text-base font-semibold text-gray-900">No se pudo validar el acceso</div>
+          <div className="mt-2 text-sm text-gray-600">{subError}</div>
+          <div className="mt-4 flex gap-2">
+            <Link to="/precios" className="inline-flex items-center justify-center rounded-xl bg-gray-900 text-white px-4 h-10 text-sm font-semibold">
+              Ver planes
+            </Link>
+            <button type="button" onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 px-4 h-10 text-sm font-semibold">
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!subStatus?.hasAccess) {
+    const expired = Boolean(subStatus?.isExpired)
+
+    return (
+      <div className="min-h-screen bg-background-dark font-[Manrope] antialiased">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+          <div
+            className="absolute top-[-50px] left-[-50px] h-[300px] w-[300px] rounded-full pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(255,51,153,0.22) 0%, rgba(255,51,153,0) 70%)',
+            }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute bottom-[10%] right-[-100px] h-[400px] w-[400px] rounded-full pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(255,51,153,0.16) 0%, rgba(255,51,153,0) 60%)',
+            }}
+            aria-hidden="true"
+          />
+
+          <div className="flex items-center p-6 pb-2 justify-between z-10">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="text-white/80 flex size-10 shrink-0 items-center justify-start"
+              aria-label="Volver"
+              title="Volver"
+            >
+              <span className="material-symbols-outlined cursor-pointer">arrow_back_ios</span>
+            </button>
+            <h2 className="text-white text-lg font-bold tracking-tight flex-1 text-center pr-10">Cataly</h2>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 z-10">
+            <div className="w-full max-w-sm mb-12 text-center">
+              <div className="relative inline-flex items-center justify-center">
+                <div className="absolute w-32 h-32 bg-primary/20 blur-3xl rounded-full" aria-hidden="true" />
+                <div className="relative w-40 h-40 rounded-full flex items-center justify-center border border-primary/30 bg-white/5 backdrop-blur-[16px]">
+                  <span
+                    className="material-symbols-outlined text-[84px] text-primary"
+                    style={{
+                      fontVariationSettings: "'FILL' 1, 'wght' 300",
+                      textShadow: '0 0 20px rgba(255,51,153,0.6)',
+                    }}
+                    aria-hidden="true"
+                  >
+                    lock_clock
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full max-w-sm rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl bg-white/5 backdrop-blur-[16px] border border-white/10">
+              <div className="mb-2 inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                <span className="text-primary text-[10px] uppercase font-bold tracking-widest">Suscripción</span>
+              </div>
+
+              <h3 className="text-white text-3xl font-extrabold leading-tight pb-3">
+                {expired ? '¡Hey! Tu plan está vencido' : '¡Hey! Tu acceso está pendiente'}
+              </h3>
+
+              <p className="text-white/70 text-base font-medium leading-relaxed mb-10 max-w-[240px]">
+                {expired ? (
+                  <>
+                    Realiza tu pago para seguir disfrutando de <span className="text-primary font-bold">Cataly</span>
+                  </>
+                ) : (
+                  <>
+                    Envía tu comprobante y activa tu acceso a <span className="text-primary font-bold">Cataly</span>
+                  </>
+                )}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate('/precios')}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-2xl transition-all duration-300 shadow-[0_8px_30px_rgba(255,51,153,0.3)] flex items-center justify-center gap-3 active:scale-[0.98]"
+              >
+                <span className="material-symbols-outlined">payments</span>
+                Realizar pago
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = 'mailto:soporte@cataly.app'
+                }}
+                className="mt-8 text-white/40 text-sm font-semibold hover:text-white transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-lg">support_agent</span>
+                Contactar soporte técnico
+              </button>
+            </div>
+
+            <div className="mt-12 flex items-center gap-2 opacity-20 grayscale">
+              <div className="h-[1px] w-8 bg-white" />
+              <span className="text-[10px] tracking-[0.2em] uppercase font-bold text-white">Security &amp; Billing</span>
+              <div className="h-[1px] w-8 bg-white" />
+            </div>
+          </div>
+
+          <div className="h-10" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -550,6 +727,9 @@ const CatalogoTiendaPublica = () => {
   const [error, setError] = useState('')
   const [telefonoWhatsApp, setTelefonoWhatsApp] = useState('')
 
+  const [catalogAllowed, setCatalogAllowed] = useState(true)
+  const [catalogChecking, setCatalogChecking] = useState(false)
+
   useEffect(() => {
     let mounted = true
 
@@ -580,6 +760,40 @@ const CatalogoTiendaPublica = () => {
       mounted = false
     }
   }, [handle])
+
+  useEffect(() => {
+    let mounted = true
+
+    if (!tienda?.ownerId) {
+      Promise.resolve().then(() => {
+        if (!mounted) return
+        setCatalogAllowed(true)
+        setCatalogChecking(false)
+      })
+      return () => {
+        mounted = false
+      }
+    }
+
+    ;(async () => {
+      setCatalogChecking(true)
+      try {
+        const allowed = await suscripcionesRepository.getCatalogAccessForOwner(tienda.ownerId)
+        if (!mounted) return
+        // Si la función aún no existe (null), no bloqueamos el catálogo.
+        setCatalogAllowed(typeof allowed === 'boolean' ? allowed : true)
+      } catch {
+        if (!mounted) return
+        setCatalogAllowed(true)
+      } finally {
+        if (mounted) setCatalogChecking(false)
+      }
+    })()
+
+    return () => {
+      mounted = false
+    }
+  }, [tienda?.ownerId])
 
   useEffect(() => {
     let mounted = true
@@ -624,15 +838,39 @@ const CatalogoTiendaPublica = () => {
 
   if (!tienda) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="border-b bg-white">
-          <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-gray-800">Catálogo</span>
-            <Link to="/admin" className="text-sm text-gray-600 hover:text-gray-900">Mi catálogo</Link>
-          </div>
-        </div>
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-10 text-gray-600">No se encontró esta tienda.</div>
-      </div>
+      <NotFoundPage
+        title="¡Hey! No se encontró esta ruta"
+        description={
+          <>
+            Esta página no existe o el enlace no es válido. Regístrate en{' '}
+            <span className="text-primary font-bold">Cataly</span> para crear o reactivar tu catálogo.
+          </>
+        }
+        primaryCtaLabel="Ir al inicio"
+        primaryCtaTo="/"
+      />
+    )
+  }
+
+  if (catalogChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">Cargando…</div>
+    )
+  }
+
+  if (!catalogAllowed) {
+    return (
+      <NotFoundPage
+        title="¡Hey! No se encontró esta ruta"
+        description={
+          <>
+            Tu suscripción ha expirado o el enlace no es válido. Regístrate en{' '}
+            <span className="text-primary font-bold">Cataly</span> para reactivar tu catálogo.
+          </>
+        }
+        primaryCtaLabel="Ir al inicio"
+        primaryCtaTo="/"
+      />
     )
   }
 
@@ -674,7 +912,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   )

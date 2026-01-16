@@ -67,3 +67,67 @@ USING (
   AND auth.uid() IS NOT NULL
   AND name LIKE ('productos/' || auth.uid()::text || '/%')
 );
+
+-- ============================================
+-- POLÍTICAS RLS PARA COMPROBANTES (BUCKET: payment-proofs)
+-- ============================================
+-- Objetivo:
+-- - Bucket PRIVADO (sin lectura pública)
+-- - El usuario solo puede subir/ver/borrar sus comprobantes en:
+--     payments/{auth.uid()}/...
+-- - El superadmin puede ver TODOS los comprobantes para verificar pagos.
+
+DROP POLICY IF EXISTS "User select own payment proofs" ON storage.objects;
+DROP POLICY IF EXISTS "User insert own payment proofs" ON storage.objects;
+DROP POLICY IF EXISTS "User update own payment proofs" ON storage.objects;
+DROP POLICY IF EXISTS "User delete own payment proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Superadmin select payment proofs" ON storage.objects;
+
+-- 1) Select: dueño de su carpeta
+CREATE POLICY "User select own payment proofs"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'payment-proofs'
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('payments/' || auth.uid()::text || '/%')
+);
+
+-- 1b) Select: superadmin puede ver todos
+CREATE POLICY "Superadmin select payment proofs"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'payment-proofs'
+  AND public.is_superadmin()
+);
+
+-- 2) Insert: dueño dentro de su carpeta
+CREATE POLICY "User insert own payment proofs"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'payment-proofs'
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('payments/' || auth.uid()::text || '/%')
+);
+
+-- 3) Update: dueño dentro de su carpeta (por si usas upsert)
+CREATE POLICY "User update own payment proofs"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'payment-proofs'
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('payments/' || auth.uid()::text || '/%')
+)
+WITH CHECK (
+  bucket_id = 'payment-proofs'
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('payments/' || auth.uid()::text || '/%')
+);
+
+-- 4) Delete: dueño dentro de su carpeta
+CREATE POLICY "User delete own payment proofs"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'payment-proofs'
+  AND auth.uid() IS NOT NULL
+  AND name LIKE ('payments/' || auth.uid()::text || '/%')
+);

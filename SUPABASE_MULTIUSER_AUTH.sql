@@ -360,8 +360,6 @@ as $$
 $$;
 
 drop policy if exists "app_admins_select_self" on public.app_admins;
-drop policy if exists "app_admins_select_superadmin" on public.app_admins;
-drop policy if exists "app_admins_write_superadmin" on public.app_admins;
 
 -- Permite que un usuario consulte si él mismo es superadmin.
 create policy "app_admins_select_self"
@@ -369,18 +367,10 @@ create policy "app_admins_select_self"
   for select
   using (auth.uid() = user_id);
 
--- Permite que un superadmin liste admins.
-create policy "app_admins_select_superadmin"
-  on public.app_admins
-  for select
-  using (public.is_superadmin());
-
--- Solo superadmin puede insertar/actualizar/eliminar.
-create policy "app_admins_write_superadmin"
-  on public.app_admins
-  for all
-  using (public.is_superadmin())
-  with check (public.is_superadmin());
+-- IMPORTANTE:
+-- No creamos policies que llamen a public.is_superadmin() SOBRE la tabla public.app_admins,
+-- porque public.is_superadmin() consulta public.app_admins y eso puede causar recursión
+-- (stack depth limit exceeded). La administración de app_admins se hace desde SQL Editor.
 
 create table if not exists public.suscripciones (
   owner_id uuid primary key references auth.users(id) on delete cascade,
@@ -434,6 +424,77 @@ create policy "perfiles_select_superadmin"
   using (public.is_superadmin());
 
 -- =========================================================
+-- SOLICITUDES DE PAGO (manual): comprobante + aprobación
+--
+-- Flujo:
+-- - El dueño envía una solicitud desde /checkout (status = pending)
+-- - El superadmin revisa en /superadmin (tab Cobros) y aprueba/rechaza
+-- - Al aprobar, se activa/actualiza public.suscripciones
+--
+-- Nota:
+-- - `comprobante_path` apunta a un objeto en Supabase Storage (bucket privado).
+-- =========================================================
+
+create table if not exists public.solicitudes_pago (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  plan_id text not null,
+  plan_price_usd numeric(10,2) not null,
+  metodo text not null check (metodo in ('ves', 'binance')),
+  monto_bs numeric(14,2) null,
+  referencia text not null,
+  fecha_pago date not null,
+  comprobante_path text not null,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  reviewed_by uuid null references auth.users(id) on delete set null,
+  reviewed_at timestamptz null,
+  review_note text null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_solicitudes_pago_owner_id on public.solicitudes_pago(owner_id);
+create index if not exists idx_solicitudes_pago_status_created_at on public.solicitudes_pago(status, created_at);
+
+alter table public.solicitudes_pago enable row level security;
+
+drop policy if exists "solicitudes_pago_select" on public.solicitudes_pago;
+drop policy if exists "solicitudes_pago_insert_own" on public.solicitudes_pago;
+drop policy if exists "solicitudes_pago_update_superadmin" on public.solicitudes_pago;
+drop policy if exists "solicitudes_pago_delete_superadmin" on public.solicitudes_pago;
+
+-- El dueño ve sus solicitudes; el superadmin ve todas.
+create policy "solicitudes_pago_select"
+  on public.solicitudes_pago
+  for select
+  using (public.is_superadmin() or auth.uid() = owner_id);
+
+-- El dueño crea su solicitud.
+create policy "solicitudes_pago_insert_own"
+  on public.solicitudes_pago
+  for insert
+  with check (auth.uid() = owner_id);
+
+-- Solo el superadmin puede actualizar (aprobar/rechazar).
+create policy "solicitudes_pago_update_superadmin"
+  on public.solicitudes_pago
+  for update
+  using (public.is_superadmin())
+  with check (public.is_superadmin());
+
+-- (Opcional) Solo superadmin puede borrar.
+create policy "solicitudes_pago_delete_superadmin"
+  on public.solicitudes_pago
+  for delete
+  using (public.is_superadmin());
+
+drop trigger if exists update_solicitudes_pago_updated_at on public.solicitudes_pago;
+create trigger update_solicitudes_pago_updated_at
+  before update on public.solicitudes_pago
+  for each row
+  execute function public.update_updated_at_column();
+
+-- =========================================================
 -- NOTA sobre email/clave
 -- =========================================================
 -- Email y contraseña se gestionan en: Authentication -> Users
@@ -461,4 +522,36 @@ grant usage on schema public to anon, authenticated;
 
 grant select on table public.app_admins to anon, authenticated;
 grant select, insert, update, delete on table public.suscripciones to authenticated;
+
+-- =========================================================
+-- CATÁLOGO PÚBLICO: disponibilidad por suscripción
+--
+-- Permite que el frontend (anon key) consulte si un catálogo está habilitado
+-- sin exponer la tabla `suscripciones` públicamente.
+--
+-- Uso desde JS:
+--   supabase.rpc('is_catalog_active', { p_owner_id: '<uuid>' })
+-- =========================================================
+
+create or replace function public.is_catalog_active(p_owner_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (
+      select (s.activa = true) and (s.expires_at is null or s.expires_at > now())
+      from public.suscripciones s
+      where s.owner_id = p_owner_id
+      limit 1
+    ),
+    false
+  );
+$$;
+
+grant execute on function public.is_catalog_active(uuid) to anon, authenticated;
+
+grant select, insert, update, delete on table public.solicitudes_pago to authenticated;
 
