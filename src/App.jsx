@@ -8,6 +8,7 @@ import { useCatalogTemplate } from './hooks/useCatalogTemplate'
 import DashboardPrecios from './components/DashboardPrecios'
 import CatalogoProductos from './components/CatalogoProductos'
 import FloatingWhatsAppButton from './components/FloatingWhatsAppButton'
+import FloatingLocationButton from './components/FloatingLocationButton'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -53,6 +54,7 @@ const AdminPage = () => {
   const [profileNombreNegocio, setProfileNombreNegocio] = useState('')
   const [profileDireccion, setProfileDireccion] = useState('')
   const [profileTelefono, setProfileTelefono] = useState('')
+  const [profileMapsUrl, setProfileMapsUrl] = useState('')
 
   const normalizeTelefono = (telefono) => String(telefono || '').replace(/\D/g, '')
 
@@ -92,6 +94,7 @@ const AdminPage = () => {
     setProfileLoading(true)
     try {
       const perfil = await perfilesRepository.getMine()
+      const catalogContacto = await perfilesRepository.getMyCatalogContact()
       const myTienda = (await tiendasRepository.getMine()) || (await tiendasRepository.ensureMine({ nombreNegocio: sessionBusinessName }))
       const fallbackNombre = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || ''
       setProfileNombreCompleto(perfil?.nombreCompleto || fallbackNombre)
@@ -99,6 +102,7 @@ const AdminPage = () => {
       setProfileDireccion(perfil?.direccion || '')
       // No mostramos teléfono en UI (se eliminó del registro), pero lo preservamos para no pisarlo al guardar.
       setProfileTelefono(perfil?.telefono || '')
+      setProfileMapsUrl(catalogContacto?.mapsUrl || '')
     } catch (e) {
       setProfileError(e?.message || 'No se pudieron cargar tus datos.')
     } finally {
@@ -127,6 +131,7 @@ const AdminPage = () => {
         nombreCompleto: profileNombreCompleto,
         telefono: telefonoDigits,
         direccion: profileDireccion,
+        mapsUrl: profileMapsUrl,
       })
 
       // Asegurar tienda y actualizar nombre de negocio.
@@ -713,6 +718,23 @@ const AdminPage = () => {
                     </div>
 
                     <div>
+                      <label className="block text-sm font-medium text-gray-700">Ubicación (Google Maps)</label>
+                      <input
+                        type="url"
+                        value={profileMapsUrl}
+                        onChange={(e) => setProfileMapsUrl(e.target.value)}
+                        onBlur={() => setProfileMapsUrl((v) => String(v || '').trim())}
+                        className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+                        placeholder="https://maps.app.goo.gl/... o https://www.google.com/maps?..."
+                        autoComplete="url"
+                        inputMode="url"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Recomendado: abre Google Maps → Compartir → Copiar enlace. Así tus clientes llegan exacto a tu local.
+                      </p>
+                    </div>
+
+                    <div>
                       <label className="block text-sm font-medium text-gray-700">Teléfono</label>
                       <input
                         type="tel"
@@ -775,6 +797,8 @@ const CatalogoTiendaPublica = () => {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [telefonoWhatsApp, setTelefonoWhatsApp] = useState('')
+  const [direccionNegocio, setDireccionNegocio] = useState('')
+  const [mapsUrlNegocio, setMapsUrlNegocio] = useState('')
 
   const [catalogAllowed, setCatalogAllowed] = useState(true)
   const [catalogChecking, setCatalogChecking] = useState(false)
@@ -851,6 +875,8 @@ const CatalogoTiendaPublica = () => {
       Promise.resolve().then(() => {
         if (!mounted) return
         setTelefonoWhatsApp('')
+        setDireccionNegocio('')
+        setMapsUrlNegocio('')
       })
       return () => {
         mounted = false
@@ -862,9 +888,13 @@ const CatalogoTiendaPublica = () => {
         const contacto = await perfilesRepository.getPublicContactByUserId(tienda.ownerId)
         if (!mounted) return
         setTelefonoWhatsApp(contacto?.telefono || '')
+        setDireccionNegocio(contacto?.direccion || '')
+        setMapsUrlNegocio(contacto?.mapsUrl || '')
       } catch {
         if (!mounted) return
         setTelefonoWhatsApp('')
+        setDireccionNegocio('')
+        setMapsUrlNegocio('')
       }
     })()
 
@@ -933,6 +963,8 @@ const CatalogoTiendaPublica = () => {
       </div>
 
       <CatalogoProductos ownerId={tienda.ownerId} brandName={tienda?.nombreNegocio || ''} />
+
+      <FloatingLocationButton url={mapsUrlNegocio} />
 
       <FloatingWhatsAppButton
         number={telefonoWhatsApp}

@@ -32,7 +32,7 @@ export const perfilesRepository = {
     }
   },
 
-  async upsertMine({ nombreCompleto, telefono, direccion }) {
+  async upsertMine({ nombreCompleto, telefono, direccion, mapsUrl }) {
     const {
       data: { user },
       error: authError,
@@ -67,6 +67,8 @@ export const perfilesRepository = {
           {
             owner_id: user.id,
             telefono: normalizeTelefono(telefono),
+            direccion: direccion ? String(direccion).trim() : null,
+            maps_url: mapsUrl ? String(mapsUrl).trim() : null,
           },
           { onConflict: 'owner_id' },
         )
@@ -91,12 +93,17 @@ export const perfilesRepository = {
     try {
       const { data, error } = await supabase
         .from('catalog_contactos')
-        .select('owner_id,telefono')
+        .select('owner_id,telefono,direccion,maps_url')
         .eq('owner_id', id)
         .maybeSingle()
 
       if (!error && data) {
-        return { ownerId: data.owner_id, telefono: data.telefono }
+        return {
+          ownerId: data.owner_id,
+          telefono: data.telefono,
+          direccion: data.direccion,
+          mapsUrl: data.maps_url,
+        }
       }
     } catch {
       // noop
@@ -106,13 +113,42 @@ export const perfilesRepository = {
     try {
       const { data, error } = await supabase
         .from('perfiles')
-        .select('user_id,telefono')
+        .select('user_id,telefono,direccion')
         .eq('user_id', id)
         .maybeSingle()
 
       if (error) return null
       if (!data) return null
-      return { ownerId: data.user_id, telefono: data.telefono }
+      return { ownerId: data.user_id, telefono: data.telefono, direccion: data.direccion }
+    } catch {
+      return null
+    }
+  },
+
+  async getMyCatalogContact() {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) throw authError
+    if (!user) return null
+
+    try {
+      const { data, error } = await supabase
+        .from('catalog_contactos')
+        .select('owner_id,telefono,direccion,maps_url')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+
+      if (error) return null
+      if (!data) return null
+      return {
+        ownerId: data.owner_id,
+        telefono: data.telefono,
+        direccion: data.direccion,
+        mapsUrl: data.maps_url,
+      }
     } catch {
       return null
     }
