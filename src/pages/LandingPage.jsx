@@ -184,7 +184,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing */}
+        {/*
+        Pricing
         <section id="planes" className="py-20 bg-white/5 border-y border-white/10">
           <div className="px-6 max-w-screen-xl mx-auto">
             <div className="text-center mb-16">
@@ -272,6 +273,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+        */}
 
         {/* Footer */}
         <footer className="py-12 px-6 border-t border-white/10">
