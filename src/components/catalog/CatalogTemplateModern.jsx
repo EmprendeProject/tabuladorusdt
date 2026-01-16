@@ -16,7 +16,7 @@ const Chip = ({ active, children, onClick }) => {
       onClick={onClick}
       className={
         active
-          ? 'flex h-9 shrink-0 items-center justify-center rounded-full bg-[#137fec] px-5 shadow-md shadow-blue-500/20'
+          ? 'flex h-9 shrink-0 items-center justify-center rounded-full bg-black px-5 shadow-md shadow-black/20'
           : 'flex h-9 shrink-0 items-center justify-center rounded-full bg-white px-5 border border-gray-100'
       }
     >
