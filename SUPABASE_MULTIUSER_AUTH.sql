@@ -381,6 +381,35 @@ create table if not exists public.suscripciones (
   updated_at timestamptz not null default now()
 );
 
+-- =========================================================
+-- TRIAL AUTOMÁTICO: 5 días gratis al registrarse
+--
+-- Crea una suscripción inicial al momento de crear un usuario en auth.users.
+-- Nota: se usa SECURITY DEFINER (patrón estándar Supabase) y ON CONFLICT DO NOTHING
+-- para que sea idempotente.
+-- =========================================================
+
+create or replace function public.handle_new_user_trial_5_days()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.suscripciones (owner_id, plan, activa, expires_at)
+  values (new.id, 'trial', true, now() + interval '5 days')
+  on conflict (owner_id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_trial_5_days on auth.users;
+create trigger on_auth_user_created_trial_5_days
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user_trial_5_days();
+
 alter table public.suscripciones enable row level security;
 
 drop policy if exists "suscripciones_select" on public.suscripciones;
