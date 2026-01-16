@@ -13,6 +13,8 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import LandingPage from './pages/LandingPage'
 import SuperAdminPage from './pages/SuperAdminPage'
+import PricingPage from './pages/PricingPage'
+import CheckoutPage from './pages/CheckoutPage'
 import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
 
@@ -662,6 +664,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/precios" element={<PricingPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/catalogo" element={<Navigate to="/" replace />} />
         <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
         <Route path="/superadmin" element={<SuperAdminPage />} />

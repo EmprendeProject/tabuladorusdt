@@ -43,6 +43,12 @@ export default function LandingPage() {
             </Link>
 
             <div className="flex items-center gap-2">
+              <Link
+                to="/precios"
+                className="hidden sm:inline-flex items-center justify-center rounded-full border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold hover:bg-white"
+              >
+                Precios
+              </Link>
               {showAdminLink ? (
                 <Link
                   to="/admin"
