@@ -22,12 +22,17 @@ export const authRepository = {
     if (error) throw error
   },
 
-  async signUp({ email, password, data }) {
+  async signUp({ email, password, data, emailRedirectTo }) {
+    const redirectTo =
+      emailRedirectTo ||
+      (typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined)
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: data || {},
+        ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
       },
     })
     if (error) throw error

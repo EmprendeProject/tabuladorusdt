@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Confirma tu correo — Cataly</title>
+    <style>
+      /* Email-safe fallbacks */
+      body {
+        margin: 0;
+        padding: 0;
+        background: #14060c;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Arial, sans-serif;
+      }
+      a {
+        color: #ff3399;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Preheader (hidden) -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      Confirma tu correo para activar tu cuenta en Cataly.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#14060c;">
+      <tr>
+        <td align="center" style="padding: 32px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px;">
+            <!-- Header -->
+            <tr>
+              <td style="padding: 0 8px 16px 8px;">
+                <div style="text-align:left;">
+                  <div style="font-size: 22px; font-weight: 900; letter-spacing: -0.02em;">
+                    Cataly
+                  </div>
+                  <div style="margin-top: 6px; font-size: 13px; color: rgba(255,255,255,0.90);">
+                    Tu catálogo en un link.
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Card -->
+            <tr>
+              <td style="padding: 0 8px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-radius: 20px; overflow: hidden;">
+                  <tr>
+                    <td style="background: radial-gradient(circle at 20% 10%, rgba(255,51,153,0.26) 0%, rgba(20,6,12,0) 55%), radial-gradient(circle at 90% 30%, rgba(168,85,247,0.20) 0%, rgba(20,6,12,0) 55%), #1a0811; border: 1px solid rgba(255,255,255,0.10); padding: 28px;">
+                      <div style="font-size: 24px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.2;">
+                        Confirma tu correo
+                      </div>
+                      <div style="margin-top: 10px; font-size: 15px; line-height: 1.6; color: rgba(255,255,255,0.92);">
+                        Estás a un paso de activar tu cuenta. Haz clic en el botón para verificar tu email y entrar a tu panel.
+                      </div>
+
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top: 18px;">
+                        <tr>
+                          <td style="border-radius: 14px; background: #ff3399; box-shadow: 0 0 24px rgba(255,51,153,0.35);">
+                            <a
+                              href="{{ .ConfirmationURL }}"
+                              style="display:inline-block; padding: 14px 18px; font-weight: 800; font-size: 15px; color: #ffffff; text-decoration: none; border-radius: 14px;"
+                              >Verificar correo</a
+                            >
+                          </td>
+                        </tr>
+                      </table>
+
+                      <div style="margin-top: 18px; font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.85);">
+                        Si el botón no funciona, copia y pega este enlace en tu navegador:
+                        <div style="margin-top: 6px; word-break: break-all;">
+                          <a href="{{ .ConfirmationURL }}" style="color:#ff3399; text-decoration: underline;">{{ .ConfirmationURL }}</a>
+                        </div>
+                      </div>
+
+                      <div style="margin-top: 18px; font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.85);">
+                        Si no creaste esta cuenta, puedes ignorar este correo.
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 16px 8px 0 8px;">
+                <div style="text-align:left; font-size: 11px; line-height: 1.6; color: rgba(255,255,255,0.80);">
+                  © Cataly. Hecho en Venezuela para el mundo.
+                </div>
+                <div style="text-align:left; margin-top: 6px; font-size: 11px; line-height: 1.6; color: rgba(255,255,255,0.80);">
+                  ¿Necesitas ayuda? Responde a este correo.
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
