@@ -659,7 +659,7 @@ const AdminPage = () => {
                 </button>
               </div>
 
-              <div className="p-5">
+              <div className="p-5 max-h-[70vh] overflow-y-auto">
                 {profileError ? (
                   <div className="mb-4 rounded-xl border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
                     {profileError}
