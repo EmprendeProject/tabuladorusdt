@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import ToastStack from './components/ToastStack';
+import { useToasts } from './hooks/useToasts';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { Check, Copy, LogOut, Palette, Store, User, X } from 'lucide-react'
 
@@ -14,6 +16,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import LandingPage from './pages/LandingPage'
 import SuperAdminPage from './pages/SuperAdminPage'
+import EmailVerificationSent from './pages/EmailVerificationSent'
 import PricingPage from './pages/PricingPage'
 import CheckoutPage from './pages/CheckoutPage'
 import PaymentPendingPage from './pages/PaymentPendingPage'
@@ -979,25 +982,30 @@ const CatalogoTiendaPublica = () => {
 }
 
 function App() {
+  const { toasts, dismissToast } = useToasts();
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/precios" element={<PricingPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/pago/gracias" element={<PaymentThanksPage />} />
-        <Route path="/pago/pendiente" element={<PaymentPendingPage />} />
-        <Route path="/catalogo" element={<Navigate to="/" replace />} />
-        <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
-        <Route path="/superadmin" element={<SuperAdminPage />} />
-        <Route path="/:handle" element={<CatalogoTiendaPublica />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/precios" element={<PricingPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/pago/gracias" element={<PaymentThanksPage />} />
+          <Route path="/pago/pendiente" element={<PaymentPendingPage />} />
+          <Route path="/catalogo" element={<Navigate to="/" replace />} />
+          <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
+          <Route path="/superadmin" element={<SuperAdminPage />} />
+          <Route path="/:handle" element={<CatalogoTiendaPublica />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verifica-email" element={<EmailVerificationSent />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   )
 }
 

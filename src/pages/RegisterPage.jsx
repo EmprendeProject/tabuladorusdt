@@ -6,8 +6,11 @@ import { authRepository } from '../data/authRepository'
 import { perfilesRepository } from '../data/perfilesRepository'
 import { tiendasRepository } from '../data/tiendasRepository'
 
+import { useToasts, TOAST_TYPE } from '../hooks/useToasts'
+
 export default function RegisterPage({ redirectTo: redirectToProp = '/admin', preferredHandle } = {}) {
   const navigate = useNavigate()
+  const { pushToast } = useToasts()
   const [params] = useSearchParams()
   const redirectTo = params.get('redirectTo') || redirectToProp
 
@@ -70,7 +73,7 @@ export default function RegisterPage({ redirectTo: redirectToProp = '/admin', pr
         // noop por misma razón.
       }
 
-      navigate(redirectTo, { replace: true })
+      navigate('/verifica-email', { replace: true })
     } catch (err) {
       console.error('Error registro:', err)
       setError(err?.message || 'No se pudo crear la cuenta.')
