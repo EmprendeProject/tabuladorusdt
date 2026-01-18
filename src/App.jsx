@@ -17,6 +17,7 @@ import RegisterPage from './pages/RegisterPage'
 import LandingPage from './pages/LandingPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import EmailVerificationSent from './pages/EmailVerificationSent'
+import EmailVerifiedPage from './pages/EmailVerifiedPage'
 import PricingPage from './pages/PricingPage'
 import CheckoutPage from './pages/CheckoutPage'
 import PaymentPendingPage from './pages/PaymentPendingPage'
@@ -1002,6 +1003,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verifica-email" element={<EmailVerificationSent />} />
+        <Route path="/email-verified" element={<EmailVerifiedPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
           <Route path="*" element={<NotFoundPage />} />

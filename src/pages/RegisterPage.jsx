@@ -46,10 +46,13 @@ export default function RegisterPage({ preferredHandle } = {}) {
       await authRepository.signUp({
         email: String(email).trim(),
         password,
-        data: {
-          full_name: String(nombreCompleto).trim(),
-          business_name: negocio,
-          direccion: direccion ? String(direccion).trim() : null,
+        options: {
+          emailRedirectTo: `${window.location.origin}/email-verified`,
+          data: {
+            full_name: String(nombreCompleto).trim(),
+            business_name: negocio,
+            direccion: direccion ? String(direccion).trim() : null,
+          },
         },
       })
 
