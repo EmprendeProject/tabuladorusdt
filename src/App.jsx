@@ -106,8 +106,8 @@ const AdminPage = () => {
       // No mostramos teléfono en UI (se eliminó del registro), pero lo preservamos para no pisarlo al guardar.
       setProfileTelefono(perfil?.telefono || '')
       setProfileMapsUrl(catalogContacto?.mapsUrl || '')
-    } catch (e) {
-      setProfileError(e?.message || 'No se pudieron cargar tus datos.')
+    } catch (err) {
+      setProfileError(err?.message || 'No se pudieron cargar tus datos.')
     } finally {
       setProfileLoading(false)
     }
@@ -586,6 +586,9 @@ const AdminPage = () => {
                   }, {
                     value: CATALOG_TEMPLATES.HEAVY,
                     label: 'Heavy',
+                  }, {
+                    value: CATALOG_TEMPLATES.URBAN_STREET,
+                    label: 'Urban Street',
                   }].map((opt) => {
                     const active = catalogTemplate === opt.value
                     return (
@@ -800,7 +803,6 @@ const CatalogoTiendaPublica = () => {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [telefonoWhatsApp, setTelefonoWhatsApp] = useState('')
-  const [direccionNegocio, setDireccionNegocio] = useState('')
   const [mapsUrlNegocio, setMapsUrlNegocio] = useState('')
 
   const [catalogAllowed, setCatalogAllowed] = useState(true)
@@ -878,7 +880,7 @@ const CatalogoTiendaPublica = () => {
       Promise.resolve().then(() => {
         if (!mounted) return
         setTelefonoWhatsApp('')
-        setDireccionNegocio('')
+        // setDireccionNegocio('')
         setMapsUrlNegocio('')
       })
       return () => {
@@ -891,12 +893,12 @@ const CatalogoTiendaPublica = () => {
         const contacto = await perfilesRepository.getPublicContactByUserId(tienda.ownerId)
         if (!mounted) return
         setTelefonoWhatsApp(contacto?.telefono || '')
-        setDireccionNegocio(contacto?.direccion || '')
+        // setDireccionNegocio(contacto?.direccion || '')
         setMapsUrlNegocio(contacto?.mapsUrl || '')
       } catch {
         if (!mounted) return
         setTelefonoWhatsApp('')
-        setDireccionNegocio('')
+        // setDireccionNegocio('')
         setMapsUrlNegocio('')
       }
     })()

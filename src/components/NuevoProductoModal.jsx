@@ -33,6 +33,12 @@ export default function NuevoProductoModal({
   const [precioUSDT, setPrecioUSDT] = useState('')
   const [profit, setProfit] = useState(40)
 
+  // Asegura que profit siempre esté entre 0 y 200
+  useEffect(() => {
+    if (profit < 0) setProfit(0)
+    else if (profit > 200) setProfit(200)
+  }, [profit])
+
   const [imagenes, setImagenes] = useState([]) // array de URLs públicas (máx 3)
   const [previewUrls, setPreviewUrls] = useState([]) // object URLs para preview inmediato
   const [subiendo, setSubiendo] = useState(false)

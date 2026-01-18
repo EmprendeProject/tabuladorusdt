@@ -1,18 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { authRepository } from '../data/authRepository'
 import { perfilesRepository } from '../data/perfilesRepository'
 import { tiendasRepository } from '../data/tiendasRepository'
 
-import { useToasts, TOAST_TYPE } from '../hooks/useToasts'
-
-export default function RegisterPage({ redirectTo: redirectToProp = '/admin', preferredHandle } = {}) {
+export default function RegisterPage({ preferredHandle } = {}) {
   const navigate = useNavigate()
-  const { pushToast } = useToasts()
-  const [params] = useSearchParams()
-  const redirectTo = params.get('redirectTo') || redirectToProp
+  // const [params] = useSearchParams()
+  // const redirectTo = params.get('redirectTo') || redirectToProp
 
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [nombreNegocio, setNombreNegocio] = useState('')

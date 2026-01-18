@@ -5,6 +5,7 @@ export const CATALOG_TEMPLATES = {
   BOUTIQUE: 'boutique',
   MODERN: 'modern',
   HEAVY: 'heavy',
+  URBAN_STREET: 'urban_street',
 }
 
 export const DEFAULT_CATALOG_TEMPLATE = CATALOG_TEMPLATES.SIMPLE
@@ -13,6 +14,7 @@ const normalizeTemplate = (value) => {
   if (value === CATALOG_TEMPLATES.BOUTIQUE) return CATALOG_TEMPLATES.BOUTIQUE
   if (value === CATALOG_TEMPLATES.MODERN) return CATALOG_TEMPLATES.MODERN
   if (value === CATALOG_TEMPLATES.HEAVY) return CATALOG_TEMPLATES.HEAVY
+  if (value === CATALOG_TEMPLATES.URBAN_STREET) return CATALOG_TEMPLATES.URBAN_STREET
   return DEFAULT_CATALOG_TEMPLATE
 }
 

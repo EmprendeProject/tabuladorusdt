@@ -8,6 +8,7 @@ import CatalogTemplateSimple from './catalog/CatalogTemplateSimple';
 import CatalogTemplateBoutique from './catalog/CatalogTemplateBoutique';
 import CatalogTemplateModern from './catalog/CatalogTemplateModern';
 import CatalogTemplateHeavy from './catalog/CatalogTemplateHeavy';
+import CatalogTemplateUrbanStreet from './catalog/CatalogTemplateUrbanStreet';
 import ProductoDetalleModal from './ProductoDetalleModal';
 
 const CatalogoProductos = ({ ownerId, brandName } = {}) => {
@@ -56,7 +57,8 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
     const supportsCategoryFilter =
       catalogTemplate === CATALOG_TEMPLATES.MODERN ||
       catalogTemplate === CATALOG_TEMPLATES.HEAVY ||
-      catalogTemplate === CATALOG_TEMPLATES.SIMPLE;
+      catalogTemplate === CATALOG_TEMPLATES.SIMPLE ||
+      catalogTemplate === CATALOG_TEMPLATES.URBAN_STREET;
 
     return productosConPrecioSugerido.filter((p) => {
       const nombre = String(p?.nombre || '').toLowerCase();
@@ -106,7 +108,9 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
         ? CatalogTemplateModern
         : catalogTemplate === CATALOG_TEMPLATES.HEAVY
           ? CatalogTemplateHeavy
-        : CatalogTemplateSimple;
+          : catalogTemplate === CATALOG_TEMPLATES.URBAN_STREET
+            ? CatalogTemplateUrbanStreet
+            : CatalogTemplateSimple;
 
   return (
     <>

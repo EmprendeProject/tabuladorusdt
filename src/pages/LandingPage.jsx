@@ -1,45 +1,12 @@
-import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoBlanco from '../assets/cataly logo blanco.png'
 import catalyRosa from '../assets/cataly rosa.png'
-import { PRICING_PLANS } from '../data/pricingPlans'
-
-function getPlanNameEs(planId) {
-  const id = String(planId || '').trim().toLowerCase()
-  if (id === 'monthly') return 'Mensual'
-  if (id === 'biannual') return 'Semestral'
-  if (id === 'annual') return 'Pro'
-  return 'Plan'
-}
-
-function getPlanPeriodEs(planId) {
-  const id = String(planId || '').trim().toLowerCase()
-  if (id === 'monthly') return '/mes'
-  if (id === 'biannual') return '/6 meses'
-  if (id === 'annual') return '/año'
-  return ''
-}
-
-function getPlanHighlightsEs(planId) {
-  const id = String(planId || '').trim().toLowerCase()
-  if (id === 'monthly') {
-    return ['Productos ilimitados', 'Variedad de catálogos', 'Personalización a tu gusto']
-  }
-  if (id === 'biannual') {
-    return ['Productos ilimitados', 'Variedad de catálogos', 'Personalización a tu gusto']
-  }
-  if (id === 'annual') {
-    return ['Productos ilimitados', 'Variedad de catálogos', 'Personalización a tu gusto']
-  }
-  return []
-}
+// import { PRICING_PLANS } from '../data/pricingPlans'
 
 export default function LandingPage() {
   const showAdminLink = import.meta.env.VITE_SHOW_ADMIN_LINK !== 'false'
   const navigate = useNavigate()
 
-  const plans = useMemo(() => PRICING_PLANS, [])
-  const featuredId = useMemo(() => plans.find((p) => p.featured)?.id || 'annual', [plans])
   const onScrollTo = (id) => {
     const el = globalThis?.document?.getElementById?.(id)
     if (!el) return
