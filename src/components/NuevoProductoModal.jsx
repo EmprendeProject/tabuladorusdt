@@ -32,6 +32,7 @@ export default function NuevoProductoModal({
 
   const [precioUSDT, setPrecioUSDT] = useState('')
   const [profit, setProfit] = useState(40)
+  const [isFixedPrice, setIsFixedPrice] = useState(false)
 
   // Asegura que profit siempre esté entre 0 y 200
   useEffect(() => {
@@ -61,8 +62,9 @@ export default function NuevoProductoModal({
   }, [costoUSDTNum, tasaBCVNum, tasaUSDTNum])
 
   const precioVentaUsd = useMemo(() => {
+    if (isFixedPrice) return costoUSDTNum
     return precioRealBCVUsd * (1 + (Number(profit) || 0) / 100)
-  }, [precioRealBCVUsd, profit])
+  }, [precioRealBCVUsd, profit, isFixedPrice, costoUSDTNum])
 
   useEffect(() => {
     if (!open) return
@@ -77,6 +79,7 @@ export default function NuevoProductoModal({
     setNuevaCategoria('')
     setPrecioUSDT('')
     setProfit(40)
+    setIsFixedPrice(false)
     setImagenes([])
     setPreviewUrls([])
     setSubiendo(false)
@@ -206,7 +209,8 @@ export default function NuevoProductoModal({
         imagenes,
         activo: true,
         precioUSDT: costoUSDTNum,
-        profit: Number(profit) || 0,
+        profit: isFixedPrice ? 0 : (Number(profit) || 0),
+        isFixedPrice,
       })
       if (typeof notify === 'function') {
         notify({ type: 'success', title: 'Creado', message: 'Producto guardado.' })
@@ -458,10 +462,35 @@ export default function NuevoProductoModal({
               </div>
 
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                <div className="flex p-1 bg-gray-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setIsFixedPrice(false)}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      !isFixedPrice ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Variable (Calculadora)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsFixedPrice(true)}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      isFixedPrice ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Fijo
+                  </button>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-sm font-medium text-gray-600">Costo (USDT)</label>
-                    <p className="text-[10px] text-gray-400">Precio de compra base</p>
+                    <label className="block text-sm font-medium text-gray-600">
+                      {isFixedPrice ? 'Precio de Venta (USD)' : 'Costo (USDT)'}
+                    </label>
+                    <p className="text-[10px] text-gray-400">
+                      {isFixedPrice ? 'Monto final que verá el cliente' : 'Precio de compra base'}
+                    </p>
                   </div>
                   <div className="relative w-32">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
@@ -479,56 +508,60 @@ export default function NuevoProductoModal({
                   </div>
                 </div>
 
-                <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <DollarSign size={14} className="text-blue-600" />
-                    <span className="text-xs text-blue-700 font-medium truncate">
-                      Tasa BCV hoy: {tasaBCVNum ? formatMoney(tasaBCVNum) : '—'} Bs.
-                    </span>
-                    {cargandoBCV ? <span className="text-[10px] text-blue-600 animate-pulse">Cargando…</span> : null}
-                  </div>
-                  <span className="text-xs font-bold text-blue-700">Bs. {formatMoney(costoBsAprox)}</span>
-                </div>
+                {!isFixedPrice && (
+                  <>
+                    <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <DollarSign size={14} className="text-blue-600" />
+                        <span className="text-xs text-blue-700 font-medium truncate">
+                          Tasa BCV hoy: {tasaBCVNum ? formatMoney(tasaBCVNum) : '—'} Bs.
+                        </span>
+                        {cargandoBCV ? <span className="text-[10px] text-blue-600 animate-pulse">Cargando…</span> : null}
+                      </div>
+                      <span className="text-xs font-bold text-blue-700">Bs. {formatMoney(costoBsAprox)}</span>
+                    </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        refrescarBCV?.()
-                        refrescarUSDT?.()
-                      }}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
-                    >
-                      <RefreshCw size={16} className={(cargandoBCV || cargandoUSDT) ? 'animate-spin' : ''} />
-                      Actualizar tasas
-                    </button>
-                  </div>
-                  <div className="text-[11px] text-gray-500 text-right">
-                    USDT: {tasaUSDTNum ? formatMoney(tasaUSDTNum) : '—'} Bs.
-                    {cargandoUSDT ? <span className="ml-1 text-[10px] text-gray-400 animate-pulse">Cargando…</span> : null}
-                  </div>
-                </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            refrescarBCV?.()
+                            refrescarUSDT?.()
+                          }}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
+                        >
+                          <RefreshCw size={16} className={(cargandoBCV || cargandoUSDT) ? 'animate-spin' : ''} />
+                          Actualizar tasas
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-gray-500 text-right">
+                        USDT: {tasaUSDTNum ? formatMoney(tasaUSDTNum) : '—'} Bs.
+                        {cargandoUSDT ? <span className="ml-1 text-[10px] text-gray-400 animate-pulse">Cargando…</span> : null}
+                      </div>
+                    </div>
 
-                <hr className="border-gray-100" />
+                    <hr className="border-gray-100" />
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-600">Margen de Ganancia (0–200%)</label>
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold">
-                      {Math.round(profit)}%
-                    </span>
-                  </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-600">Margen de Ganancia (0–200%)</label>
+                        <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold">
+                          {Math.round(profit)}%
+                        </span>
+                      </div>
 
-                  <input
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    max={200}
-                    min={0}
-                    type="range"
-                    value={profit}
-                    onChange={(e) => setProfit(clamp(Number(e.target.value) || 0, 0, 200))}
-                  />
-                </div>
+                      <input
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        max={200}
+                        min={0}
+                        type="range"
+                        value={profit}
+                        onChange={(e) => setProfit(clamp(Number(e.target.value) || 0, 0, 200))}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="pt-4 flex items-center justify-between border-t border-gray-100">
                   <span className="text-base font-bold text-gray-800">Precio de Venta:</span>

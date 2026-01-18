@@ -69,15 +69,16 @@ const DashboardPrecios = ({ ownerId } = {}) => {
 
   // Función para calcular Precio de Venta (en dólares BCV, con profit aplicado)
   // PRECIO DE VENTA = PRECIO REAL BCV × (1 + PROFIT%)
-  const calcularPrecioVenta = (precioUSDT, profit) => {
-    const precioRealBCVDolares = calcularPrecioRealBCV(precioUSDT);
-    return precioRealBCVDolares * (1 + profit / 100);
+  const calcularPrecioVenta = (prod) => {
+    if (prod.isFixedPrice) return Number(prod.precioUSDT) || 0;
+    const precioRealBCVDolares = calcularPrecioRealBCV(Number(prod.precioUSDT) || 0);
+    return precioRealBCVDolares * (1 + (Number(prod.profit) || 0) / 100);
   };
 
   const handleUpdateProducto = (id, campo, valor) => {
     // Actualización local inmediata
     let nuevoValor = valor;
-    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'categoria' && campo !== 'imagenUrl' && campo !== 'activo') {
+    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'categoria' && campo !== 'imagenUrl' && campo !== 'activo' && campo !== 'isFixedPrice') {
       nuevoValor = valor === '' ? 0 : (parseFloat(valor) || 0);
     }
 
@@ -721,7 +722,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               </div>
                               <div className="mt-1.5 sm:mt-2 flex items-center justify-start gap-2 text-xs text-gray-500">
                                 <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] sm:text-xs font-bold">
-                                  {profitPct}% PROFIT
+                                  {prod.isFixedPrice ? 'PRECIO FIJO' : `${profitPct}% PROFIT`}
                                 </span>
                                 {prod.categoria ? (
                                   <>
@@ -732,22 +733,35 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               </div>
 
                               <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div className="hidden sm:block">
-                                  <div className="text-xs font-bold text-gray-400 tracking-wider">USDT</div>
-                                  <div className="text-lg sm:text-xl font-bold text-gray-900 tabular-nums">
-                                    ${usdtValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {!prod.isFixedPrice ? (
+                                  <>
+                                    <div className="hidden sm:block">
+                                      <div className="text-xs font-bold text-gray-400 tracking-wider">USDT</div>
+                                      <div className="text-lg sm:text-xl font-bold text-gray-900 tabular-nums">
+                                        ${usdtValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </div>
+                                    </div>
+                                    <div className="hidden sm:block">
+                                      <div className="text-xs font-bold text-gray-400 tracking-wider">BCV (REAL)</div>
+                                      <div className="text-lg sm:text-xl font-black text-emerald-500 tabular-nums">
+                                        ${calcularPrecioRealBCV(usdtValue).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                      </div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="hidden sm:block col-span-2">
+                                    <div className="text-xs font-bold text-gray-400 tracking-wider">MODO</div>
+                                    <div className="text-lg sm:text-xl font-bold text-blue-600 italic">
+                                      Manual / Sin cálculo de tasa
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="hidden sm:block">
-                                  <div className="text-xs font-bold text-gray-400 tracking-wider">BCV (REAL)</div>
-                                  <div className="text-lg sm:text-xl font-black text-emerald-500 tabular-nums">
-                                    ${calcularPrecioRealBCV(usdtValue).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                                  </div>
-                                </div>
+                                )}
                                 <div>
-                                  <div className="text-[11px] sm:text-xs font-bold text-gray-400 tracking-wider">PÚBLICO</div>
+                                  <div className="text-[11px] sm:text-xs font-bold text-gray-400 tracking-wider">
+                                    {prod.isFixedPrice ? 'PRECIO FINAL' : 'PÚBLICO'}
+                                  </div>
                                   <div className="text-2xl sm:text-xl md:text-2xl font-black text-blue-600 tabular-nums leading-none">
-                                    ${calcularPrecioVenta(usdtValue, Number(prod.profit) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    ${calcularPrecioVenta(prod).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </div>
                                 </div>
                               </div>
@@ -860,113 +874,34 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                                   </button>
                                 </div>
                               </div>
-                              <div>
-                                <div className="text-xs text-gray-500">Profit %</div>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={prod.profit || ''}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                      handleUpdateProducto(prod.id, 'profit', value);
-                                    }
-                                  }}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="0"
-                                />
-                              </div>
 
                               <div className="md:col-span-2">
-                                <div className="text-xs text-gray-500">Descripción</div>
-                                <textarea
-                                  value={prod.descripcion || ''}
-                                  onChange={(e) => handleUpdateProducto(prod.id, 'descripcion', e.target.value)}
-                                  placeholder="Breve descripción (opcional)"
-                                  rows={2}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                              </div>
-
-                              <div>
-                                <div className="text-xs text-gray-500">Fotos (máx. 3)</div>
-                                <div className="mt-2 grid grid-cols-3 gap-2">
-                                  {(() => {
-                                    const imgs = getProductoImagenes(prod).slice(0, 3)
-                                    return [0, 1, 2].map((idx) => {
-                                      const url = imgs[idx]
-
-                                      if (!url) {
-                                        const canUploadHere = idx === imgs.length && imgs.length < 3
-                                        return (
-                                          <div key={idx} className="aspect-square rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
-                                            {canUploadHere ? (
-                                              <label className="h-full w-full flex flex-col items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors cursor-pointer">
-                                                <input
-                                                  type="file"
-                                                  accept="image/*"
-                                                  className="hidden"
-                                                  disabled={!!subiendoImagen[prod.id]}
-                                                  onChange={(e) => {
-                                                    const file = e.target.files?.[0]
-                                                    if (file) handleSubirImagen(prod.id, file)
-                                                    e.target.value = ''
-                                                  }}
-                                                />
-                                                <span className="text-xs font-semibold">Subir</span>
-                                                <span className="text-[10px]">{subiendoImagen[prod.id] ? 'Subiendo…' : 'Foto'}</span>
-                                              </label>
-                                            ) : (
-                                              <div className="h-full w-full flex items-center justify-center text-gray-300 text-[10px]">Vacío</div>
-                                            )}
-                                          </div>
-                                        )
-                                      }
-
-                                      return (
-                                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
-                                          <img src={url} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" loading="lazy" />
-
-                                          <div className="absolute top-1 left-1 flex gap-1">
-                                            <button
-                                              type="button"
-                                              onClick={() => moveProductoImagen(prod.id, idx, 'left')}
-                                              disabled={idx === 0 || !!subiendoImagen[prod.id]}
-                                              className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
-                                              title="Mover a la izquierda"
-                                              aria-label="Mover a la izquierda"
-                                            >
-                                              <ArrowLeft size={14} />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => moveProductoImagen(prod.id, idx, 'right')}
-                                              disabled={idx === imgs.length - 1 || !!subiendoImagen[prod.id]}
-                                              className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
-                                              title="Mover a la derecha"
-                                              aria-label="Mover a la derecha"
-                                            >
-                                              <ArrowRight size={14} />
-                                            </button>
-                                          </div>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => handleQuitarImagen(prod.id, idx)}
-                                            className="absolute top-1 right-1 rounded-full bg-white/90 text-red-600 shadow px-2 py-1 text-[10px] font-semibold hover:bg-white"
-                                            title="Quitar"
-                                          >
-                                            Quitar
-                                          </button>
-                                        </div>
-                                      )
-                                    })
-                                  })()}
+                                <div className="flex p-1 bg-white border border-gray-200 rounded-xl mb-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProducto(prod.id, 'isFixedPrice', false)}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
+                                      !prod.isFixedPrice ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500'
+                                    }`}
+                                  >
+                                    Variable
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProducto(prod.id, 'isFixedPrice', true)}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
+                                      prod.isFixedPrice ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500'
+                                    }`}
+                                  >
+                                    Fijo
+                                  </button>
                                 </div>
                               </div>
 
                               <div>
-                                <div className="text-xs text-gray-500">Precio USDT</div>
+                                <div className="text-xs text-gray-500">
+                                  {prod.isFixedPrice ? 'Precio Final (USD)' : 'Costo en USD'}
+                                </div>
                                 <input
                                   type="text"
                                   inputMode="decimal"
@@ -977,21 +912,44 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                                       handleUpdateProducto(prod.id, 'precioUSDT', value);
                                     }
                                   }}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                   placeholder="0.00"
                                 />
+                              </div>
 
-                                <div className="mt-3 grid grid-cols-2 gap-3">
-                                  <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3">
-                                    <div className="text-[11px] font-semibold text-blue-700">Real BCV ($)</div>
-                                    <div className="mt-1 text-base font-semibold text-blue-900">
-                                      ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                              {!prod.isFixedPrice && (
+                                <div>
+                                  <div className="text-xs text-gray-500">Ganancia %</div>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={prod.profit || ''}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                        handleUpdateProducto(prod.id, 'profit', value);
+                                      }
+                                    }}
+                                    className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="0"
+                                  />
+                                </div>
+                              )}
+
+                              <div className="md:col-span-2">
+                                <div className="grid grid-cols-2 gap-3 mb-2">
+                                  {!prod.isFixedPrice && (
+                                    <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3">
+                                      <div className="text-[11px] font-semibold text-blue-700">Real BCV ($)</div>
+                                      <div className="mt-1 text-base font-semibold text-blue-900">
+                                        ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3">
+                                  )}
+                                  <div className={`rounded-2xl bg-emerald-50 border border-emerald-100 p-3 ${prod.isFixedPrice ? 'col-span-2' : ''}`}>
                                     <div className="text-[11px] font-semibold text-emerald-700">Venta final ($)</div>
                                     <div className="mt-1 text-base font-semibold text-emerald-900">
-                                      ${calcularPrecioVenta(prod.precioUSDT, prod.profit).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      ${calcularPrecioVenta(prod).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </div>
                                   </div>
                                 </div>

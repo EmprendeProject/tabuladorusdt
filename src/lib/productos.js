@@ -33,6 +33,7 @@ export const productoFromDb = (row) => {
     })(),
     precioUSDT: typeof precioUSDT === 'string' ? parseFloat(precioUSDT) || 0 : Number(precioUSDT) || 0,
     profit: typeof row.profit === 'string' ? parseFloat(row.profit) || 0 : Number(row.profit) || 0,
+    isFixedPrice: row.is_fixed_price !== undefined ? Boolean(row.is_fixed_price) : false,
     activo: row.activo !== undefined ? Boolean(row.activo) : true,
     createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? null,
@@ -52,6 +53,7 @@ export const productoToInsertDb = (producto) => {
     imagenes_urls: imagenes.length ? imagenes : null,
     precio_usdt: Number(producto?.precioUSDT) || 0,
     profit: Number(producto?.profit) || 0,
+    is_fixed_price: Boolean(producto?.isFixedPrice),
     activo: producto?.activo !== undefined ? Boolean(producto.activo) : true,
   };
 
@@ -77,6 +79,7 @@ export const productoToUpdateDb = (cambios) => {
   }
   if (cambios?.precioUSDT !== undefined) cambiosDb.precio_usdt = Number(cambios.precioUSDT) || 0;
   if (cambios?.profit !== undefined) cambiosDb.profit = Number(cambios.profit) || 0;
+  if (cambios?.isFixedPrice !== undefined) cambiosDb.is_fixed_price = Boolean(cambios.isFixedPrice);
   if (cambios?.activo !== undefined) cambiosDb.activo = Boolean(cambios.activo);
 
   return cambiosDb;

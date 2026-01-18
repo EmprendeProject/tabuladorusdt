@@ -43,9 +43,14 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
       const profit = Number(p?.profit) || 0;
 
       // Precio sugerido ($) basado en: (costo * USDT / BCV) * (1 + profit%)
-      // Fallback: si no hay tasas, usar costo * (1 + profit%).
-      const base = tasaBCVNum > 0 && tasaUSDTNum > 0 ? (costo * tasaUSDTNum) / tasaBCVNum : costo;
-      const precioSugeridoUsd = base * (1 + profit / 100);
+      // Si es PRECIO FIJO (isFixedPrice), el costo es directamente el precio final.
+      let precioSugeridoUsd = 0;
+      if (p.isFixedPrice) {
+        precioSugeridoUsd = costo;
+      } else {
+        const base = tasaBCVNum > 0 && tasaUSDTNum > 0 ? (costo * tasaUSDTNum) / tasaBCVNum : costo;
+        precioSugeridoUsd = base * (1 + profit / 100);
+      }
 
       return { ...p, precioSugeridoUsd };
     });

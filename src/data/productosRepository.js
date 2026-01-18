@@ -52,7 +52,7 @@ export const productosRepository = {
     }
 
     // Intentamos con el set más completo, con fallbacks si faltan columnas.
-    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo']
+    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo', 'is_fixed_price']
 
     // 1) Con filtro activo
     let { data, error } = await run(fields, true)
@@ -61,68 +61,68 @@ export const productosRepository = {
     // Si faltan columnas opcionales, reintentamos con una versión reducida.
     if (isMissingColumn(error, 'profit')) {
       fields = fields.filter((f) => f !== 'profit')
-      ;({ data, error } = await run(fields, true))
+        ; ({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
 
     if (isMissingColumn(error, 'imagenes_urls')) {
       fields = fields.filter((f) => f !== 'imagenes_urls')
-      ;({ data, error } = await run(fields, true))
+        ; ({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
 
     if (isMissingColumn(error, 'owner_id')) {
       fields = fields.filter((f) => f !== 'owner_id')
-      ;({ data, error } = await run(fields, true))
+        ; ({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
 
     if (isMissingColumn(error, 'descripcion')) {
       fields = fields.filter((f) => f !== 'descripcion')
-      ;({ data, error } = await run(fields, true))
+        ; ({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
 
     if (isMissingColumn(error, 'categoria')) {
       fields = fields.filter((f) => f !== 'categoria')
-      ;({ data, error } = await run(fields, true))
+        ; ({ data, error } = await run(fields, true))
       if (!error) return mapRows(data)
     }
 
     // 2) Backward compatible: si aún no existe `activo`, devolvemos todos (sin filtro)
     if (isMissingColumn(error, 'activo')) {
       fields = fields.filter((f) => f !== 'activo')
-      ;({ data, error } = await run(fields, false))
+        ; ({ data, error } = await run(fields, false))
       if (!error) return mapRows(data)
 
       // Si faltan opcionales en este camino, reintentamos también.
       if (isMissingColumn(error, 'profit')) {
         fields = fields.filter((f) => f !== 'profit')
-        ;({ data, error } = await run(fields, false))
+          ; ({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }
 
       if (isMissingColumn(error, 'imagenes_urls')) {
         fields = fields.filter((f) => f !== 'imagenes_urls')
-        ;({ data, error } = await run(fields, false))
+          ; ({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }
 
       if (isMissingColumn(error, 'owner_id')) {
         fields = fields.filter((f) => f !== 'owner_id')
-        ;({ data, error } = await run(fields, false))
+          ; ({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }
 
       if (isMissingColumn(error, 'descripcion')) {
         fields = fields.filter((f) => f !== 'descripcion')
-        ;({ data, error } = await run(fields, false))
+          ; ({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }
 
       if (isMissingColumn(error, 'categoria')) {
         fields = fields.filter((f) => f !== 'categoria')
-        ;({ data, error } = await run(fields, false))
+          ; ({ data, error } = await run(fields, false))
         if (!error) return mapRows(data)
       }
     }
@@ -196,6 +196,18 @@ export const productosRepository = {
       return productoFromDb(data2)
     }
 
+    // Compatibilidad hacia atrás: si aún no existe `is_fixed_price`, reintentar sin ese campo.
+    if (payload?.is_fixed_price !== undefined && isMissingColumn(error, 'is_fixed_price')) {
+      const { is_fixed_price: _ifp, ...payload2 } = payload
+      const { data: data2, error: error2 } = await supabase
+        .from('productos')
+        .insert([payload2])
+        .select('*')
+        .maybeSingle()
+      if (error2) throw error2
+      return productoFromDb(data2)
+    }
+
     throw error
   },
 
@@ -240,6 +252,17 @@ export const productosRepository = {
         .eq('id', id)
       if (error2) throw error2
       return { ignoredFields: ['imagenes_urls'] }
+    }
+
+    // Compatibilidad hacia atrás: si aún no existe `is_fixed_price`, reintentar sin ese campo.
+    if (cambiosBD?.is_fixed_price !== undefined && isMissingColumn(error, 'is_fixed_price')) {
+      const { is_fixed_price: _ifp, ...cambiosBD2 } = cambiosBD
+      const { error: error2 } = await supabase
+        .from('productos')
+        .update(cambiosBD2)
+        .eq('id', id)
+      if (error2) throw error2
+      return { ignoredFields: ['is_fixed_price'] }
     }
 
     throw error
