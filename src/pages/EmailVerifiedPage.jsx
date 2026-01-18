@@ -1,49 +1,74 @@
-import { useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCircle2, ArrowRight } from 'lucide-react'
+import { Check, Sparkles, PartyPopper, ArrowRight, LayoutGrid } from 'lucide-react'
 
 export default function EmailVerifiedPage() {
-  const containerRef = useRef(null)
-
   return (
-    <div className="min-h-[100dvh] w-full bg-[#f8f6f7] flex items-center justify-center p-4">
-      <div 
-        ref={containerRef}
-        className="w-full max-w-[420px] bg-white rounded-3xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-500"
-      >
-        <div className="relative pt-12 pb-8 px-8 flex flex-col items-center text-center">
-          {/* Decorative background blur */}
-          <div className="absolute top-[-20%] right-[-20%] w-[200px] h-[200px] bg-[#ee2b8c]/5 rounded-full blur-[60px] pointer-events-none"></div>
-          
-          <div className="relative mb-8">
-            <div className="size-20 rounded-full bg-[#ee2b8c]/10 flex items-center justify-center animate-bounce duration-[2000ms]">
-              <CheckCircle2 size={40} className="text-[#ee2b8c]" />
+    <div className="min-h-[100dvh] w-full bg-gray-50 flex flex-col relative overflow-hidden">
+      {/* Background Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-[#fff0f7]/80 pointer-events-none" />
+
+      {/* Shapes Decorations */}
+      <div className="absolute top-[-10%] left-[-10%] w-[250px] h-[250px] bg-[#ee2b8c]/5 rounded-full blur-[60px] pointer-events-none" />
+      <div className="absolute bottom-[5%] right-[-5%] w-[200px] h-[200px] bg-[#ee2b8c]/10 rounded-full blur-[50px] pointer-events-none" />
+
+      <div className="relative z-10 w-full max-w-[480px] mx-auto min-h-[100dvh] flex flex-col">
+        {/* Header */}
+        <div className="pt-12 pb-6 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="size-8 bg-[#ee2b8c] rounded-lg flex items-center justify-center shadow-lg shadow-[#ee2b8c]/20">
+              <LayoutGrid size={20} className="text-white" strokeWidth={2.5} />
             </div>
-            {/* Ring ripple effect */}
-            <div className="absolute inset-0 rounded-full border border-[#ee2b8c]/20 animate-ping duration-[3000ms]"></div>
+            <span className="text-xl font-extrabold tracking-tight text-[#1b0d14] font-['Manrope']">
+              Cataly
+            </span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center pb-20">
+          
+          {/* Hero Icon */}
+          <div className="relative mb-10">
+            {/* Glow backing */}
+            <div className="absolute inset-0 bg-[#ee2b8c]/10 rounded-full blur-[40px] scale-150" />
+            
+            <div className="relative size-32 rounded-full bg-white shadow-2xl shadow-[#ee2b8c]/20 flex items-center justify-center border-4 border-[#fff0f7]">
+              <div className="size-24 rounded-full bg-[#ee2b8c] flex items-center justify-center shadow-inner">
+                <Check size={56} className="text-white" strokeWidth={4} />
+              </div>
+
+              {/* Particles */}
+              <div className="absolute top-0 -right-4 size-3 rounded-full bg-[#ee2b8c]/40 blur-[1px] animate-pulse" />
+              <div className="absolute bottom-4 -left-6 size-2 rounded-full bg-[#ee2b8c]/30 blur-[1px]" />
+              <div className="absolute -top-8 left-4 size-4 rounded-full bg-[#ee2b8c]/20 blur-[1px]" />
+              
+              {/* Floating Icons */}
+              <Sparkles 
+                size={28} 
+                className="absolute -top-4 -right-8 text-[#ee2b8c]/40 animate-bounce duration-[3000ms]" 
+              />
+              <PartyPopper 
+                size={24} 
+                className="absolute bottom-0 -left-10 text-[#ee2b8c]/30 -rotate-12" 
+              />
+            </div>
           </div>
 
-          <h1 className="text-[#1b0d14] font-['Manrope'] text-2xl font-extrabold tracking-tight mb-3">
-            ¡Correo verificado!
+          <h1 className="text-[#1b0d14] tracking-tight text-3xl font-extrabold leading-tight mb-4 font-['Manrope']">
+            ¡Tu correo ha sido verificado!
           </h1>
           
-          <p className="text-[#1b0d14]/60 font-medium text-sm leading-relaxed max-w-[280px] mb-10">
-            Tu cuenta ha sido activada correctamente. Ya puedes comenzar a crear y gestionar tu catálogo digital.
+          <p className="text-[#1b0d14]/60 text-lg font-medium leading-relaxed mb-12 max-w-[320px] font-['Manrope']">
+            ¡Todo listo! Ahora es momento de hacer crecer tu negocio. Crea tu primer catálogo en segundos.
           </p>
 
           <Link 
-            to="/login" 
-            className="w-full bg-[#ee2b8c] text-white font-bold text-center py-4 rounded-xl shadow-lg shadow-[#ee2b8c]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            to="/login"
+            className="w-full max-w-[320px] bg-[#ee2b8c] text-white py-5 px-8 rounded-2xl font-bold text-lg shadow-2xl shadow-[#ee2b8c]/30 active:scale-[0.97] hover:scale-[1.02] transition-all flex items-center justify-center gap-3 font-['Manrope']"
           >
-            Continuar a Iniciar Sesión
-            <ArrowRight size={18} />
+            <span>¡Crear mi catálogo!</span>
+            <ArrowRight size={24} strokeWidth={2.5} />
           </Link>
-          
-          <div className="mt-8 pt-6 border-t border-gray-100 w-full">
-            <p className="text-xs text-[#1b0d14]/40">
-              Equipo Cataly
-            </p>
-          </div>
         </div>
       </div>
     </div>
