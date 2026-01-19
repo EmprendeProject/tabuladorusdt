@@ -78,7 +78,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
   const handleUpdateProducto = (id, campo, valor) => {
     // Actualización local inmediata
     let nuevoValor = valor;
-    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'categoria' && campo !== 'imagenUrl' && campo !== 'activo' && campo !== 'isFixedPrice') {
+    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'categoria' && campo !== 'imagenUrl' && campo !== 'imagenes' && campo !== 'activo' && campo !== 'isFixedPrice') {
       nuevoValor = valor === '' ? 0 : (parseFloat(valor) || 0);
     }
 
@@ -876,14 +876,159 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               </div>
 
                               <div className="md:col-span-2">
-                                <div className="text-xs text-gray-500">URL Imagen</div>
-                                <input
-                                  type="text"
-                                  value={prod.imagenUrl || ''}
-                                  onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
-                                  placeholder="https://..."
-                                />
+                              </div>
+
+                              <div className="md:col-span-2">
+                                <div className="text-xs text-gray-500 mb-1">Fotos (Máx 3)</div>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {/* Mostrar imágenes existentes (o previews temporales) */}
+                                  {(Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? prod.imagenes : (prod.imagenUrl ? [prod.imagenUrl] : [])).map((url, idx) => (
+                                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100 group">
+                                      <img src={url} alt={`Foto ${idx}`} className="w-full h-full object-cover" />
+                                      
+                                      {/* Controls overlay */}
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-start justify-end p-1 gap-1">
+                                        {/* Reorder Left */}
+                                        <button
+                                          type="button"
+                                          disabled={idx === 0}
+                                          onClick={() => {
+                                            const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
+                                            if (idx > 0) {
+                                              const temp = currentList[idx - 1]
+                                              currentList[idx - 1] = currentList[idx]
+                                              currentList[idx] = temp
+                                              handleUpdateProducto(prod.id, 'imagenes', currentList)
+                                              // Fallback update main image
+                                              if (idx === 1) handleUpdateProducto(prod.id, 'imagenUrl', currentList[0])
+                                            }
+                                          }}
+                                          className="p-1 rounded-full bg-white/90 text-gray-700 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 disabled:invisible"
+                                        >
+                                          <ArrowLeft size={12} />
+                                        </button>
+
+                                        {/* Reorder Right */}
+                                        <button
+                                          type="button"
+                                          disabled={idx === (Array.isArray(prod.imagenes) ? prod.imagenes.length : 1) - 1}
+                                          onClick={() => {
+                                            const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
+                                            const max = currentList.length - 1
+                                            if (idx < max) {
+                                              const temp = currentList[idx + 1]
+                                              currentList[idx + 1] = currentList[idx]
+                                              currentList[idx] = temp
+                                              handleUpdateProducto(prod.id, 'imagenes', currentList)
+                                              // Fallback update main image start
+                                              if (idx === 0) handleUpdateProducto(prod.id, 'imagenUrl', currentList[0])
+                                            }
+                                          }}
+                                          className="p-1 rounded-full bg-white/90 text-gray-700 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 disabled:invisible"
+                                        >
+                                          <ArrowRight size={12} />
+                                        </button>
+
+                                        {/* Delete */}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
+                                            const removedUrl = currentList[idx]
+                                            const newList = currentList.filter((_, i) => i !== idx)
+                                            
+                                            handleUpdateProducto(prod.id, 'imagenes', newList)
+                                            // Handle main image sync
+                                            if (idx === 0) {
+                                              handleUpdateProducto(prod.id, 'imagenUrl', newList[0] || '')
+                                            }
+                                            
+                                            // Optional: Track deleted images for cleanup if needed
+                                            // if (!pendingImageDeletesRef.current.has(prod.id)) {
+                                            //   pendingImageDeletesRef.current.set(prod.id, new Set())
+                                            // }
+                                            // const bucket = getProductImagesBucketName()
+                                            // const path = getStorageObjectFromPublicUrl(removedUrl, bucket)
+                                            // if (path) pendingImageDeletesRef.current.get(prod.id).add(`${bucket}::${path}`)
+                                          }}
+                                          className="p-1 rounded-full bg-red-100 text-red-600 hover:bg-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {/* Botón Upload */}
+                                  {(!prod.imagenes || prod.imagenes.length < 3) && (
+                                    <label className="relative aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-blue-300 transition-all cursor-pointer group">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        disabled={subiendoImagen[prod.id]}
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                          const file = e.target.files?.[0]
+                                          if (!file) return
+
+                                          const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
+                                          if (currentList.length >= 3) {
+                                            e.target.value = ''
+                                            return
+                                          }
+
+                                          setSubiendoImagen(prev => ({ ...prev, [prod.id]: true }))
+                                          try {
+                                            console.log('Intentando subir imagen:', { file, productId: prod.id, ownerId })
+                                            
+                                            // Validar ownerId
+                                            if (!ownerId) {
+                                              throw new Error('No se ha verificado el usuario (ownerId faltante). Recarga la página.')
+                                            }
+
+                                            const publicUrl = await uploadProductImage({
+                                              file, 
+                                              productId: prod.id,
+                                              ownerId
+                                            })
+                                            console.log('Resultado subida:', publicUrl)
+
+                                            if (publicUrl && publicUrl.publicUrl) {
+                                              const finalUrl = publicUrl.publicUrl
+                                              const newList = [...currentList, finalUrl]
+                                              handleUpdateProducto(prod.id, 'imagenes', newList)
+                                              // Si es la primera, setear como principal
+                                              if (newList.length === 1) {
+                                                handleUpdateProducto(prod.id, 'imagenUrl', finalUrl)
+                                              }
+                                              pushToast?.({ type: TOAST_TYPE.SUCCESS, title: 'Éxito', message: 'Imagen subida correctamente.' })
+                                            } else {
+                                              console.error('La subida no retornó publicUrl:', publicUrl)
+                                              throw new Error('No se recibió URL de la imagen del servidor.')
+                                            }
+                                          } catch (err) {
+                                            console.error('Error uploading fatal:', err)
+                                            const msg = err?.message || 'Error desconocido al subir imagen'
+                                            pushToast?.({ type: TOAST_TYPE.ERROR, title: 'Error', message: msg })
+                                            alert(`Error al subir imagen: ${msg}`) // Fallback para visibilidad garantizada
+                                          } finally {
+                                            setSubiendoImagen(prev => ({ ...prev, [prod.id]: false }))
+                                            // IMPORTANTE: Resetear el input para permitir elegir el mismo archivo si falló
+                                            if (e && e.target) e.target.value = '' 
+                                          }
+                                        }}
+                                      />
+                                      {subiendoImagen[prod.id] ? (
+                                        <RefreshCw size={20} className="animate-spin text-blue-500" />
+                                      ) : (
+                                        <>
+                                          <Plus size={24} className="group-hover:text-blue-500 transition-colors" />
+                                          <span className="text-[10px] mt-1 font-medium group-hover:text-blue-600">Subir</span>
+                                        </>
+                                      )}
+                                    </label>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="md:col-span-2">
