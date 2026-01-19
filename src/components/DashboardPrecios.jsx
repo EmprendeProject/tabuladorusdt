@@ -876,6 +876,17 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                               </div>
 
                               <div className="md:col-span-2">
+                                <div className="text-xs text-gray-500">URL Imagen</div>
+                                <input
+                                  type="text"
+                                  value={prod.imagenUrl || ''}
+                                  onChange={(e) => handleUpdateProducto(prod.id, 'imagenUrl', e.target.value)}
+                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
+                                  placeholder="https://..."
+                                />
+                              </div>
+
+                              <div className="md:col-span-2">
                                 <div className="flex p-1 bg-white border border-gray-200 rounded-xl mb-2">
                                   <button
                                     type="button"
