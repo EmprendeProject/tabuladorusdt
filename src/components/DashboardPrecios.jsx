@@ -5,7 +5,7 @@ import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
 import { useCategorias } from '../hooks/useCategorias';
 import { eliminarProducto, guardarCambiosProductos, setProductoActivo } from '../usecases/productosUsecases';
-import NuevoProductoModal from './NuevoProductoModal';
+import ProductoFormModal from './ProductoFormModal';
 import NuevaCategoriaModal from './NuevaCategoriaModal';
 import GestionCategoriasModal from './GestionCategoriasModal';
 import ToastStack from './ToastStack';
@@ -31,17 +31,15 @@ const DashboardPrecios = ({ ownerId } = {}) => {
   const [cambiosSinGuardar, setCambiosSinGuardar] = useState(new Set()); // Set de IDs con cambios
   const [guardando, setGuardando] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
-  const [nuevoProductoOpen, setNuevoProductoOpen] = useState(false);
+  const [productoFormOpen, setProductoFormOpen] = useState(false);
+  const [productoParaEditar, setProductoParaEditar] = useState(null);
   const [nuevaCategoriaOpen, setNuevaCategoriaOpen] = useState(false);
   const [gestionarCategoriasOpen, setGestionarCategoriasOpen] = useState(false);
   const [categoriaTargetProductoId, setCategoriaTargetProductoId] = useState(null);
   const [productosView, setProductosView] = useState('list'); // list | grid
   const [searchQuery, setSearchQuery] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
-  const [expandProductoId, setExpandProductoId] = useState(null);
-  const editSnapshotsRef = useRef(new Map());
-  const pendingImageDeletesRef = useRef(new Map()); // id -> Set("bucket::path")
-
+  
   const { toasts, pushToast, dismissToast } = useToasts();
 
   const {
@@ -75,131 +73,100 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     return precioRealBCVDolares * (1 + (Number(prod.profit) || 0) / 100);
   };
 
-  const handleUpdateProducto = (id, campo, valor) => {
-    // Actualización local inmediata
+  const handleUpdateProductoInList = (id, campo, valor) => {
+    // Actualización local solo para cambios de estado like "activo" directos en lista si los hay
     let nuevoValor = valor;
-    if (campo !== 'nombre' && campo !== 'descripcion' && campo !== 'categoria' && campo !== 'imagenUrl' && campo !== 'imagenes' && campo !== 'activo' && campo !== 'isFixedPrice') {
-      nuevoValor = valor === '' ? 0 : (parseFloat(valor) || 0);
-    }
-
+    // ... logic mostly redundant if we don't inline edit, but kept for handleToggleVisible usage
     setProductos(prev => prev.map(p => 
       p.id === id ? { ...p, [campo]: nuevoValor } : p
     ));
-
-    // Marcar como no guardado
-    setCambiosSinGuardar(prev => new Set(prev).add(id));
   };
 
   const handleAgregarProducto = () => {
-    setNuevoProductoOpen(true);
+    setProductoParaEditar(null);
+    setProductoFormOpen(true);
   };
 
-  const startEditingProducto = (prod) => {
-    if (!prod) return;
-    // Guardar snapshot solo la primera vez que se entra a editar ese producto.
-    if (!editSnapshotsRef.current.has(prod.id)) {
-      editSnapshotsRef.current.set(prod.id, { ...prod });
-    }
-    setExpandProductoId(prod.id);
+  const handleEditarProducto = (prod) => {
+    setProductoParaEditar(prod);
+    setProductoFormOpen(true);
   };
 
-  const discardEditingProducto = (id) => {
-    const snapshot = editSnapshotsRef.current.get(id);
-    if (snapshot) {
-      setProductos((prev) => prev.map((p) => (p.id === id ? { ...snapshot } : p)));
-    }
-    setCambiosSinGuardar((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    editSnapshotsRef.current.delete(id);
-    pendingImageDeletesRef.current.delete(id);
-    setExpandProductoId(null);
-  };
+  const handleProductFormSubmit = async (productData) => {
+    // Check if new or edit
+    const isNew = productData.id < 0;
+    
+    if (isNew) {
+         const productoConDefaults = {
+           activo: true,
+           ...(ownerId ? { ownerId } : {}),
+           ...productData,
+         };
+         setProductos((prev) => [productoConDefaults, ...prev]);
 
-  const queueImageDeleteFromUrl = (id, imageUrl) => {
-    if (!ownerId) return;
-    const meta = getStorageObjectFromPublicUrl(imageUrl);
-    if (!meta) return;
-
-    const bucket = getProductImagesBucketName();
-    if (meta.bucket !== bucket) return;
-
-    // Multi-tenant: solo borrar dentro de la carpeta del usuario.
-    const allowedPrefix = `productos/${String(ownerId)}/`;
-    if (!String(meta.path || '').startsWith(allowedPrefix)) return;
-
-    const key = `${meta.bucket}::${meta.path}`;
-    const set = pendingImageDeletesRef.current.get(id) || new Set();
-    set.add(key);
-    pendingImageDeletesRef.current.set(id, set);
-  };
-
-  const getProductoImagenes = (p) => {
-    const list = Array.isArray(p?.imagenes) ? p.imagenes : [];
-    const cleaned = list.map((u) => String(u || '').trim()).filter(Boolean);
-    const fallback = String(p?.imagenUrl || '').trim();
-    return cleaned.length ? cleaned : (fallback ? [fallback] : []);
-  };
-
-  const setProductoImagenes = (id, imagenes) => {
-    const next = Array.isArray(imagenes) ? imagenes.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 3) : [];
-    setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, imagenes: next, imagenUrl: next[0] || '' } : p)));
-    setCambiosSinGuardar((prev) => new Set(prev).add(id));
-  };
-
-  const moveProductoImagen = (id, fromIdx, direction) => {
-    const current = productos.find((p) => p.id === id);
-    const imgs = getProductoImagenes(current);
-    const toIdx = fromIdx + (direction === 'left' ? -1 : 1);
-    if (toIdx < 0 || toIdx >= imgs.length) return;
-    const next = [...imgs];
-    ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]];
-    setProductoImagenes(id, next);
-  };
-
-  const flushQueuedImageDeletes = async (id) => {
-    const set = pendingImageDeletesRef.current.get(id);
-    if (!set || set.size === 0) return;
-    pendingImageDeletesRef.current.delete(id);
-
-    for (const key of set) {
-      const [bucket, path] = String(key).split('::');
-      if (!bucket || !path) continue;
-      try {
-        await deleteStorageObject({ bucket, path });
-      } catch (e) {
-        console.warn('No se pudo borrar una imagen vieja:', e);
-      }
+         try {
+           const nuevosIdsMap = await guardarCambiosProductos({
+             productos: [productoConDefaults],
+             idsParaGuardar: [productoConDefaults.id],
+           });
+           const realId = nuevosIdsMap[productoConDefaults.id];
+           if (realId != null) {
+              setProductos((prev) => prev.map((p) => (p.id === productoConDefaults.id ? { ...p, id: realId } : p)));
+           }
+         } catch (e) {
+            setProductos((prev) => prev.filter((p) => p.id !== productoConDefaults.id));
+            throw e;
+         }
+    } else {
+        // Edit logic
+        const prevProducto = productos.find(p => p.id === productData.id);
+        const productoConDefaults = {
+           ...prevProducto,
+           ...productData,
+        };
+        
+        setProductos((prev) => prev.map(p => p.id === productData.id ? productoConDefaults : p));
+        
+        try {
+            await guardarCambiosProductos({
+                productos: [productoConDefaults],
+                idsParaGuardar: [productData.id]
+            });
+            
+            // Image cleanup logic
+            if (ownerId && prevProducto) {
+                 const bucket = getProductImagesBucketName();
+                 const allowedPrefix = `productos/${String(ownerId)}/`;
+                 const oldImages = Array.isArray(prevProducto.imagenes) 
+                    ? prevProducto.imagenes 
+                    : (prevProducto.imagenUrl ? [prevProducto.imagenUrl] : []);
+                 
+                 const newImages = new Set(productData.imagenes || []);
+                 
+                 for (const url of oldImages) {
+                    if (!url || newImages.has(url)) continue;
+                    
+                    const meta = getStorageObjectFromPublicUrl(url);
+                    if (!meta || meta.bucket !== bucket) continue;
+                    if (!String(meta.path || '').startsWith(allowedPrefix)) continue;
+                    
+                    // Fire and forget delete
+                    deleteStorageObject(meta).catch(err => console.warn('Failed to delete old image', err));
+                 }
+            }
+            
+        } catch (e) {
+            // Revert
+            if (prevProducto) {
+                setProductos((prev) => prev.map(p => p.id === productData.id ? prevProducto : p));
+            }
+            throw e;
+        }
     }
   };
 
-  const handleCreateProductoFromModal = async (draftProducto) => {
-    // Insertar optimista en UI, luego persistir inmediatamente.
-    const productoConDefaults = {
-      activo: true,
-      ...(ownerId ? { ownerId } : {}),
-      ...draftProducto,
-    };
-    setProductos((prev) => [productoConDefaults, ...prev]);
 
-    try {
-      const nuevosIdsMap = await guardarCambiosProductos({
-        productos: [productoConDefaults],
-        idsParaGuardar: [productoConDefaults.id],
-      });
 
-      const realId = nuevosIdsMap[productoConDefaults.id];
-      if (realId != null) {
-        setProductos((prev) => prev.map((p) => (p.id === productoConDefaults.id ? { ...p, id: realId } : p)));
-      }
-    } catch (e) {
-      // Revertir si falla
-      setProductos((prev) => prev.filter((p) => p.id !== productoConDefaults.id));
-      throw e;
-    }
-  };
 
   const abrirNuevaCategoria = (productoId = null) => {
     setCategoriaTargetProductoId(productoId);
@@ -212,7 +179,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
 
     // Si estamos creando desde un producto, asignarla automáticamente.
     if (categoriaTargetProductoId != null) {
-      handleUpdateProducto(categoriaTargetProductoId, 'categoria', nombreCreado);
+      handleUpdateProductoInList(categoriaTargetProductoId, 'categoria', nombreCreado);
     }
     return created;
   };
@@ -222,7 +189,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
 
     // Si aún no está persistido, tratamos esto como un cambio normal.
     if (prod.id < 0) {
-      handleUpdateProducto(prod.id, 'activo', nextActivo);
+      handleUpdateProductoInList(prod.id, 'activo', nextActivo);
       return;
     }
 
@@ -273,64 +240,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     }
   };
 
-  const handleGuardarProducto = async (id) => {
-    if (!id) return;
 
-    setGuardando(true);
-    try {
-      const nuevosIdsMap = await guardarCambiosProductos({ productos, idsParaGuardar: [id] });
-
-      const realId = nuevosIdsMap?.[id] != null ? nuevosIdsMap[id] : id;
-
-      // Si por alguna razón era temporal, actualiza al ID real
-      if (realId !== id) {
-        setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, id: realId } : p)));
-
-        // Mover cola de borrado del id temporal al real.
-        const queued = pendingImageDeletesRef.current.get(id);
-        if (queued) {
-          pendingImageDeletesRef.current.set(realId, queued);
-          pendingImageDeletesRef.current.delete(id);
-        }
-      }
-
-      setCambiosSinGuardar((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-
-      // Al guardar, el snapshot ya no sirve.
-      editSnapshotsRef.current.delete(id);
-
-      // Limpieza: ahora sí borramos imágenes viejas encoladas.
-      await flushQueuedImageDeletes(realId);
-      pushToast({ type: TOAST_TYPE.SUCCESS, title: 'Guardado', message: 'Cambios guardados.' });
-    } catch (error) {
-      console.error('Error al guardar producto:', error);
-      const msg = error?.message || '';
-      const msgLower = String(msg).toLowerCase();
-      if (msgLower.includes('activo') && msgLower.includes('does not exist')) {
-        pushToast({
-          type: TOAST_TYPE.WARNING,
-          title: 'Falta migración',
-          message: 'Tu base de datos aún no tiene la columna "activo". Ejecuta el SQL actualizado en supabase-schema.sql.',
-          durationMs: 6000,
-        });
-      } else if (msgLower.includes('categoria') && (msgLower.includes('does not exist') || msgLower.includes('no existe'))) {
-        pushToast({
-          type: TOAST_TYPE.WARNING,
-          title: 'Falta migración',
-          message: 'Tu base de datos aún no tiene la columna "categoria". Ejecuta el SQL actualizado en supabase-schema.sql.',
-          durationMs: 6000,
-        });
-      } else {
-        pushToast({ type: TOAST_TYPE.ERROR, title: 'Error', message: 'No se pudo guardar el producto.' });
-      }
-    } finally {
-      setGuardando(false);
-    }
-  };
 
   const handleEliminarProducto = async (id) => {
     // Optimista: eliminar de la UI inmediatamente
@@ -390,55 +300,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     await handleEliminarProducto(id)
   }
 
-  const setSubiendo = (id, value) => {
-    setSubiendoImagen(prev => ({ ...prev, [id]: value }));
-  };
 
-  const handleSubirImagen = async (id, file) => {
-    if (!file) return;
-
-    const current = productos.find((p) => p.id === id);
-    const currentImages = getProductoImagenes(current);
-    if (currentImages.length >= 3) {
-      pushToast({
-        type: TOAST_TYPE.WARNING,
-        title: 'Límite de fotos',
-        message: 'Máximo 3 fotos por producto.',
-        durationMs: 3500,
-      });
-      return;
-    }
-
-    try {
-      setSubiendo(id, true);
-
-      // Si el producto aún no existe en BD, igual subimos y guardamos URL.
-      // Quedará pendiente de persistir cuando se presione "Guardar Cambios".
-      const storageId = id > 0 ? String(id) : `temp-${Math.abs(id)}`;
-      const { publicUrl } = await uploadProductImage({ file, productId: storageId, ownerId });
-
-      setProductoImagenes(id, [...currentImages, publicUrl]);
-    } catch (error) {
-      console.error('Error al subir imagen:', error);
-      pushToast({
-        type: TOAST_TYPE.ERROR,
-        title: 'Error',
-        message: 'Error al subir imagen: ' + (error?.message || 'Desconocido'),
-        durationMs: 6000,
-      });
-    } finally {
-      setSubiendo(id, false);
-    }
-  };
-
-  const handleQuitarImagen = (id, idx) => {
-    const current = productos.find((p) => p.id === id);
-    const imgs = getProductoImagenes(current);
-    const toRemove = imgs[idx];
-    if (toRemove) queueImageDeleteFromUrl(id, toRemove);
-    const next = imgs.filter((_, i) => i !== idx);
-    setProductoImagenes(id, next);
-  };
 
   const productosRecientes = useMemo(() => {
     return Array.isArray(productos) ? productos : [];
@@ -513,14 +375,14 @@ const DashboardPrecios = ({ ownerId } = {}) => {
         notify={pushToast}
       />
 
-      <NuevoProductoModal
-        open={nuevoProductoOpen}
-        onClose={() => setNuevoProductoOpen(false)}
-        onCreate={handleCreateProductoFromModal}
+      <ProductoFormModal
+        open={productoFormOpen}
+        onClose={() => setProductoFormOpen(false)}
+        onSubmit={handleProductFormSubmit}
+        initialData={productoParaEditar}
         notify={pushToast}
         categorias={categoriasNombres}
         onCreateCategoria={async (nombre) => {
-          // categoría creada desde el modal de producto (sin target producto)
           setCategoriaTargetProductoId(null);
           return onCreateCategoria(nombre);
         }}
@@ -693,8 +555,8 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                     const isVisible = prod.activo !== false;
                     const profitPct = Math.round(Number(prod.profit) || 0);
                     const usdtValue = Number(prod.precioUSDT) || 0;
-                    const isEditing = expandProductoId === prod.id;
-                    const hasChanges = cambiosSinGuardar.has(prod.id);
+                    const isEditing = false;
+                    const hasChanges = false;
                     return (
                       <div
                         key={prod.id}
@@ -769,39 +631,15 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                           </div>
 
                           <div className="flex flex-col items-end justify-between gap-3 shrink-0 relative self-stretch">
-                            {!isEditing ? (
-                              <button
-                                type="button"
-                                onClick={() => startEditingProducto(prod)}
-                                className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-gray-600 hover:bg-gray-50"
-                                title="Editar"
-                              >
-                                <Pencil size={18} />
-                              </button>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                {hasChanges ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleGuardarProducto(prod.id)}
-                                    disabled={guardando}
-                                    className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                                    title="Guardar"
-                                  >
-                                    <Save size={18} />
-                                  </button>
-                                ) : null}
+                            <button
+                              type="button"
+                              onClick={() => handleEditarProducto(prod)}
+                              className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-gray-600 hover:bg-gray-50"
+                              title="Editar"
+                            >
+                              <Pencil size={18} />
+                            </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => discardEditingProducto(prod.id)}
-                                  className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-gray-600 hover:bg-gray-50"
-                                  title={hasChanges ? 'Cerrar y descartar cambios' : 'Cerrar edición'}
-                                >
-                                  <X size={18} />
-                                </button>
-                              </div>
-                            )}
 
                             <div className="flex items-center gap-3">
                               <button
@@ -821,298 +659,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                           </div>
                         </div>
 
-                        {isEditing ? (
-                          <div className="border-t border-gray-100 p-4 bg-gray-50">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                              <div className="text-sm font-semibold text-gray-900">Editar producto</div>
-                              <button
-                                type="button"
-                                onClick={() => confirmarEliminarProducto(prod.id)}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-red-700 hover:bg-red-50"
-                                title="Eliminar producto"
-                              >
-                                <Trash2 size={18} />
-                                Eliminar
-                              </button>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <div className="text-xs text-gray-500">Nombre</div>
-                                <input
-                                  type="text"
-                                  value={prod.nombre}
-                                  onChange={(e) => handleUpdateProducto(prod.id, 'nombre', e.target.value)}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Nombre del producto"
-                                />
-                              </div>
-
-                              <div>
-                                <div className="text-xs text-gray-500">Categoría</div>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <select
-                                    value={prod.categoria || ''}
-                                    onChange={(e) => handleUpdateProducto(prod.id, 'categoria', e.target.value)}
-                                    className="flex-1 p-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  >
-                                    <option value="">Sin categoría</option>
-                                    {(categoriasNombres || []).map((c) => (
-                                      <option key={c} value={c}>
-                                        {c}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    type="button"
-                                    onClick={() => abrirNuevaCategoria(prod.id)}
-                                    disabled={guardandoCategoria}
-                                    className="px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-                                    title="Crear categoría"
-                                  >
-                                    Nueva
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="md:col-span-2">
-                              </div>
-
-                              <div className="md:col-span-2">
-                                <div className="text-xs text-gray-500 mb-1">Fotos (Máx 3)</div>
-                                <div className="grid grid-cols-4 gap-2">
-                                  {/* Mostrar imágenes existentes (o previews temporales) */}
-                                  {(Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? prod.imagenes : (prod.imagenUrl ? [prod.imagenUrl] : [])).map((url, idx) => (
-                                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100 group">
-                                      <img src={url} alt={`Foto ${idx}`} className="w-full h-full object-cover" />
-                                      
-                                      {/* Controls overlay */}
-                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-start justify-end p-1 gap-1">
-                                        {/* Reorder Left */}
-                                        <button
-                                          type="button"
-                                          disabled={idx === 0}
-                                          onClick={() => {
-                                            const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
-                                            if (idx > 0) {
-                                              const temp = currentList[idx - 1]
-                                              currentList[idx - 1] = currentList[idx]
-                                              currentList[idx] = temp
-                                              handleUpdateProducto(prod.id, 'imagenes', currentList)
-                                              // Fallback update main image
-                                              if (idx === 1) handleUpdateProducto(prod.id, 'imagenUrl', currentList[0])
-                                            }
-                                          }}
-                                          className="p-1 rounded-full bg-white/90 text-gray-700 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 disabled:invisible"
-                                        >
-                                          <ArrowLeft size={12} />
-                                        </button>
-
-                                        {/* Reorder Right */}
-                                        <button
-                                          type="button"
-                                          disabled={idx === (Array.isArray(prod.imagenes) ? prod.imagenes.length : 1) - 1}
-                                          onClick={() => {
-                                            const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
-                                            const max = currentList.length - 1
-                                            if (idx < max) {
-                                              const temp = currentList[idx + 1]
-                                              currentList[idx + 1] = currentList[idx]
-                                              currentList[idx] = temp
-                                              handleUpdateProducto(prod.id, 'imagenes', currentList)
-                                              // Fallback update main image start
-                                              if (idx === 0) handleUpdateProducto(prod.id, 'imagenUrl', currentList[0])
-                                            }
-                                          }}
-                                          className="p-1 rounded-full bg-white/90 text-gray-700 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 disabled:invisible"
-                                        >
-                                          <ArrowRight size={12} />
-                                        </button>
-
-                                        {/* Delete */}
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
-                                            const removedUrl = currentList[idx]
-                                            const newList = currentList.filter((_, i) => i !== idx)
-                                            
-                                            handleUpdateProducto(prod.id, 'imagenes', newList)
-                                            // Handle main image sync
-                                            if (idx === 0) {
-                                              handleUpdateProducto(prod.id, 'imagenUrl', newList[0] || '')
-                                            }
-                                            
-                                            // Optional: Track deleted images for cleanup if needed
-                                            // if (!pendingImageDeletesRef.current.has(prod.id)) {
-                                            //   pendingImageDeletesRef.current.set(prod.id, new Set())
-                                            // }
-                                            // const bucket = getProductImagesBucketName()
-                                            // const path = getStorageObjectFromPublicUrl(removedUrl, bucket)
-                                            // if (path) pendingImageDeletesRef.current.get(prod.id).add(`${bucket}::${path}`)
-                                          }}
-                                          className="p-1 rounded-full bg-red-100 text-red-600 hover:bg-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          <Trash2 size={12} />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-
-                                  {/* Botón Upload */}
-                                  {(!prod.imagenes || prod.imagenes.length < 3) && (
-                                    <label className="relative aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-blue-300 transition-all cursor-pointer group">
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        disabled={subiendoImagen[prod.id]}
-                                        className="hidden"
-                                        onChange={async (e) => {
-                                          const file = e.target.files?.[0]
-                                          if (!file) return
-
-                                          const currentList = Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? [...prod.imagenes] : (prod.imagenUrl ? [prod.imagenUrl] : [])
-                                          if (currentList.length >= 3) {
-                                            e.target.value = ''
-                                            return
-                                          }
-
-                                          setSubiendoImagen(prev => ({ ...prev, [prod.id]: true }))
-                                          try {
-                                            console.log('Intentando subir imagen:', { file, productId: prod.id, ownerId })
-                                            
-                                            // Validar ownerId
-                                            if (!ownerId) {
-                                              throw new Error('No se ha verificado el usuario (ownerId faltante). Recarga la página.')
-                                            }
-
-                                            const publicUrl = await uploadProductImage({
-                                              file, 
-                                              productId: prod.id,
-                                              ownerId
-                                            })
-                                            console.log('Resultado subida:', publicUrl)
-
-                                            if (publicUrl && publicUrl.publicUrl) {
-                                              const finalUrl = publicUrl.publicUrl
-                                              const newList = [...currentList, finalUrl]
-                                              handleUpdateProducto(prod.id, 'imagenes', newList)
-                                              // Si es la primera, setear como principal
-                                              if (newList.length === 1) {
-                                                handleUpdateProducto(prod.id, 'imagenUrl', finalUrl)
-                                              }
-                                              pushToast?.({ type: TOAST_TYPE.SUCCESS, title: 'Éxito', message: 'Imagen subida correctamente.' })
-                                            } else {
-                                              console.error('La subida no retornó publicUrl:', publicUrl)
-                                              throw new Error('No se recibió URL de la imagen del servidor.')
-                                            }
-                                          } catch (err) {
-                                            console.error('Error uploading fatal:', err)
-                                            const msg = err?.message || 'Error desconocido al subir imagen'
-                                            pushToast?.({ type: TOAST_TYPE.ERROR, title: 'Error', message: msg })
-                                            alert(`Error al subir imagen: ${msg}`) // Fallback para visibilidad garantizada
-                                          } finally {
-                                            setSubiendoImagen(prev => ({ ...prev, [prod.id]: false }))
-                                            // IMPORTANTE: Resetear el input para permitir elegir el mismo archivo si falló
-                                            if (e && e.target) e.target.value = '' 
-                                          }
-                                        }}
-                                      />
-                                      {subiendoImagen[prod.id] ? (
-                                        <RefreshCw size={20} className="animate-spin text-blue-500" />
-                                      ) : (
-                                        <>
-                                          <Plus size={24} className="group-hover:text-blue-500 transition-colors" />
-                                          <span className="text-[10px] mt-1 font-medium group-hover:text-blue-600">Subir</span>
-                                        </>
-                                      )}
-                                    </label>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="md:col-span-2">
-                                <div className="flex p-1 bg-white border border-gray-200 rounded-xl mb-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateProducto(prod.id, 'isFixedPrice', false)}
-                                    className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
-                                      !prod.isFixedPrice ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500'
-                                    }`}
-                                  >
-                                    Variable
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateProducto(prod.id, 'isFixedPrice', true)}
-                                    className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
-                                      prod.isFixedPrice ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500'
-                                    }`}
-                                  >
-                                    Fijo
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div>
-                                <div className="text-xs text-gray-500">
-                                  {prod.isFixedPrice ? 'Precio Final (USD)' : 'Costo en USD'}
-                                </div>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={prod.precioUSDT || ''}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                      handleUpdateProducto(prod.id, 'precioUSDT', value);
-                                    }
-                                  }}
-                                  className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="0.00"
-                                />
-                              </div>
-
-                              {!prod.isFixedPrice && (
-                                <div>
-                                  <div className="text-xs text-gray-500">Ganancia %</div>
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={prod.profit || ''}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                        handleUpdateProducto(prod.id, 'profit', value);
-                                      }
-                                    }}
-                                    className="mt-1 w-full p-2.5 border border-gray-200 rounded-xl bg-white text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="0"
-                                  />
-                                </div>
-                              )}
-
-                              <div className="md:col-span-2">
-                                <div className="grid grid-cols-2 gap-3 mb-2">
-                                  {!prod.isFixedPrice && (
-                                    <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3">
-                                      <div className="text-[11px] font-semibold text-blue-700">Real BCV ($)</div>
-                                      <div className="mt-1 text-base font-semibold text-blue-900">
-                                        ${calcularPrecioRealBCV(prod.precioUSDT).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div className={`rounded-2xl bg-emerald-50 border border-emerald-100 p-3 ${prod.isFixedPrice ? 'col-span-2' : ''}`}>
-                                    <div className="text-[11px] font-semibold text-emerald-700">Venta final ($)</div>
-                                    <div className="mt-1 text-base font-semibold text-emerald-900">
-                                      ${calcularPrecioVenta(prod).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null}
                       </div>
                     );
                   })}

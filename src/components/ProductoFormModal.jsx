@@ -8,10 +8,11 @@ const formatMoney = (value) => {
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
-export default function NuevoProductoModal({
+export default function ProductoFormModal({
   open,
   onClose,
-  onCreate,
+  onSubmit, // Replaces onCreate, works for both create and update
+  initialData = null, // If present, we are in edit mode
   notify,
   categorias,
   onCreateCategoria,
@@ -23,7 +24,9 @@ export default function NuevoProductoModal({
   refrescarUSDT,
   uploadImage,
 }) {
+  const isEditing = !!initialData
   const [draftId, setDraftId] = useState(null)
+  
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [categoria, setCategoria] = useState('')
@@ -69,23 +72,43 @@ export default function NuevoProductoModal({
   useEffect(() => {
     if (!open) return
 
-    // crear un draftId estable por apertura
-    const id = -(Date.now())
-    setDraftId(id)
-    setNombre('')
-    setDescripcion('')
-    setCategoria('')
-    setCreandoCategoria(false)
-    setNuevaCategoria('')
-    setPrecioUSDT('')
-    setProfit(40)
-    setIsFixedPrice(false)
-    setImagenes([])
+    if (initialData) {
+      // Edit mode: populate from initialData
+      setDraftId(initialData.id)
+      setNombre(initialData.nombre || '')
+      setDescripcion(initialData.descripcion || '')
+      setCategoria(initialData.categoria || '')
+      setCreandoCategoria(false)
+      setNuevaCategoria('')
+      setPrecioUSDT(initialData.precioUSDT || '')
+      setProfit(typeof initialData.profit !== 'undefined' ? Number(initialData.profit) : 40)
+      setIsFixedPrice(!!initialData.isFixedPrice)
+      
+      const imgs = Array.isArray(initialData.imagenes) 
+        ? initialData.imagenes 
+        : (initialData.imagenUrl ? [initialData.imagenUrl] : [])
+      setImagenes(imgs.filter(Boolean))
+    } else {
+      // Create mode: reset
+      // crear un draftId estable por apertura (negativo para indicar nuevo temporal)
+      const id = -(Date.now())
+      setDraftId(id)
+      setNombre('')
+      setDescripcion('')
+      setCategoria('')
+      setCreandoCategoria(false)
+      setNuevaCategoria('')
+      setPrecioUSDT('')
+      setProfit(40)
+      setIsFixedPrice(false)
+      setImagenes([])
+    }
+    
     setPreviewUrls([])
     setSubiendo(false)
     setStep(1)
     setGuardando(false)
-  }, [open])
+  }, [open, initialData])
 
   useEffect(() => {
     return () => {
@@ -125,6 +148,7 @@ export default function NuevoProductoModal({
 
     try {
       setSubiendo(true)
+      // Use draftId (which might be real ID in edit mode, or temp ID in create mode)
       const { publicUrl } = await uploadImage(draftId, file)
       setImagenes((prev) => {
         const next = [...prev, publicUrl].filter(Boolean).slice(0, 3)
@@ -191,7 +215,7 @@ export default function NuevoProductoModal({
     })
   }
 
-  const handleSave = async () => {
+  const handleSubmit = async () => {
     if (!draftId) return
     if (!(nombre || '').trim()) {
       setStep(1)
@@ -200,24 +224,29 @@ export default function NuevoProductoModal({
 
     setGuardando(true)
     try {
-      await onCreate({
+      await onSubmit({
         id: draftId,
         nombre: nombre.trim(),
         descripcion,
         categoria,
         imagenUrl: imagenes?.[0] || '',
         imagenes,
-        activo: true,
+        activo: true, // Default to true or keep existing? Usually explicit UI for active/inactive is elsewhere or we can add it here. Keeping as true for now or maybe preserve if editing? 
+        // For now let's assume active stays true or let the parent handle merging if it's an update.
+        // Actually, for update, we probably shouldn't override 'activo' if we don't expose it.
+        // But the parent 'handleUpdate' might want the whole object.
+        // Let's pass 'activo' if we have it from initialData, otherwise true.
+        activo: initialData ? initialData.activo : true,
         precioUSDT: costoUSDTNum,
         profit: isFixedPrice ? 0 : (Number(profit) || 0),
         isFixedPrice,
       })
       if (typeof notify === 'function') {
-        notify({ type: 'success', title: 'Creado', message: 'Producto guardado.' })
+        notify({ type: 'success', title: isEditing ? 'Actualizado' : 'Creado', message: isEditing ? 'Producto actualizado.' : 'Producto guardado.' })
       }
       onClose?.()
     } catch (e) {
-      console.error('Error creando producto:', e)
+      console.error('Error guardando producto:', e)
       if (typeof notify === 'function') {
         notify({
           type: 'error',
@@ -234,19 +263,31 @@ export default function NuevoProductoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60]">
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+      {/* Fondo oscuro */}
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
         onClick={handleClose}
         aria-hidden="true"
       />
 
+      {/* Bottom sheet en móvil, centrado en escritorio */}
       <div
-        className="absolute inset-x-0 top-0 bottom-0 md:inset-0 md:flex md:items-center md:justify-center"
+        className="relative w-full md:w-auto md:max-w-md"
         role="dialog"
         aria-modal="true"
       >
-        <div className="w-full h-full md:h-auto md:max-h-[85vh] md:max-w-md bg-gray-50 md:rounded-2xl overflow-hidden md:border md:border-gray-200 md:shadow-2xl flex flex-col min-h-0">
+        <div
+          className="w-full md:w-[400px] bg-gray-50 rounded-t-3xl md:rounded-2xl overflow-hidden border-t md:border md:shadow-2xl flex flex-col min-h-0 max-h-[90vh] md:max-h-[85vh] animate-slideup"
+          style={{
+            boxShadow: '0 -8px 32px 0 rgba(0,0,0,0.10)',
+            marginBottom: 0,
+          }}
+        >
+          {/* Barra de arrastre visual en móvil */}
+          <div className="md:hidden flex justify-center pt-3 pb-1">
+            <div className="w-12 h-1.5 rounded-full bg-gray-300" />
+          </div>
           <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center justify-between">
             <button
               type="button"
@@ -257,7 +298,7 @@ export default function NuevoProductoModal({
             >
               <X size={20} />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">Nuevo Producto</h1>
+            <h1 className="text-lg font-semibold text-gray-900">{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h1>
             <div className="w-10" />
           </header>
 
@@ -577,11 +618,11 @@ export default function NuevoProductoModal({
           <div className="sticky bottom-0 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white/90 backdrop-blur border-t border-gray-200 flex flex-col gap-2">
             <button
               type="button"
-              onClick={handleSave}
+              onClick={handleSubmit}
               disabled={guardando || subiendo}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
             >
-              {guardando ? 'Guardando…' : 'Guardar Producto'}
+              {guardando ? 'Guardando…' : (isEditing ? 'Guardar Cambios' : 'Guardar Producto')}
             </button>
 
             <button
@@ -590,7 +631,7 @@ export default function NuevoProductoModal({
               disabled={guardando || subiendo}
               className="w-full py-3 text-gray-500 font-medium text-sm hover:text-gray-700 disabled:opacity-50"
             >
-              Descartar Cambios
+              Descartar {isEditing ? 'Cambios' : ''}
             </button>
 
             <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
