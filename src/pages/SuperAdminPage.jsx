@@ -10,6 +10,7 @@ import {
   CreditCard,
   BarChart3,
   Settings,
+  Store,
 } from 'lucide-react'
 
 import { useAuthSession } from '../hooks/useAuthSession'
@@ -617,10 +618,23 @@ export default function SuperAdminPage() {
                         <span className="text-[11px] text-slate-400">{u.joinedAt ? `Desde ${formatJoined(u.joinedAt)}` : ''}</span>
                       </div>
 
-                      <button type="button" onClick={() => openDetails(u)} className="text-primary text-sm font-bold flex items-center gap-1">
-                        Detalles
-                        <ArrowRight size={14} />
-                      </button>
+                      <div className="flex gap-3">
+                        {u.handle ? (
+                            <Link
+                                to={`/${u.handle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-slate-400 hover:text-primary transition-colors flex items-center justify-center"
+                                title={`Ver catálogo: /${u.handle}`}
+                            >
+                              <Store size={16} />
+                            </Link>
+                        ) : null}
+                        <button type="button" onClick={() => openDetails(u)} className="text-primary text-sm font-bold flex items-center gap-1">
+                          Detalles
+                          <ArrowRight size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
