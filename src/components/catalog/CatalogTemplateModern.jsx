@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search, SlidersHorizontal } from 'lucide-react'
+import Pagination from '../Pagination'
 
 const formatearNumero = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -46,6 +47,13 @@ const CatalogTemplateModern = ({
   const activeCat = String(categoriaActiva || '')
 
   const [busquedaVisible, setBusquedaVisible] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  // Reset a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, categoriaActiva])
 
   useEffect(() => {
     if (!busquedaVisible) return
@@ -57,6 +65,12 @@ const CatalogTemplateModern = ({
       globalThis?.clearTimeout?.(t)
     }
   }, [busquedaVisible])
+
+  // Calcular productos paginados
+  const totalItems = productosFiltrados.length
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const productosPaginados = productosFiltrados.slice(startIndex, endIndex)
 
   return (
     <div className="bg-[#f6f7f8] text-[#111418] min-h-screen font-[Inter,system-ui,Segoe_UI,Roboto,Helvetica,Arial,sans-serif]">
@@ -131,7 +145,7 @@ const CatalogTemplateModern = ({
           style={{ columnCount: 2, columnGap: 12 }}
           aria-busy={cargando ? 'true' : 'false'}
         >
-          {productosFiltrados.map((p, idx) => {
+          {productosPaginados.map((p, idx) => {
             const ratio = idx % 6 === 0 ? 'aspect-[3/4]' : idx % 6 === 1 ? 'aspect-square' : idx % 6 === 2 ? 'aspect-[2/3]' : idx % 6 === 3 ? 'aspect-[4/3]' : idx % 6 === 4 ? 'aspect-square' : 'aspect-[3/5]'
             return (
               <div key={p.id} style={{ breakInside: 'avoid', marginBottom: 12 }}>
@@ -170,6 +184,16 @@ const CatalogTemplateModern = ({
         {productosFiltrados.length === 0 && !cargando ? (
           <div className="mt-8 text-center text-sm text-gray-500">No hay productos para mostrar.</div>
         ) : null}
+
+        {/* Paginación */}
+        {totalItems > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </main>
     </div>
   )

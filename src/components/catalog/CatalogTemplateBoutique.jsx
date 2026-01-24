@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { categoriasRepository } from '../../data/categoriasRepository'
+import Pagination from '../Pagination'
 
 const formatearNumero = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -40,6 +41,13 @@ const CatalogTemplateBoutique = ({
   const [categoriasError, setCategoriasError] = useState('')
   const [categoriaActiva, setCategoriaActiva] = useState('')
   const [busquedaVisible, setBusquedaVisible] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  // Reset a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, categoriaActiva])
 
   useEffect(() => {
     let mounted = true
@@ -79,6 +87,12 @@ const CatalogTemplateBoutique = ({
     if (!categoriaActiva) return list
     return list.filter((p) => (p?.categoria || '').trim() === categoriaActiva)
   }, [productosFiltrados, categoriaActiva])
+
+  // Calcular productos paginados
+  const totalItems = productosFiltradosMaison.length
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const productosPaginados = productosFiltradosMaison.slice(startIndex, endIndex)
 
   return (
     <div className="bg-[#fdfcfb] text-[#111318] min-h-screen">
@@ -161,7 +175,7 @@ const CatalogTemplateBoutique = ({
           ) : null}
 
           <div className="flex flex-col gap-8 pb-6">
-            {productosFiltradosMaison.map((p) => (
+            {productosPaginados.map((p) => (
               <div key={p.id} className="px-4">
                 <button
                   type="button"
@@ -205,6 +219,16 @@ const CatalogTemplateBoutique = ({
               <div className="px-4 text-center text-sm text-[#636c88]">No hay productos para mostrar.</div>
             ) : null}
           </div>
+
+          {/* Paginación */}
+          {totalItems > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </main>
       </div>
     </div>

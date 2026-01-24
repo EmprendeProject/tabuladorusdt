@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Menu, Search } from 'lucide-react'
+import Pagination from '../Pagination'
 
 const formatearNumero = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -42,6 +43,13 @@ const CatalogTemplateSimple = ({
   const activeCat = String(categoriaActiva || '')
 
   const [busquedaVisible, setBusquedaVisible] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  // Reset a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, categoriaActiva])
 
   useEffect(() => {
     if (!busquedaVisible) return
@@ -64,6 +72,12 @@ const CatalogTemplateSimple = ({
     const list = Array.isArray(productosFiltrados) ? productosFiltrados : []
     return list
   }, [productosFiltrados])
+
+  // Calcular productos paginados para la sección "Productos"
+  const totalItems = allItems.length
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const productosPaginados = allItems.slice(startIndex, endIndex)
 
   return (
     <div className="bg-[#f8f7f5] text-[#181611] min-h-screen">
@@ -222,7 +236,7 @@ const CatalogTemplateSimple = ({
 
           <div className="px-4 pb-10" aria-busy={cargando ? 'true' : 'false'}>
             <div className="grid grid-cols-2 gap-8">
-              {allItems.map((p) => {
+              {productosPaginados.map((p) => {
                 const cat = String(p?.categoria || '').trim()
                 const price = `$${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}`
                 const meta = cat ? `${cat.toUpperCase()} / ${price}` : price
@@ -270,6 +284,16 @@ const CatalogTemplateSimple = ({
                 <div className="col-span-2 py-6 text-center text-sm text-[#8a7c60]">No hay productos para mostrar.</div>
               ) : null}
             </div>
+
+            {/* Paginación */}
+            {totalItems > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalItems={totalItems}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </div>
 
           <section className="p-8 mt-2 bg-[#f2a60d]/5 text-center">

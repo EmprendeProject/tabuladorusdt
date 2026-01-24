@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
+import Pagination from '../Pagination'
 
 const formatearNumero = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -49,6 +50,13 @@ const CatalogTemplateUrbanStreet = ({
   const activeCat = String(categoriaActiva || '')
 
   const [busquedaVisible, setBusquedaVisible] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  // Reset a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, categoriaActiva])
 
   useEffect(() => {
     if (!busquedaVisible) return
@@ -61,11 +69,17 @@ const CatalogTemplateUrbanStreet = ({
     }
   }, [busquedaVisible])
 
-  // Featured product (first one)
-  const featuredProduct = productosFiltrados[0] || null
+  // Calcular productos paginados
+  const totalItems = productosFiltrados.length
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const productosPaginados = productosFiltrados.slice(startIndex, endIndex)
+
+  // Featured product (first one of current page)
+  const featuredProduct = productosPaginados[0] || null
 
   // Rest of products for masonry grid
-  const gridProducts = productosFiltrados.slice(1)
+  const gridProducts = productosPaginados.slice(1)
 
   return (
     <div className="bg-[#f8f7f6] dark:bg-[#121212] text-slate-900 dark:text-white min-h-screen font-[Space_Grotesk,sans-serif]">
@@ -244,6 +258,18 @@ const CatalogTemplateUrbanStreet = ({
             </div>
           )}
         </div>
+
+        {/* Paginación */}
+        {totalItems > 0 && (
+          <div className="pb-8">
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
 
         {/* Loading State */}
         {cargando && (

@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
+import Pagination from '../Pagination'
 
 const money = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -49,15 +50,22 @@ const CatalogTemplateHeavy = ({
   const cats = Array.isArray(categorias) ? categorias : []
   const activeCat = String(categoriaActiva || '')
 
-  const gridItems = useMemo(() => {
-    const list = Array.isArray(productosFiltrados) ? productosFiltrados : []
-    return list.slice(0, 8)
-  }, [productosFiltrados])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
-  const priorityItems = useMemo(() => {
+  // Reset a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, categoriaActiva])
+
+  // Calcular productos paginados
+  const totalItems = Array.isArray(productosFiltrados) ? productosFiltrados.length : 0
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const productosPaginados = useMemo(() => {
     const list = Array.isArray(productosFiltrados) ? productosFiltrados : []
-    return list.slice(8, 14)
-  }, [productosFiltrados])
+    return list.slice(startIndex, endIndex)
+  }, [productosFiltrados, startIndex, endIndex])
 
   return (
     <div className="bg-[#121212] text-slate-100 min-h-screen font-sans">
@@ -81,7 +89,7 @@ const CatalogTemplateHeavy = ({
                 onChange={(e) => setQuery(e.target.value)}
               />
               <div className="flex items-center pr-4">
-                <span className="text-zinc-500 text-xs font-bold">#{gridItems.length}</span>
+                <span className="text-zinc-500 text-xs font-bold">#{totalItems}</span>
               </div>
             </div>
           </label>
@@ -123,7 +131,7 @@ const CatalogTemplateHeavy = ({
         ) : null}
 
         <div className="grid grid-cols-2 gap-4 p-4">
-          {gridItems.map((p) => {
+          {productosPaginados.map((p) => {
             const precio = p?.precioSugeridoUsd ?? p?.precioUSDT
             const sku = String(p?.sku || p?.codigo || p?.id || '').slice(0, 8).toUpperCase()
 
@@ -165,47 +173,21 @@ const CatalogTemplateHeavy = ({
           })}
         </div>
 
-        {priorityItems.length ? (
-          <div className="px-4 py-6">
-            <h3 className="text-white text-sm font-black uppercase tracking-[0.2em] mb-4">Otros</h3>
-            <div className="space-y-3">
-              {priorityItems.map((p) => {
-                const precio = p?.precioSugeridoUsd ?? p?.precioUSDT
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => onSelectProducto?.(p)}
-                    className="w-full flex items-center gap-4 p-3 bg-[#1e1e1e] border border-zinc-800 rounded-lg text-left"
-                    aria-label={`Ver ${p.nombre || 'producto'}`}
-                  >
-                    <div className="size-14 bg-zinc-800 shrink-0 flex items-center justify-center rounded overflow-hidden">
-                      {p?.imagenUrl ? (
-                        <img src={p.imagenUrl} alt={p.nombre || 'Producto'} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full bg-zinc-900" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-white text-xs font-bold uppercase truncate">{p.nombre || 'Sin nombre'}</h4>
-                      <p className="text-zinc-500 text-[10px] font-medium truncate">{p?.categoria ? String(p.categoria) : 'Sin categoría'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[#ec6d13] font-bold">${money(precio, 2)}</p>
-                      <span className="text-zinc-600 text-sm">›</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ) : null}
-
-        {!gridItems.length && !cargando ? (
+        {!totalItems && !cargando ? (
           <div className="px-4 pb-10">
             <div className="bg-[#1e1e1e] border border-zinc-800 rounded-lg p-4 text-sm text-zinc-300">No hay productos para mostrar.</div>
           </div>
         ) : null}
+
+        {/* Paginación */}
+        {totalItems > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </main>
     </div>
   )
