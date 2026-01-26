@@ -379,6 +379,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
         open={productoFormOpen}
         onClose={() => setProductoFormOpen(false)}
         onSubmit={handleProductFormSubmit}
+        onDelete={handleEliminarProducto}
         initialData={productoParaEditar}
         notify={pushToast}
         categorias={categoriasNombres}

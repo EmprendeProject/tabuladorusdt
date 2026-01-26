@@ -12,6 +12,7 @@ export default function ProductoFormModal({
   open,
   onClose,
   onSubmit, // Replaces onCreate, works for both create and update
+  onDelete, // Called when user confirms deletion (only in edit mode)
   initialData = null, // If present, we are in edit mode
   notify,
   categorias,
@@ -625,35 +626,45 @@ export default function ProductoFormModal({
               {guardando ? 'Guardando…' : (isEditing ? 'Guardar Cambios' : 'Guardar Producto')}
             </button>
 
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={guardando || subiendo}
-              className="w-full py-3 text-gray-500 font-medium text-sm hover:text-gray-700 disabled:opacity-50"
-            >
-              Descartar {isEditing ? 'Cambios' : ''}
-            </button>
-
-            <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-              <span>Paso {step}/3</span>
-              <div className="flex gap-2">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={guardando || subiendo}
+                className="flex-1 py-3 text-gray-500 font-medium text-sm hover:text-gray-700 disabled:opacity-50"
+              >
+                Descartar {isEditing ? 'Cambios' : ''}
+              </button>
+              
+              {isEditing && typeof onDelete === 'function' && (
                 <button
                   type="button"
-                  onClick={() => setStep((s) => clamp(s - 1, 1, 3))}
-                  className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
-                  disabled={step === 1 || guardando || subiendo}
+                  onClick={async () => {
+                    const nombre = initialData?.nombre ? `"${initialData.nombre}"` : 'este producto'
+                    const ok = window.confirm(`¿Seguro que quieres eliminar ${nombre}? Esta acción no se puede deshacer.`)
+                    if (!ok) return
+                    
+                    try {
+                      await onDelete(initialData.id)
+                      onClose?.()
+                    } catch (e) {
+                      console.error('Error eliminando:', e)
+                      if (typeof notify === 'function') {
+                        notify({
+                          type: 'error',
+                          title: 'Error',
+                          message: 'No se pudo eliminar el producto.',
+                        })
+                      }
+                    }
+                  }}
+                  disabled={guardando || subiendo}
+                  className="flex-1 py-3 bg-red-50 text-red-600 font-medium text-sm hover:bg-red-100 disabled:opacity-50 rounded-2xl border border-red-200 flex items-center justify-center gap-2"
                 >
-                  Atrás
+                  <Trash2 size={16} />
+                  Eliminar
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setStep((s) => clamp(s + 1, 1, 3))}
-                  className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
-                  disabled={step === 3 || !canGoNext() || guardando || subiendo}
-                >
-                  Siguiente
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
