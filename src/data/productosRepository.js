@@ -26,108 +26,122 @@ const isMissingColumn = (error, columnName) => {
 
 export const productosRepository = {
   async listAll(ownerId) {
-    let q = supabase
-      .from('productos')
-      .select('*')
+    let allData = []
+    let from = 0
+    const step = 1000
+    let hasMore = true
 
-    if (ownerId) q = q.eq('owner_id', ownerId)
+    while (hasMore) {
+      const to = from + step - 1
+      let q = supabase
+        .from('productos')
+        .select('*')
+        .range(from, to)
 
-    const { data, error } = await q.order('created_at', { ascending: false })
+      if (ownerId) q = q.eq('owner_id', ownerId)
 
-    if (error) throw error
-    return mapRows(data)
+      const { data, error } = await q.order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        allData = [...allData, ...data]
+        if (data.length < step) {
+          hasMore = false
+        } else {
+          from += step
+        }
+      } else {
+        hasMore = false
+      }
+    }
+
+    return mapRows(allData)
   },
 
   async listPublic(ownerId) {
-    const baseQuery = (select, filterActivo, ownerIdFilter) => {
-      let q = supabase.from('productos').select(select)
+    const runQuery = async (fields, from, to, filterActivo) => {
+      let q = supabase.from('productos').select(fields.join(','))
       if (filterActivo) q = q.eq('activo', true)
-      if (ownerIdFilter) q = q.eq('owner_id', ownerIdFilter)
-      return q.order('created_at', { ascending: false })
+      if (ownerId) q = q.eq('owner_id', ownerId)
+      return q
+        .order('created_at', { ascending: false })
+        .range(from, to)
     }
 
-    const run = async (fields, filterActivo) => {
-      const select = fields.join(',')
-      return baseQuery(select, filterActivo, ownerId)
-    }
+    // Estrategia: Obtener TODO paginando, intentando con el set completo de columnas.
+    // Si falla por falta de columnas, degradamos el set ideal y reintentamos DESDE CERO
+    // (o podríamos manejarlo por página, pero es más riesgo de inconsistencia).
+    // Para simplificar: determinamos columnas seguras primero (o asumimos que funciona)
+    // PERO dada la lógica de compatibilidad, mejor encapsulamos el fetch de UNA página con retry
+    // y lo llamamos en bucle.
 
-    // Intentamos con el set más completo, con fallbacks si faltan columnas.
+    let allData = []
+    let from = 0
+    const step = 1000
+    let hasMore = true
+
+    // Definición inicial de fields
     let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo', 'is_fixed_price']
+    let filterActivo = true
 
-    // 1) Con filtro activo
-    let { data, error } = await run(fields, true)
-    if (!error) return mapRows(data)
+    // Función auxiliar para traer una página con "retry" si faltan columnas
+    const fetchPage = async (currentFrom, currentTo) => {
+      // Loop infinito interno para retries de columnas
+      while (true) {
+        const { data, error } = await runQuery(fields, currentFrom, currentTo, filterActivo)
+        if (!error) return data
 
-    // Si faltan columnas opcionales, reintentamos con una versión reducida.
-    if (isMissingColumn(error, 'profit')) {
-      fields = fields.filter((f) => f !== 'profit')
-        ; ({ data, error } = await run(fields, true))
-      if (!error) return mapRows(data)
-    }
+        // Manejo de errores de columnas faltantes
+        if (isMissingColumn(error, 'profit')) {
+          fields = fields.filter((f) => f !== 'profit')
+          continue
+        }
+        if (isMissingColumn(error, 'imagenes_urls')) {
+          fields = fields.filter((f) => f !== 'imagenes_urls')
+          continue
+        }
+        if (isMissingColumn(error, 'owner_id')) {
+          fields = fields.filter((f) => f !== 'owner_id')
+          continue
+        }
+        if (isMissingColumn(error, 'descripcion')) {
+          fields = fields.filter((f) => f !== 'descripcion')
+          continue
+        }
+        if (isMissingColumn(error, 'categoria')) {
+          fields = fields.filter((f) => f !== 'categoria')
+          continue
+        }
+        if (isMissingColumn(error, 'activo')) {
+          // Si falla activo, quitamos filtro y campo
+          fields = fields.filter((f) => f !== 'activo')
+          filterActivo = false // Importante: quitar el filtro tb
+          continue
+        }
 
-    if (isMissingColumn(error, 'imagenes_urls')) {
-      fields = fields.filter((f) => f !== 'imagenes_urls')
-        ; ({ data, error } = await run(fields, true))
-      if (!error) return mapRows(data)
-    }
-
-    if (isMissingColumn(error, 'owner_id')) {
-      fields = fields.filter((f) => f !== 'owner_id')
-        ; ({ data, error } = await run(fields, true))
-      if (!error) return mapRows(data)
-    }
-
-    if (isMissingColumn(error, 'descripcion')) {
-      fields = fields.filter((f) => f !== 'descripcion')
-        ; ({ data, error } = await run(fields, true))
-      if (!error) return mapRows(data)
-    }
-
-    if (isMissingColumn(error, 'categoria')) {
-      fields = fields.filter((f) => f !== 'categoria')
-        ; ({ data, error } = await run(fields, true))
-      if (!error) return mapRows(data)
-    }
-
-    // 2) Backward compatible: si aún no existe `activo`, devolvemos todos (sin filtro)
-    if (isMissingColumn(error, 'activo')) {
-      fields = fields.filter((f) => f !== 'activo')
-        ; ({ data, error } = await run(fields, false))
-      if (!error) return mapRows(data)
-
-      // Si faltan opcionales en este camino, reintentamos también.
-      if (isMissingColumn(error, 'profit')) {
-        fields = fields.filter((f) => f !== 'profit')
-          ; ({ data, error } = await run(fields, false))
-        if (!error) return mapRows(data)
-      }
-
-      if (isMissingColumn(error, 'imagenes_urls')) {
-        fields = fields.filter((f) => f !== 'imagenes_urls')
-          ; ({ data, error } = await run(fields, false))
-        if (!error) return mapRows(data)
-      }
-
-      if (isMissingColumn(error, 'owner_id')) {
-        fields = fields.filter((f) => f !== 'owner_id')
-          ; ({ data, error } = await run(fields, false))
-        if (!error) return mapRows(data)
-      }
-
-      if (isMissingColumn(error, 'descripcion')) {
-        fields = fields.filter((f) => f !== 'descripcion')
-          ; ({ data, error } = await run(fields, false))
-        if (!error) return mapRows(data)
-      }
-
-      if (isMissingColumn(error, 'categoria')) {
-        fields = fields.filter((f) => f !== 'categoria')
-          ; ({ data, error } = await run(fields, false))
-        if (!error) return mapRows(data)
+        // Si es otro error, lanzamos
+        throw error
       }
     }
 
-    throw error
+    while (hasMore) {
+      const to = from + step - 1
+      const data = await fetchPage(from, to)
+
+      if (data && data.length > 0) {
+        allData = [...allData, ...data]
+        if (data.length < step) {
+          hasMore = false
+        } else {
+          from += step
+        }
+      } else {
+        hasMore = false
+      }
+    }
+
+    return mapRows(allData)
   },
 
   async create(producto) {
