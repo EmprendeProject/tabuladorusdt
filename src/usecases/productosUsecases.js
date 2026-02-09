@@ -22,6 +22,7 @@ export const guardarCambiosProductos = async ({ productos, idsParaGuardar }) => 
       profit: producto.profit,
       activo: producto.activo,
       isFixedPrice: producto.isFixedPrice,
+      destacado: producto.destacado,
     })
 
     if (res?.ignoredFields?.includes('categoria')) {

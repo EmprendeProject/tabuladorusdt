@@ -144,13 +144,18 @@ const CatalogTemplateHeavy = ({
                   aria-label={`Ver ${p.nombre || 'producto'}`}
                 >
                   <div
-                    className="aspect-square w-full bg-cover bg-center flex items-start justify-end p-2"
+                    className="aspect-square w-full bg-cover bg-center flex items-start justify-end p-2 relative"
                     style={{
                       backgroundImage: p?.imagenUrl
                         ? `linear-gradient(180deg, rgba(0,0,0,0.55) 0%, transparent 40%), url(${JSON.stringify(p.imagenUrl).slice(1, -1)})`
                         : 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, transparent 40%)',
                     }}
                   >
+                    {p.destacado && (
+                      <div className="absolute top-2 left-2 bg-[#ec6d13] text-white p-1.5 rounded-sm shadow-lg">
+                        <span className="text-sm block">⭐</span>
+                      </div>
+                    )}
                     {typeof p?.stock === 'number' ? (
                       <span className="bg-black/80 text-[#ec6d13] text-[10px] font-black px-2 py-1 rounded-sm uppercase">
                         Stock: {String(p.stock).padStart(2, '0')}

@@ -40,7 +40,9 @@ export const productosRepository = {
 
       if (ownerId) q = q.eq('owner_id', ownerId)
 
-      const { data, error } = await q.order('created_at', { ascending: false })
+      const { data, error } = await q
+        .order('destacado', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
 
@@ -65,6 +67,7 @@ export const productosRepository = {
       if (filterActivo) q = q.eq('activo', true)
       if (ownerId) q = q.eq('owner_id', ownerId)
       return q
+        .order('destacado', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to)
     }
@@ -82,7 +85,7 @@ export const productosRepository = {
     let hasMore = true
 
     // Definición inicial de fields
-    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo', 'is_fixed_price']
+    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo', 'is_fixed_price', 'destacado']
     let filterActivo = true
 
     // Función auxiliar para traer una página con "retry" si faltan columnas
@@ -117,6 +120,10 @@ export const productosRepository = {
           // Si falla activo, quitamos filtro y campo
           fields = fields.filter((f) => f !== 'activo')
           filterActivo = false // Importante: quitar el filtro tb
+          continue
+        }
+        if (isMissingColumn(error, 'destacado')) {
+          fields = fields.filter((f) => f !== 'destacado')
           continue
         }
 
@@ -222,6 +229,18 @@ export const productosRepository = {
       return productoFromDb(data2)
     }
 
+    // Compatibilidad hacia atrás: si aún no existe `destacado`, reintentar sin ese campo.
+    if (payload?.destacado !== undefined && isMissingColumn(error, 'destacado')) {
+      const { destacado: _destacado, ...payload2 } = payload
+      const { data: data2, error: error2 } = await supabase
+        .from('productos')
+        .insert([payload2])
+        .select('*')
+        .maybeSingle()
+      if (error2) throw error2
+      return productoFromDb(data2)
+    }
+
     throw error
   },
 
@@ -277,6 +296,17 @@ export const productosRepository = {
         .eq('id', id)
       if (error2) throw error2
       return { ignoredFields: ['is_fixed_price'] }
+    }
+
+    // Compatibilidad hacia atrás: si aún no existe `destacado`, reintentar sin ese campo.
+    if (cambiosBD?.destacado !== undefined && isMissingColumn(error, 'destacado')) {
+      const { destacado: _destacado, ...cambiosBD2 } = cambiosBD
+      const { error: error2 } = await supabase
+        .from('productos')
+        .update(cambiosBD2)
+        .eq('id', id)
+      if (error2) throw error2
+      return { ignoredFields: ['destacado'] }
     }
 
     throw error

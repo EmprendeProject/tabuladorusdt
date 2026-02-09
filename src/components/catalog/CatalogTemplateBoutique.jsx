@@ -184,7 +184,7 @@ const CatalogTemplateBoutique = ({
                   aria-label={`Ver ${p.nombre || 'producto'}`}
                 >
                   {p.imagenUrl ? (
-                    <div className="w-full aspect-[4/5] overflow-hidden rounded-lg shadow-sm bg-gray-100">
+                    <div className="w-full aspect-[4/5] overflow-hidden rounded-lg shadow-sm bg-gray-100 relative">
                       <img
                         src={p.imagenUrl}
                         alt={p.nombre || 'Imagen del producto'}
@@ -194,6 +194,11 @@ const CatalogTemplateBoutique = ({
                           e.currentTarget.style.display = 'none'
                         }}
                       />
+                      {p.destacado && (
+                        <div className="absolute top-2 right-2 bg-amber-500 text-white p-1.5 rounded-md shadow-lg">
+                          <span className="text-sm block">⭐</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="w-full aspect-[4/5] rounded-lg shadow-sm bg-gray-100 flex items-center justify-center text-sm text-gray-500">

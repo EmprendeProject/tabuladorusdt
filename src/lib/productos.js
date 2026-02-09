@@ -35,6 +35,7 @@ export const productoFromDb = (row) => {
     profit: typeof row.profit === 'string' ? parseFloat(row.profit) || 0 : Number(row.profit) || 0,
     isFixedPrice: row.is_fixed_price !== undefined ? Boolean(row.is_fixed_price) : false,
     activo: row.activo !== undefined ? Boolean(row.activo) : true,
+    destacado: row.destacado !== undefined ? Boolean(row.destacado) : false,
     createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? null,
   };
@@ -55,6 +56,7 @@ export const productoToInsertDb = (producto) => {
     profit: Number(producto?.profit) || 0,
     is_fixed_price: Boolean(producto?.isFixedPrice),
     activo: producto?.activo !== undefined ? Boolean(producto.activo) : true,
+    destacado: producto?.destacado !== undefined ? Boolean(producto.destacado) : false,
   };
 
   if (producto?.ownerId) payload.owner_id = producto.ownerId;
@@ -81,6 +83,7 @@ export const productoToUpdateDb = (cambios) => {
   if (cambios?.profit !== undefined) cambiosDb.profit = Number(cambios.profit) || 0;
   if (cambios?.isFixedPrice !== undefined) cambiosDb.is_fixed_price = Boolean(cambios.isFixedPrice);
   if (cambios?.activo !== undefined) cambiosDb.activo = Boolean(cambios.activo);
+  if (cambios?.destacado !== undefined) cambiosDb.destacado = Boolean(cambios.destacado);
 
   return cambiosDb;
 };

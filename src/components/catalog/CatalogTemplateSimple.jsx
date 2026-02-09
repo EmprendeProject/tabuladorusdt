@@ -195,7 +195,7 @@ const CatalogTemplateSimple = ({
                   className="flex h-full flex-1 flex-col gap-4 rounded min-w-72 text-left group"
                   aria-label={`Ver ${p.nombre || 'producto'}`}
                 >
-                  <div className="w-full bg-center bg-no-repeat aspect-[4/5] bg-cover rounded shadow-sm transition-transform duration-500 group-hover:scale-[1.01] bg-[#eee] overflow-hidden">
+                  <div className="w-full bg-center bg-no-repeat aspect-[4/5] bg-cover rounded shadow-sm transition-transform duration-500 group-hover:scale-[1.01] bg-[#eee] overflow-hidden relative">
                     {p.imagenUrl ? (
                       <img
                         src={p.imagenUrl}
@@ -207,6 +207,11 @@ const CatalogTemplateSimple = ({
                         }}
                       />
                     ) : null}
+                    {p.destacado && (
+                      <div className="absolute top-2 right-2 bg-[#f2a60d] text-white p-1.5 rounded shadow-lg">
+                        <span className="text-sm block">⭐</span>
+                      </div>
+                    )}
                   </div>
                   <div className="px-1">
                     <p className="text-[#181611] text-lg font-light leading-normal" style={{ fontFamily: 'ui-serif, Georgia, Times New Roman, serif' }}>
@@ -249,7 +254,7 @@ const CatalogTemplateSimple = ({
                     className="flex flex-col gap-3 text-left group"
                     aria-label={`Ver ${p.nombre || 'producto'}`}
                   >
-                    <div className="bg-cover bg-center flex flex-col rounded aspect-[3/4] transition-opacity duration-300 group-hover:opacity-90 bg-[#eee] overflow-hidden">
+                    <div className="bg-cover bg-center flex flex-col rounded aspect-[3/4] transition-opacity duration-300 group-hover:opacity-90 bg-[#eee] overflow-hidden relative">
                       {p.imagenUrl ? (
                         <img
                           src={p.imagenUrl}
@@ -261,6 +266,11 @@ const CatalogTemplateSimple = ({
                           }}
                         />
                       ) : null}
+                      {p.destacado && (
+                        <div className="absolute top-2 right-2 bg-[#f2a60d] text-white p-1.5 rounded shadow-lg">
+                          <span className="text-sm block">⭐</span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p

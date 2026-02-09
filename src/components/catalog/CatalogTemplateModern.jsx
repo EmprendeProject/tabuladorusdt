@@ -155,7 +155,7 @@ const CatalogTemplateModern = ({
                   className="w-full text-left relative bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100"
                   aria-label={`Ver ${p.nombre || 'producto'}`}
                 >
-                  <div className={`bg-gray-100 ${ratio}`}>
+                  <div className={`bg-gray-100 ${ratio} relative`}>
                     {p.imagenUrl ? (
                       <img
                         src={p.imagenUrl}
@@ -168,6 +168,11 @@ const CatalogTemplateModern = ({
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">Sin foto</div>
+                    )}
+                    {p.destacado && (
+                      <div className="absolute top-2 right-2 bg-blue-600 text-white p-1.5 rounded-md shadow-lg">
+                        <span className="text-sm block">⭐</span>
+                      </div>
                     )}
                   </div>
 

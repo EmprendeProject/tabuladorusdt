@@ -225,13 +225,18 @@ const CatalogTemplateUrbanStreet = ({
                         : 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 40%, rgba(0,0,0,0.7) 100%), linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                     }}
                   />
-                  {isHot && (
-                    <div className="absolute top-2 right-2 flex gap-1">
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    {p.destacado && (
+                      <div className="bg-[#eca413] text-black p-1 rounded-md">
+                        <span className="text-sm block">⭐</span>
+                      </div>
+                    )}
+                    {isHot && (
                       <div className="bg-red-600 text-white p-1 rounded-md">
                         <span className="text-sm block">🔥</span>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div className="absolute bottom-3 left-3">
                     <p className="text-white text-sm font-black bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded inline-block">
                       ${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}

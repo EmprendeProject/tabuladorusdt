@@ -37,6 +37,7 @@ export default function ProductoFormModal({
   const [precioUSDT, setPrecioUSDT] = useState('')
   const [profit, setProfit] = useState(40)
   const [isFixedPrice, setIsFixedPrice] = useState(false)
+  const [destacado, setDestacado] = useState(false)
 
   // Asegura que profit siempre esté entre 0 y 200
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function ProductoFormModal({
         ? initialData.imagenes 
         : (initialData.imagenUrl ? [initialData.imagenUrl] : [])
       setImagenes(imgs.filter(Boolean))
+      setDestacado(!!initialData.destacado)
     } else {
       // Create mode: reset
       // crear un draftId estable por apertura (negativo para indicar nuevo temporal)
@@ -103,6 +105,7 @@ export default function ProductoFormModal({
       setProfit(40)
       setIsFixedPrice(false)
       setImagenes([])
+      setDestacado(false)
     }
     
     setPreviewUrls([])
@@ -241,6 +244,7 @@ export default function ProductoFormModal({
         precioUSDT: costoUSDTNum,
         profit: isFixedPrice ? 0 : (Number(profit) || 0),
         isFixedPrice,
+        destacado,
       })
       if (typeof notify === 'function') {
         notify({ type: 'success', title: isEditing ? 'Actualizado' : 'Creado', message: isEditing ? 'Producto actualizado.' : 'Producto guardado.' })
@@ -392,6 +396,30 @@ export default function ProductoFormModal({
                       </button>
                     </div>
                   ) : null}
+                </div>
+
+                <div>
+                  <label className="flex items-center justify-between cursor-pointer group">
+                    <div>
+                      <span className="block text-sm font-medium text-gray-600">Producto Destacado</span>
+                      <span className="block text-xs text-gray-400 mt-0.5">Se mostrará primero en el catálogo</span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={destacado}
+                      onClick={() => setDestacado((v) => !v)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        destacado ? 'bg-blue-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          destacado ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </label>
                 </div>
               </div>
             </section>
