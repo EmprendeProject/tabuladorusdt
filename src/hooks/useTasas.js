@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { tasasService } from '../services/tasasService'
 
 export const useTasas = () => {
-  const [tasaBCV, setTasaBCV] = useState('365')
-  const [tasaUSDT, setTasaUSDT] = useState('800')
-  const [cargandoBCV, setCargandoBCV] = useState(false)
-  const [cargandoUSDT, setCargandoUSDT] = useState(false)
+  const [tasaBCV, setTasaBCV] = useState(null)
+  const [tasaUSDT, setTasaUSDT] = useState(null)
+  const [cargandoBCV, setCargandoBCV] = useState(true)
+  const [cargandoUSDT, setCargandoUSDT] = useState(true)
 
   const refrescarBCV = useCallback(async () => {
     setCargandoBCV(true)

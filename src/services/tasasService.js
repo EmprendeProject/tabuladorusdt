@@ -3,7 +3,6 @@
 const BCV_FALLBACK_VALUE = 382.63
 
 const fetchJson = async (url) => {
-  s
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status} ${response.statusText}`)
