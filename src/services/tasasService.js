@@ -13,8 +13,8 @@ const fetchJson = async (url) => {
 export const tasasService = {
   async fetchTasaBCV() {
     try {
-      const data = await fetchJson('https://api.dolarvzla.com/public/exchange-rate')
-      const value = data?.current?.usd
+      const data = await fetchJson('https://bcv-api-seven.vercel.app/api/bcv/usd')
+      const value = data?.rate
       if (typeof value !== 'number') {
         console.warn('BCV API devolvió respuesta inesperada, usando valor de respaldo:', BCV_FALLBACK_VALUE)
         return BCV_FALLBACK_VALUE
