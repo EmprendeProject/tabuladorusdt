@@ -1,6 +1,6 @@
 // Valor de respaldo para BCV cuando la API falla
 // Puedes cambiar este valor manualmente según sea necesario
-const BCV_FALLBACK_VALUE = 382.63
+const BCV_FALLBACK_VALUE = 390.29
 
 const fetchJson = async (url) => {
   const response = await fetch(url)
@@ -13,8 +13,8 @@ const fetchJson = async (url) => {
 export const tasasService = {
   async fetchTasaBCV() {
     try {
-      const data = await fetchJson('https://bcv-api-seven.vercel.app/api/bcv/usd')
-      const value = data?.rate
+      const data = await fetchJson('https://ve.dolarapi.com/v1/dolares/oficial')
+      const value = data?.promedio
       if (typeof value !== 'number') {
         console.warn('BCV API devolvió respuesta inesperada, usando valor de respaldo:', BCV_FALLBACK_VALUE)
         return BCV_FALLBACK_VALUE
