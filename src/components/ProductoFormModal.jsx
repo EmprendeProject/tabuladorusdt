@@ -36,7 +36,7 @@ export default function ProductoFormModal({
 
   const [precioUSDT, setPrecioUSDT] = useState('')
   const [profit, setProfit] = useState(40)
-  const [isFixedPrice, setIsFixedPrice] = useState(false)
+  const [isFixedPrice, setIsFixedPrice] = useState(true)
   const [destacado, setDestacado] = useState(false)
 
   // Asegura que profit siempre esté entre 0 y 200
@@ -103,7 +103,7 @@ export default function ProductoFormModal({
       setNuevaCategoria('')
       setPrecioUSDT('')
       setProfit(40)
-      setIsFixedPrice(false)
+      setIsFixedPrice(true)
       setImagenes([])
       setDestacado(false)
     }
