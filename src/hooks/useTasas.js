@@ -14,6 +14,7 @@ export const useTasas = () => {
       setTasaBCV(Number(value).toFixed(2))
     } catch (e) {
       console.error('Error al obtener la tasa BCV:', e)
+      setTasaBCV(null) // Resetear o mantener el valor anterior si se prefiere
     } finally {
       setCargandoBCV(false)
     }

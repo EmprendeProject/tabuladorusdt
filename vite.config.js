@@ -13,4 +13,13 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    proxy: {
+      '/api/bcv': {
+        target: 'https://bcv-api-seven.vercel.app',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 })

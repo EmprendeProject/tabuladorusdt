@@ -18,13 +18,13 @@ export const tasasService = {
       const value = Number(data?.rate)
       if (!value || isNaN(value)) {
         console.error('BCV API Error: La respuesta no tiene una tasa válida', data)
-        return 0
+        throw new Error('La API BCV devolvió una tasa inválida')
       }
 
       return value
     } catch (error) {
       console.error('TasasService Error: Falló la conexión con la API BCV', error)
-      return 0
+      throw error
     }
   },
 
