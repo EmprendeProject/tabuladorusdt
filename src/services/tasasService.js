@@ -11,17 +11,11 @@ const fetchJson = async (url) => {
 export const tasasService = {
   async fetchTasaBCV() {
     try {
-      // En desarrollo: usar proxy de Vite (evita CORS)
-      // En producción: usar URL completa (CORS permitido desde dominios HTTPS)
-      const isDev = import.meta.env.DEV
-      const url = isDev
-        ? '/api/bcv/usd'  // Proxy de Vite en desarrollo
-        : 'https://bcv-api-seven.vercel.app/api/bcv/usd'  // URL directa en producción
+      // Usar API con CORS habilitado que funciona tanto en desarrollo como producción
+      const data = await fetchJson('https://ve.dolarapi.com/v1/dolares/oficial')
 
-      const data = await fetchJson(url)
-
-      // Validación estricta
-      const value = Number(data?.rate)
+      // La API devuelve { promedio: 396.3674, ... }
+      const value = Number(data?.promedio)
       if (!value || isNaN(value)) {
         console.error('BCV API Error: La respuesta no tiene una tasa válida', data)
         throw new Error('La API BCV devolvió una tasa inválida')
