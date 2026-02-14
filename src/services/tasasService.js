@@ -11,8 +11,14 @@ const fetchJson = async (url) => {
 export const tasasService = {
   async fetchTasaBCV() {
     try {
-      // Intentamos obtener el dato fresco
-      const data = await fetchJson('/api/bcv/usd')
+      // En desarrollo: usar proxy de Vite (evita CORS)
+      // En producción: usar URL completa (CORS permitido desde dominios HTTPS)
+      const isDev = import.meta.env.DEV
+      const url = isDev
+        ? '/api/bcv/usd'  // Proxy de Vite en desarrollo
+        : 'https://bcv-api-seven.vercel.app/api/bcv/usd'  // URL directa en producción
+
+      const data = await fetchJson(url)
 
       // Validación estricta
       const value = Number(data?.rate)
