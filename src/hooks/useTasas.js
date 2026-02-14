@@ -32,8 +32,21 @@ export const useTasas = () => {
   }, [])
 
   useEffect(() => {
+    // Carga inicial
     refrescarBCV()
     refrescarUSDT()
+
+    // Actualización automática: 8 veces al día = cada 3 horas
+    // 3 horas * 60 min * 60 seg * 1000 ms = 10,800,000 ms
+    const INTERVALO_MS = 3 * 60 * 60 * 1000
+
+    const intervalo = setInterval(() => {
+      console.log('Actualizando tasas automáticamente...')
+      refrescarBCV()
+      refrescarUSDT()
+    }, INTERVALO_MS)
+
+    return () => clearInterval(intervalo)
   }, [refrescarBCV, refrescarUSDT])
 
   return {

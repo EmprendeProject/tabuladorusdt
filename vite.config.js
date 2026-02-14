@@ -7,9 +7,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/bcv': {
-        target: 'https://bcv-api-seven.vercel.app/api/bcv',
+        target: 'https://bcv-api-seven.vercel.app',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/bcv/, ''),
+        secure: false,
       },
     },
   },

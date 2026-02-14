@@ -1,6 +1,4 @@
-// Valor de respaldo para BCV cuando la API falla
-// Puedes cambiar este valor manualmente según sea necesario
-const BCV_FALLBACK_VALUE = 390.29
+// Eliminado valor de respaldo manual a petición del usuario
 
 const fetchJson = async (url) => {
   const response = await fetch(url)
@@ -13,16 +11,20 @@ const fetchJson = async (url) => {
 export const tasasService = {
   async fetchTasaBCV() {
     try {
+      // Intentamos obtener el dato fresco
       const data = await fetchJson('/api/bcv/usd')
-      const value = data?.rate
-      if (typeof value !== 'number') {
-        console.warn('BCV API devolvió respuesta inesperada, usando valor de respaldo:', BCV_FALLBACK_VALUE)
-        return BCV_FALLBACK_VALUE
+
+      // Validación estricta
+      const value = Number(data?.rate)
+      if (!value || isNaN(value)) {
+        console.error('BCV API Error: La respuesta no tiene una tasa válida', data)
+        return 0
       }
+
       return value
     } catch (error) {
-      console.warn('Error al obtener tasa BCV, usando valor de respaldo:', BCV_FALLBACK_VALUE, error)
-      return BCV_FALLBACK_VALUE
+      console.error('TasasService Error: Falló la conexión con la API BCV', error)
+      return 0
     }
   },
 
