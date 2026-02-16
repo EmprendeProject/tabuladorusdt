@@ -23,6 +23,8 @@ import CheckoutPage from './pages/CheckoutPage'
 import PaymentPendingPage from './pages/PaymentPendingPage'
 import PaymentThanksPage from './pages/PaymentThanksPage'
 import NotFoundPage from './pages/NotFoundPage'
+import SalesPage from './pages/SalesPage'
+import SalesPage2 from './pages/SalesPage2'
 import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
 import { suscripcionesRepository } from './data/suscripcionesRepository'
@@ -992,6 +994,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/landing" element={<SalesPage />} />
+          <Route path="/landing2" element={<SalesPage2 />} />
           <Route path="/precios" element={<PricingPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/pago/gracias" element={<PaymentThanksPage />} />
