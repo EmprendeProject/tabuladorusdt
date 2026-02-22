@@ -169,44 +169,44 @@ export default function CheckoutPage() {
   const method = METHODS.find((m) => m.id === methodId) || METHODS[0]
 
   return (
-    <div
-      className="min-h-screen text-white antialiased"
-      style={{
-        backgroundColor: '#0f050a',
-        backgroundImage: 'radial-gradient(circle at 50% 0%, #3d1226 0%, #0f050a 100%)',
-      }}
-    >
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-x-hidden pb-32 font-[Manrope]">
+    <div className="min-h-screen bg-white text-gray-900 font-[Manrope] selection:bg-[#1840f5] selection:text-white antialiased">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-x-hidden pb-32 z-10">
+        {/* Background Gradients */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#1840f5]/20 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#1840f5]/10 rounded-full blur-[100px]" />
+        </div>
+
         <header className="flex items-center justify-between p-6">
           <button
             type="button"
             aria-label="Volver"
             onClick={() => navigate(-1)}
-            className="flex size-10 items-center justify-center rounded-full bg-white/10 active:scale-95 transition-transform"
+            className="flex size-10 items-center justify-center rounded-full bg-gray-100 text-gray-900 active:scale-95 transition-transform"
           >
-            <span className="material-symbols-outlined text-white text-[20px]">arrow_back_ios_new</span>
+            <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
           </button>
 
-          <h2 className="text-lg font-bold tracking-tight">Pago</h2>
+          <h2 className="text-lg font-bold tracking-tight text-gray-900">Pago</h2>
           <div className="size-10" />
         </header>
 
         <section className="px-6 mb-8">
-          <div className="flex items-center justify-between rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-[16px] border-l-4 border-l-primary">
+          <div className="flex items-center justify-between rounded-3xl border border-gray-200 bg-gray-50 p-6 border-l-4 border-l-[#1840f5]">
             <div>
-              <span className="block mb-1 text-[10px] font-black uppercase tracking-widest text-primary">Plan seleccionado</span>
-              <h3 className="text-2xl font-black">{planTitleEs}</h3>
-              <p className="text-xs text-white/50">{planBillingEs}</p>
+              <span className="block mb-1 text-[10px] font-black uppercase tracking-widest text-[#1840f5]">Plan seleccionado</span>
+              <h3 className="text-2xl font-black text-gray-900">{planTitleEs}</h3>
+              <p className="text-xs text-gray-500">{planBillingEs}</p>
             </div>
             <div className="text-right">
-              <span className="text-3xl font-black text-white drop-shadow-[0_0_15px_rgba(255,45,146,0.45)]">{plan?.priceLabel || ''}</span>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-white/40">{plan?.currency || 'USD'}</span>
+              <span className="text-3xl font-black text-gray-900">{plan?.priceLabel || ''}</span>
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">{plan?.currency || 'USD'}</span>
             </div>
           </div>
         </section>
 
-        <section className="px-6 mb-8">
-          <h4 className="mb-4 px-2 text-sm font-bold uppercase tracking-[0.15em] text-white/40">Método de pago</h4>
+        <section className="px-6 mb-8 relative z-10">
+          <h4 className="mb-4 px-2 text-sm font-bold uppercase tracking-[0.15em] text-gray-500">Método de pago</h4>
           <div className="grid grid-cols-2 gap-3">
             {METHODS.map((m) => {
               const active = m.id === methodId
@@ -218,29 +218,29 @@ export default function CheckoutPage() {
                   className={
                     'rounded-2xl p-4 flex flex-col items-center gap-3 cursor-pointer transition-all active:scale-95 ' +
                     (active
-                      ? 'border-2 border-primary bg-primary/10 shadow-[0_0_20px_rgba(255,45,146,0.2)]'
-                      : 'border border-white/10 bg-white/5 hover:border-white/20 backdrop-blur-[16px]')
+                      ? 'border-2 border-[#1840f5] bg-[#1840f5]/5 shadow-lg shadow-[#1840f5]/20'
+                      : 'border border-gray-200 bg-gray-50 hover:bg-gray-100')
                   }
                 >
-                  <div className={'size-12 rounded-xl flex items-center justify-center ' + (active ? m.iconBg : 'bg-white/5')}>
-                    <span className={'material-symbols-outlined text-3xl font-fill ' + (active ? m.iconColor : 'text-white/40')}>
+                  <div className={'size-12 rounded-xl flex items-center justify-center ' + (active ? (m.id==='ves' ? 'bg-[#1840f5]/20 text-[#1840f5]' : m.iconBg) : 'bg-gray-100')}>
+                    <span className={'material-symbols-outlined text-3xl font-fill ' + (active ? (m.id==='ves' ? 'text-[#1840f5]' : m.iconColor) : 'text-gray-400')}>
                       {m.icon}
                     </span>
                   </div>
-                  <span className="text-sm font-bold">{m.label}</span>
+                  <span className="text-sm font-bold text-gray-900">{m.label}</span>
                 </button>
               )
             })}
           </div>
 
           <div className="mt-4">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-[16px]">
+            <div className="rounded-3xl border border-gray-200 bg-gray-50 p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Datos para pagar</div>
-                  <div className="mt-1 text-base font-extrabold">{methodId === 'ves' ? 'Pago en bolívares' : 'Pago por Binance'}</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Datos para pagar</div>
+                  <div className="mt-1 text-base font-extrabold text-gray-900">{methodId === 'ves' ? 'Pago en bolívares' : 'Pago por Binance'}</div>
                 </div>
-                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/60">
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-600">
                   {method.label}
                 </span>
               </div>
@@ -249,39 +249,37 @@ export default function CheckoutPage() {
                 {methodId === 'ves' ? (
                   <>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/60">Monto a pagar</span>
-                      <span className="font-black text-white">{amountLabelBs}</span>
+                      <span className="text-gray-500">Monto a pagar</span>
+                      <span className="font-black text-gray-900">{amountLabelBs}</span>
                     </div>
-                    <div className="mt-3 h-px w-full bg-white/10" />
+                    <div className="mt-3 h-px w-full bg-gray-200" />
 
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/60">Cédula</span>
-                      <span className="font-bold text-white">27536328</span>
+                      <span className="text-gray-500">Cédula</span>
+                      <span className="font-bold text-gray-900">27536328</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/60">Banco</span>
-                      <span className="font-bold text-white">Banesco</span>
+                      <span className="text-gray-500">Banco</span>
+                      <span className="font-bold text-gray-900">Banesco</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/60">Teléfono</span>
-                      <span className="font-bold text-white">04243427035</span>
+                      <span className="text-gray-500">Teléfono</span>
+                      <span className="font-bold text-gray-900">04243427035</span>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/60">Monto a pagar</span>
-                      <span className="font-black text-white">{plan?.priceLabel} {plan?.currency || 'USD'}</span>
+                      <span className="text-gray-500">Monto a pagar</span>
+                      <span className="font-black text-gray-900">{plan?.priceLabel} {plan?.currency || 'USD'}</span>
                     </div>
 
-                    <div className="mt-3 h-px w-full bg-white/10" />
+                    <div className="mt-3 h-px w-full bg-gray-200" />
 
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/60">Correo Binance</span>
-                      <span className="font-bold text-white">brayandmg1998@gmail.com</span>
+                      <span className="text-gray-500">Correo Binance</span>
+                      <span className="font-bold text-gray-900">brayandmg1998@gmail.com</span>
                     </div>
-
-
                   </>
                 )}
               </div>
@@ -289,18 +287,18 @@ export default function CheckoutPage() {
           </div>
         </section>
 
-        <section className="px-6 space-y-6">
+        <section className="px-6 space-y-6 relative z-10">
           {sentOk ? (
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-              <h5 className="mb-1 text-sm font-bold uppercase tracking-wide text-emerald-300">Solicitud enviada</h5>
-              <p className="text-xs leading-relaxed text-white/70">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50 p-5">
+              <h5 className="mb-1 text-sm font-bold uppercase tracking-wide text-emerald-700">Solicitud enviada</h5>
+              <p className="text-xs leading-relaxed text-emerald-800/80">
                 Recibimos tu comprobante. Nuestro equipo lo verificará y activará tu acceso.
               </p>
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
                   onClick={() => navigate('/admin')}
-                  className="inline-flex h-10 items-center justify-center rounded-xl bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/15"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
                   Ir al panel
                 </button>
@@ -311,7 +309,7 @@ export default function CheckoutPage() {
                     setProofFile(null)
                     setReferenceNumber('')
                   }}
-                  className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-transparent px-4 text-sm font-semibold text-white/80 hover:bg-white/5"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
                 >
                   Enviar otro
                 </button>
@@ -320,14 +318,14 @@ export default function CheckoutPage() {
           ) : null}
 
           {sendError ? (
-            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-200">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
               {sendError}
             </div>
           ) : null}
 
           <div className="space-y-4">
             <div>
-              <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+              <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                 Número de referencia (6-8 dígitos)
               </label>
               <input
@@ -336,12 +334,12 @@ export default function CheckoutPage() {
                 placeholder="Ejemplo: 837492"
                 type="text"
                 inputMode="numeric"
-                className="w-full rounded-2xl px-4 py-4 text-white bg-white/5 border border-white/10 focus:outline-none focus:border-primary/50 transition-colors"
+                className="w-full rounded-2xl px-4 py-4 text-gray-900 bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#1840f5] focus:ring-1 focus:ring-[#1840f5] transition-colors"
               />
             </div>
 
             <div>
-              <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+              <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                 Fecha de pago
               </label>
               <div className="relative">
@@ -349,16 +347,16 @@ export default function CheckoutPage() {
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
                   type="date"
-                  className="w-full appearance-none rounded-2xl px-4 py-4 text-white bg-white/5 border border-white/10 focus:outline-none focus:border-primary/50 transition-colors"
+                  className="w-full appearance-none rounded-2xl px-4 py-4 text-gray-900 bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#1840f5] focus:ring-1 focus:ring-[#1840f5] transition-colors"
                 />
-                <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/30">
+                <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                   calendar_today
                 </span>
               </div>
             </div>
 
             <div className="pt-2">
-              <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+              <label className="mb-2 ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                 Comprobante de pago
               </label>
 
@@ -373,15 +371,15 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={onPickFile}
-                className="w-full cursor-pointer rounded-2xl border-2 border-dashed border-white/10 p-8 transition-all hover:border-primary/40 hover:bg-primary/5"
+                className="w-full cursor-pointer rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-8 transition-all hover:border-[#1840f5]/40 hover:bg-[#1840f5]/5"
               >
                 <div className="flex flex-col items-center justify-center gap-3">
-                  <div className="flex size-14 items-center justify-center rounded-full bg-white/5">
-                    <span className="material-symbols-outlined text-3xl text-white/40">add_photo_alternate</span>
+                  <div className="flex size-14 items-center justify-center rounded-full bg-white shadow-sm border border-gray-100">
+                    <span className="material-symbols-outlined text-3xl text-gray-400">add_photo_alternate</span>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-bold text-white">{proofFile ? 'Archivo listo' : 'Subir captura'}</p>
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/30">
+                    <p className="text-sm font-bold text-gray-900">{proofFile ? 'Archivo listo' : 'Subir captura'}</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                       {proofFile ? proofFile.name : 'JPG, PNG o PDF (máx 5MB)'}
                     </p>
                   </div>
@@ -390,12 +388,12 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-            <h5 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
+          <div className="rounded-2xl border border-[#1840f5]/20 bg-[#1840f5]/5 p-5">
+            <h5 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-[#1840f5]">
               <span className="material-symbols-outlined text-sm">info</span>
               Instrucciones importantes
             </h5>
-            <p className="text-xs leading-relaxed text-white/70">
+            <p className="text-xs leading-relaxed text-gray-600">
               {methodId === 'ves' ? (
                 <>
                   Luego de realizar tu pago debes esperar unos minutos mientras es verificado por nuestro equipo de trabajo {'\n'} <strong>{amountLabelBs}</strong> vía Pago Móvil o transferencia.
@@ -406,24 +404,24 @@ export default function CheckoutPage() {
                 </>
               )}
             </p>
-            <p className="mt-2 text-[11px] text-white/50">
-              Método seleccionado: <span className="font-bold text-white">{method.label}</span>
+            <p className="mt-2 text-[11px] text-gray-500">
+              Método seleccionado: <span className="font-bold text-gray-900">{method.label}</span>
             </p>
           </div>
         </section>
 
-        <div className="flex flex-col items-center gap-4 px-6 py-8">
-          <p className="text-center text-[10px] leading-relaxed text-white/40">
+        <div className="flex flex-col items-center gap-4 px-6 py-8 relative z-10">
+          <p className="text-center text-[10px] leading-relaxed text-gray-400">
             Al tocar “Confirmar pago”, aceptas nuestros términos. Nuestro equipo verificará tu pago en menos de 24 horas.
           </p>
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center p-6 pt-10" style={{ background: 'linear-gradient(to top, #0f050a 80%, transparent)' }}>
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center p-6 pt-10" style={{ background: 'linear-gradient(to top, white 80%, transparent)' }}>
           <button
             type="button"
             onClick={onConfirm}
             disabled={sending || sentOk}
-            className="flex h-16 w-full max-w-[432px] items-center justify-center gap-2 rounded-2xl bg-primary text-xl font-black text-white shadow-[0_8px_30px_rgba(255,45,146,0.4)] transition-transform active:scale-95 uppercase tracking-tight disabled:opacity-60 disabled:active:scale-100"
+            className="flex h-16 w-full max-w-[432px] items-center justify-center gap-2 rounded-2xl bg-[#1840f5] text-xl font-black text-white shadow-xl shadow-[#1840f5]/30 hover:shadow-[#1840f5]/50 transition-all active:scale-95 uppercase tracking-tight disabled:opacity-60 disabled:active:scale-100 hover:bg-[#1430b8]"
           >
             {sending ? 'Enviando…' : sentOk ? 'Enviado' : 'Confirmar pago'}
             <span className="material-symbols-outlined font-bold">check_circle</span>

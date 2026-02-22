@@ -90,16 +90,16 @@ export default function RegisterPage({ preferredHandle } = {}) {
     >
       <form onSubmit={onSubmit} className="space-y-4">
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
+          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-medium">
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Nombre completo</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Nombre completo</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="Tu nombre"
               type="text"
               value={nombreCompleto}
@@ -111,10 +111,10 @@ export default function RegisterPage({ preferredHandle } = {}) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Nombre de tu negocio</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Nombre de tu negocio</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="Nombre de tu negocio"
               type="text"
               value={nombreNegocio}
@@ -127,10 +127,10 @@ export default function RegisterPage({ preferredHandle } = {}) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Correo electrónico</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Correo electrónico</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="correo@mail.com"
               type="email"
               value={email}
@@ -142,10 +142,10 @@ export default function RegisterPage({ preferredHandle } = {}) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Dirección del negocio (opcional)</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Dirección del negocio (opcional)</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="Av. Principal, Local 3"
               type="text"
               value={direccion}
@@ -156,10 +156,10 @@ export default function RegisterPage({ preferredHandle } = {}) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Contraseña</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Contraseña</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="••••••••"
               type={showPass ? 'text' : 'password'}
               value={password}
@@ -170,39 +170,39 @@ export default function RegisterPage({ preferredHandle } = {}) {
             <button
               type="button"
               onClick={() => setShowPass((v) => !v)}
-              className="ml-2 inline-flex items-center justify-center rounded-xl p-2 text-[#1c0d16]/60 hover:bg-white/60"
+              className="ml-2 inline-flex items-center justify-center rounded-xl p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
               aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               title={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
               {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          <p className="mt-1 font-sans text-xs text-[#1c0d16]/60">Mínimo 6 caracteres</p>
+          <p className="mt-1 text-xs text-gray-500 font-medium">Mínimo 6 caracteres</p>
         </div>
 
         <div className="pt-2">
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center rounded-2xl bg-[#1840f5] hover:bg-[#1430b8] px-6 py-4 text-base font-bold text-white shadow-lg shadow-[#1840f5]/20 hover:shadow-[#1840f5]/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? 'Creando…' : 'Crear cuenta'}
           </button>
         </div>
 
         <div className="pt-2 text-center">
-          <p className="font-sans text-sm text-[#1c0d16]/70">
+          <p className="text-sm text-gray-600 font-medium">
             ¿Ya tienes una cuenta?
-            <Link className="text-primary font-semibold ml-1 hover:underline" to="/login">
+            <Link className="text-[#1840f5] font-bold ml-1 hover:underline" to="/login">
               Iniciar sesión
             </Link>
           </p>
         </div>
 
         <div className="mt-10 text-center px-6">
-          <p className="font-sans text-[11px] text-[#1c0d16]/45 leading-relaxed uppercase tracking-wider">
+          <p className="text-[11px] text-gray-500 font-bold leading-relaxed uppercase tracking-wider">
             Al registrarte, aceptas nuestros <br />
-            <span className="underline">Términos del servicio</span> y <span className="underline">Política de privacidad</span>
+            <span className="underline hover:text-gray-900 cursor-pointer">Términos del servicio</span> y <span className="underline hover:text-gray-900 cursor-pointer">Política de privacidad</span>
           </p>
         </div>
       </form>

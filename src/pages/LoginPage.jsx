@@ -75,16 +75,16 @@ export default function LoginPage({ redirectTo: redirectToProp = '/admin', prefe
     <AuthShell title="Iniciar sesión" subtitle="Accede a tu panel" backTo="/">
       <form onSubmit={onSubmit} className="space-y-4">
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-sans">
+          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-3 text-sm font-medium">
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Correo electrónico</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Correo electrónico</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="tu@correo.com"
               type="email"
               value={email}
@@ -96,10 +96,10 @@ export default function LoginPage({ redirectTo: redirectToProp = '/admin', prefe
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold font-sans text-[#1c0d16]/80">Contraseña</p>
-          <div className="flex items-center rounded-2xl border border-black/10 bg-white/70 px-4">
+          <p className="text-sm font-bold text-gray-700">Contraseña</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
             <input
-              className="w-full bg-transparent py-3 text-[#1c0d16] outline-none font-sans placeholder:text-[#1c0d16]/50"
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
               placeholder="••••••••"
               type={showPass ? 'text' : 'password'}
               value={password}
@@ -110,7 +110,7 @@ export default function LoginPage({ redirectTo: redirectToProp = '/admin', prefe
             <button
               type="button"
               onClick={() => setShowPass((v) => !v)}
-              className="ml-2 inline-flex items-center justify-center rounded-xl p-2 text-[#1c0d16]/60 hover:bg-white/60"
+              className="ml-2 inline-flex items-center justify-center rounded-xl p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
               aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               title={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
@@ -123,16 +123,16 @@ export default function LoginPage({ redirectTo: redirectToProp = '/admin', prefe
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center rounded-2xl bg-[#1840f5] hover:bg-[#1430b8] px-6 py-4 text-base font-bold text-white shadow-lg shadow-[#1840f5]/20 hover:shadow-[#1840f5]/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? 'Entrando…' : 'Iniciar sesión'}
           </button>
         </div>
 
         <div className="pt-2 text-center">
-          <p className="font-sans text-sm text-[#1c0d16]/70">
+          <p className="text-sm text-gray-600 font-medium">
             ¿No tienes una cuenta?
-            <Link className="text-[#137fec] font-semibold ml-1 hover:underline" to="/register">
+            <Link className="text-[#1840f5] font-bold ml-1 hover:underline" to="/register">
               Crear una
             </Link>
           </p>

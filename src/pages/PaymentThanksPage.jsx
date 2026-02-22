@@ -51,7 +51,7 @@ export default function PaymentThanksPage() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-background-dark flex items-center justify-center p-6 text-white/70">
+      <div className="min-h-screen bg-white flex items-center justify-center p-6 text-gray-500 font-[Manrope]">
         Cargando…
       </div>
     )
@@ -62,35 +62,25 @@ export default function PaymentThanksPage() {
   }
 
   return (
-    <div
-      className="min-h-screen text-white antialiased overflow-hidden"
-      style={{
-        backgroundColor: '#0f050a',
-        backgroundImage: 'radial-gradient(circle at 50% 0%, #3d1226 0%, #0f050a 100%)',
-      }}
-    >
-      {/* Partículas */}
-      <div className="fixed inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/4 size-1 rounded-full bg-primary opacity-60 scale-150" />
-        <div className="absolute top-1/3 right-1/4 size-1 rounded-full bg-primary opacity-60" />
-        <div className="absolute bottom-1/4 left-1/3 size-1 rounded-full bg-primary opacity-60 scale-110" />
-        <div className="absolute top-2/3 right-1/3 size-1 rounded-full bg-primary opacity-60 scale-125" />
-        <div className="absolute top-10 left-1/2 size-1 rounded-full bg-primary opacity-30" />
-        <div className="absolute bottom-10 right-10 size-1 rounded-full bg-primary opacity-40 scale-150" />
+    <div className="min-h-screen bg-white text-gray-900 font-[Manrope] selection:bg-[#1840f5] selection:text-white antialiased overflow-hidden">
+      {/* Background Gradients */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#1840f5]/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#1840f5]/10 rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative flex h-full min-h-screen w-full flex-col max-w-[480px] mx-auto overflow-x-hidden pb-32 font-[Manrope]">
+      <div className="relative flex h-full min-h-screen w-full flex-col max-w-[480px] mx-auto overflow-x-hidden pb-32 z-10">
         <header className="flex items-center justify-between p-6">
           <div className="size-10" />
-          <h2 className="text-lg font-bold opacity-50 uppercase text-[10px] tracking-widest">Confirmación</h2>
+          <h2 className="text-lg font-bold text-gray-500 uppercase text-[10px] tracking-widest">Confirmación</h2>
           <button
             type="button"
             onClick={() => navigate('/admin', { replace: true })}
-            className="size-10 flex items-center justify-center rounded-full bg-white/10"
+            className="size-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
             aria-label="Cerrar"
             title="Cerrar"
           >
-            <span className="material-symbols-outlined text-white text-[20px]">close</span>
+            <span className="material-symbols-outlined text-gray-900 text-[20px]">close</span>
           </button>
         </header>
 
@@ -99,13 +89,13 @@ export default function PaymentThanksPage() {
             <div
               className="absolute -inset-10"
               style={{
-                background: 'radial-gradient(circle, rgba(255,45,146,0.4) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, rgba(24,64,245,0.2) 0%, transparent 70%)',
                 zIndex: -1,
               }}
               aria-hidden="true"
             />
 
-            <div className="size-32 rounded-[40px] bg-gradient-to-tr from-primary to-[#ff6fb3] flex items-center justify-center shadow-[0_20px_50px_rgba(255,45,146,0.5)] rotate-3 relative overflow-hidden">
+            <div className="size-32 rounded-[40px] bg-gradient-to-tr from-[#1840f5] to-[#4068ff] flex items-center justify-center shadow-xl shadow-[#1840f5]/30 rotate-3 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20 -skew-y-12" aria-hidden="true" />
               <span className="material-symbols-outlined text-white text-7xl font-bold -rotate-3 select-none" aria-hidden="true">
                 check_circle
@@ -113,44 +103,39 @@ export default function PaymentThanksPage() {
             </div>
           </div>
 
-          <h1 className="text-4xl font-black text-white mb-4 tracking-tight leading-tight">
+          <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tight leading-tight">
             ¡Pago <br />
-            <span
-              className="text-primary"
-              style={{ textShadow: '0 0 20px rgba(255,45,146,0.6)' }}
-            >
-              enviado!
-            </span>
+            <span className="text-[#1840f5]">enviado!</span>
           </h1>
 
-          <p className="text-white/60 text-base leading-relaxed mb-10 max-w-[320px]">
+          <p className="text-gray-600 text-base leading-relaxed mb-10 max-w-[320px]">
             Nuestro equipo está verificando tu pago. ¡Tu catálogo estará listo muy pronto!
           </p>
 
-          <div className="w-full rounded-[32px] p-6 text-left relative overflow-hidden bg-white/5 backdrop-blur-[16px] border border-white/10">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10" aria-hidden="true" />
+          <div className="w-full rounded-[32px] p-6 text-left relative overflow-hidden bg-gray-50 border border-gray-200">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#1840f5]/10 rounded-full blur-3xl -mr-10 -mt-10" aria-hidden="true" />
 
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-5 relative z-10">
               <div className="flex justify-between items-center gap-4">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Detalles del plan</span>
-                  <span className="text-lg font-bold">{planLabelEs}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Detalles del plan</span>
+                  <span className="text-lg font-bold text-gray-900">{planLabelEs}</span>
                 </div>
                 {priceLabel ? (
-                  <div className="px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-                    <span className="text-primary text-xs font-black uppercase tracking-widest">{priceLabel}</span>
+                  <div className="px-3 py-1.5 rounded-full bg-[#1840f5]/10 border border-[#1840f5]/20">
+                    <span className="text-[#1840f5] text-xs font-black uppercase tracking-widest">{priceLabel}</span>
                   </div>
                 ) : null}
               </div>
 
-              <div className="h-px w-full bg-white/10" />
+              <div className="h-px w-full bg-gray-200" />
 
               <div className="flex justify-between items-center">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Estado</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Estado</span>
                   <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
-                    <span className="text-lg font-bold">Verificación pendiente</span>
+                    <span className="size-2 rounded-full bg-yellow-500 shadow-sm" />
+                    <span className="text-lg font-bold text-gray-900">Verificación pendiente</span>
                   </div>
                 </div>
               </div>
@@ -158,21 +143,18 @@ export default function PaymentThanksPage() {
           </div>
         </main>
 
-        <footer className="fixed bottom-0 left-0 right-0 p-8 pt-12 flex flex-col items-center gap-6 z-50" style={{ background: 'linear-gradient(to top, #0f050a 80%, transparent)' }}>
+        <footer className="fixed bottom-0 left-0 right-0 p-8 pt-12 flex flex-col items-center gap-6 z-50" style={{ background: 'linear-gradient(to top, white 80%, transparent)' }}>
           <button
             type="button"
             onClick={() => navigate('/admin', { replace: true })}
-            className="w-full max-w-[432px] bg-primary text-white h-16 rounded-2xl text-xl font-black shadow-[0_12px_40px_rgba(255,45,146,0.4)] active:scale-95 transition-transform flex items-center justify-center gap-3 uppercase tracking-tight"
+            className="w-full max-w-[432px] bg-[#1840f5] hover:bg-[#1430b8] text-white h-16 rounded-2xl text-xl font-black shadow-xl shadow-[#1840f5]/30 hover:shadow-[#1840f5]/50 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase tracking-tight"
           >
             Ir a mi panel
             <span className="material-symbols-outlined font-bold">auto_awesome</span>
           </button>
 
-          <p className="text-white/30 text-[10px] uppercase font-bold tracking-[0.2em]">ID de transacción: {txLabel}</p>
+          <p className="text-gray-400 text-[10px] uppercase font-bold tracking-[0.2em]">ID de transacción: {txLabel}</p>
         </footer>
-
-        <div className="fixed top-1/4 -right-20 w-64 h-64 bg-primary/20 rounded-full blur-[100px] pointer-events-none" aria-hidden="true" />
-        <div className="fixed bottom-1/4 -left-20 w-64 h-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none" aria-hidden="true" />
       </div>
     </div>
   )

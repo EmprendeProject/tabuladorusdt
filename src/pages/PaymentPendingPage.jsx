@@ -54,7 +54,7 @@ export default function PaymentPendingPage() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-background-dark flex items-center justify-center p-6 text-white/70">
+      <div className="min-h-screen bg-white flex items-center justify-center p-6 text-gray-500 font-[Manrope]">
         Cargando…
       </div>
     )
@@ -65,46 +65,36 @@ export default function PaymentPendingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-dark font-[Manrope] antialiased">
-      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
-        <div
-          className="absolute top-[-50px] left-[-50px] w-[300px] h-[300px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, rgba(255,51,153,0.22) 0%, rgba(255,51,153,0) 70%)',
-          }}
-          aria-hidden="true"
-        />
-        <div
-          className="absolute bottom-[10%] right-[-100px] w-[400px] h-[400px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, rgba(255,51,153,0.16) 0%, rgba(255,51,153,0) 60%)',
-          }}
-          aria-hidden="true"
-        />
+    <div className="min-h-screen bg-white text-gray-900 font-[Manrope] selection:bg-[#1840f5] selection:text-white antialiased">
+      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden z-10">
+        {/* Background Gradients */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#1840f5]/20 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#1840f5]/10 rounded-full blur-[100px]" />
+        </div>
 
         <div className="flex items-center p-6 pb-2 justify-between z-10">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="text-white/80 flex size-10 shrink-0 items-center justify-start"
+            className="text-gray-900 flex size-10 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-all active:scale-95"
             aria-label="Volver"
             title="Volver"
           >
-            <span className="material-symbols-outlined cursor-pointer">arrow_back_ios</span>
+            <span className="material-symbols-outlined cursor-pointer text-[20px]">arrow_back_ios_new</span>
           </button>
-          <h2 className="text-white text-lg font-bold tracking-tight flex-1 text-center pr-10">Cataly</h2>
+          <h2 className="text-gray-900 text-lg font-bold tracking-tight flex-1 text-center pr-10">Cattaly</h2>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 z-10">
           <div className="w-full max-w-sm mb-12 text-center">
             <div className="relative inline-flex items-center justify-center">
-              <div className="absolute w-32 h-32 bg-primary/20 blur-3xl rounded-full" aria-hidden="true" />
-              <div className="relative w-40 h-40 rounded-full flex items-center justify-center border border-primary/30 bg-white/5 backdrop-blur-[16px]">
+              <div className="absolute w-32 h-32 bg-[#1840f5]/20 blur-3xl rounded-full" aria-hidden="true" />
+              <div className="relative w-40 h-40 rounded-full flex items-center justify-center border border-[#1840f5]/20 bg-white/50 backdrop-blur-md shadow-lg shadow-[#1840f5]/10">
                 <span
-                  className="material-symbols-outlined text-[84px] text-primary"
+                  className="material-symbols-outlined text-[84px] text-[#1840f5]"
                   style={{
                     fontVariationSettings: "'FILL' 1, 'wght' 300",
-                    textShadow: '0 0 20px rgba(255,51,153,0.6)',
                   }}
                   aria-hidden="true"
                 >
@@ -114,31 +104,31 @@ export default function PaymentPendingPage() {
             </div>
           </div>
 
-          <div className="w-full max-w-sm rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl bg-white/5 backdrop-blur-[16px] border border-white/10">
-            <div className="mb-2 inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
-              <span className="text-primary text-[10px] uppercase font-bold tracking-widest">Estado del Pago</span>
+          <div className="w-full max-w-sm rounded-3xl p-8 flex flex-col items-center text-center shadow-xl border border-gray-100 bg-white/80 backdrop-blur-sm">
+            <div className="mb-2 inline-flex px-3 py-1 rounded-full bg-[#1840f5]/10 border border-[#1840f5]/20">
+              <span className="text-[#1840f5] text-[10px] uppercase font-bold tracking-widest">Estado del Pago</span>
             </div>
 
-            <h3 className="text-white text-3xl font-extrabold leading-tight pb-3">¡Pago en proceso!</h3>
+            <h3 className="text-gray-900 text-3xl font-extrabold leading-tight pb-3">¡Pago en proceso!</h3>
 
-            <p className="text-white/70 text-base font-medium leading-relaxed mb-10 max-w-[260px]">
+            <p className="text-gray-600 text-base font-medium leading-relaxed mb-10 max-w-[260px]">
               Estamos verificando tu pago. En breve podrás seguir disfrutando de{' '}
-              <span className="text-primary font-bold">Cataly</span>
+              <span className="text-[#1840f5] font-bold">Cattaly</span>
             </p>
 
             {statusMsg ? (
-              <div className="mb-4 w-full rounded-2xl border border-white/10 bg-white/5 p-3 text-left">
-                <div className="text-xs font-bold uppercase tracking-widest text-white/40">Actualización</div>
-                <div className="mt-1 text-sm text-white/70">{statusMsg}</div>
+              <div className="mb-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-3 text-left">
+                <div className="text-xs font-bold uppercase tracking-widest text-gray-500">Actualización</div>
+                <div className="mt-1 text-sm text-gray-700">{statusMsg}</div>
                 {lastStatus === 'rejected' && reviewNote ? (
-                  <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Motivo</div>
-                    <div className="mt-1 text-sm text-white/80">{reviewNote}</div>
+                  <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">Motivo</div>
+                    <div className="mt-1 text-sm text-rose-800">{reviewNote}</div>
                   </div>
                 ) : null}
                 {lastStatus ? (
-                  <div className="mt-2 text-[11px] text-white/40">
-                    Último estado: <span className="font-semibold text-white/70">{String(lastStatus)}</span>
+                  <div className="mt-2 text-[11px] text-gray-500">
+                    Último estado: <span className="font-semibold text-gray-800">{String(lastStatus)}</span>
                   </div>
                 ) : null}
               </div>
@@ -148,9 +138,9 @@ export default function PaymentPendingPage() {
               type="button"
               onClick={checkStatus}
               disabled={checking}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-2xl transition-all duration-300 shadow-[0_8px_30px_rgba(255,51,153,0.3)] flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70"
+              className="w-full bg-[#1840f5] hover:bg-[#1430b8] text-white font-bold py-5 rounded-2xl transition-all duration-300 shadow-xl shadow-[#1840f5]/20 hover:shadow-[#1840f5]/40 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70"
             >
-              <span className="material-symbols-outlined">receipt_long</span>
+              <span className="material-symbols-outlined text-[20px]">receipt_long</span>
               {checking ? 'Verificando…' : 'Ver estado'}
             </button>
 
@@ -158,7 +148,7 @@ export default function PaymentPendingPage() {
               <button
                 type="button"
                 onClick={() => navigate('/precios')}
-                className="mt-3 w-full border border-white/10 bg-white/5 text-white font-bold py-4 rounded-2xl transition-colors hover:bg-white/10"
+                className="mt-3 w-full border border-gray-200 bg-gray-50 text-gray-900 font-bold py-4 rounded-2xl transition-colors hover:bg-gray-100"
               >
                 Enviar nuevo comprobante
               </button>
@@ -167,19 +157,19 @@ export default function PaymentPendingPage() {
             <button
               type="button"
               onClick={() => {
-                window.location.href = 'mailto:soporte@cataly.app'
+                window.location.href = 'mailto:soporte@cattaly.com'
               }}
-              className="mt-8 text-white/40 text-sm font-semibold hover:text-white transition-colors flex items-center gap-2"
+              className="mt-8 text-gray-500 text-sm font-semibold hover:text-gray-900 transition-colors flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-lg">support_agent</span>
-              Contactar soporte técnico
+              Contactar soporte
             </button>
           </div>
 
-          <div className="mt-12 flex items-center gap-2 opacity-20 grayscale">
-            <div className="h-[1px] w-8 bg-white" />
-            <span className="text-[10px] tracking-[0.2em] uppercase font-bold text-white">Security &amp; Billing</span>
-            <div className="h-[1px] w-8 bg-white" />
+          <div className="mt-12 flex items-center gap-2 opacity-50 grayscale">
+            <div className="h-[1px] w-8 bg-gray-300" />
+            <span className="text-[10px] tracking-[0.2em] uppercase font-bold text-gray-400">Security & Billing</span>
+            <div className="h-[1px] w-8 bg-gray-300" />
           </div>
         </div>
 
