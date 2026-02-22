@@ -55,7 +55,7 @@ export default function SalesPage2() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Crea un catálogo profesional en segundos, automatiza tus precios en dólares y el Bolívares,mientras recibes pedidos organizados directamente a tu WhatsApp.
+            Crea un catálogo profesional en segundos, automatiza tus precios en dólares y el Bolívares. Un catalogo todo en uno.
           </p>
 
           <div className="w-full max-w-3xl mx-auto mb-16 overflow-hidden rounded-2xl border border-gray-200 shadow-2xl bg-gray-50">

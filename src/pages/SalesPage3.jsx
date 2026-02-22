@@ -47,14 +47,14 @@ export default function SalesPage3() {
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Crea un catálogo profesional en segundos, automatiza tus precios en dólares y el Bolívares, mientras recibes pedidos organizados directamente a tu WhatsApp.
+          <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-6 leading-relaxed">
+            Crea un catálogo profesional en segundos, automatiza tus precios en dólares y el Bolívares. Un catalogo todo en uno.
           </p>
 
-          <div className="w-full max-w-3xl mx-auto mb-16 overflow-hidden rounded-2xl border border-gray-200 shadow-2xl bg-gray-50">
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+          <div className="w-full max-w-xl mx-auto mb-8 overflow-hidden rounded-2xl border border-gray-200 shadow-2xl bg-gray-50">
+            <div className="relative w-full" style={{ paddingBottom: '100%' }}>
               <iframe
-                src="https://fast.wistia.net/embed/iframe/jg8h3azu9y?seo=false&videoFoam=true"
+                src="https://fast.wistia.net/embed/iframe/5zv6twn0tw?seo=false&videoFoam=true"
                 title="Wistia Video Player"
                 allow="autoplay; fullscreen"
                 allowTransparency="true"
@@ -76,7 +76,7 @@ export default function SalesPage3() {
             </button>
           </div>
 
-          <div className="mt-12 flex items-center justify-center gap-8 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+          <div className="mt-8 flex items-center justify-center gap-8 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
              {/* Social Proof / Trust Badges (Placeholders) */}
              <div className="text-xs font-medium text-gray-500 uppercase tracking-widest">Confían en nosotros</div>
              <div className="flex -space-x-3">
@@ -88,6 +88,11 @@ export default function SalesPage3() {
                 ))}
              </div>
              <div className="text-sm font-semibold text-gray-700">+500 Emprendedores</div>
+          </div>
+
+          {/* Hero App Preview Banner */}
+          <div className="w-full max-w-6xl mx-auto mt-16 relative z-10 select-none pointer-events-none animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+              <img src={banner} alt="Vista previa de Cataly" className="w-full h-auto drop-shadow-2xl rounded-xl border border-gray-200/60" />
           </div>
         </section>
 
@@ -182,11 +187,6 @@ export default function SalesPage3() {
             </button>
              <p className="mt-4 text-xs text-gray-400">No se requiere tarjeta de crédito • Cancelas cuando quieras</p>
         </section>
-
-        {/* Banner Final */}
-        <div className="w-full max-w-6xl mx-auto mt-20 mb-[-5rem] relative z-10 select-none pointer-events-none">
-            <img src={banner} alt="Banner Promocional" className="w-full h-auto drop-shadow-xl" />
-        </div>
 
       </main>
 
