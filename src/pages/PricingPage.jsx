@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PRICING_PLANS } from '../data/pricingPlans'
+import { useTasas } from '../hooks/useTasas'
 
 export default function PricingPage() {
   const navigate = useNavigate()
@@ -10,6 +11,15 @@ export default function PricingPage() {
   const defaultSelected = params.get('plan') || plans.find((p) => p.featured)?.id || plans[0]?.id
   const [selectedId, setSelectedId] = useState(defaultSelected)
   const [helpOpen, setHelpOpen] = useState(false)
+
+  const { tasaBCV, cargandoBCV } = useTasas()
+
+  // Helper: convierte precio USD a Bs usando tasa BCV
+  const toBs = (priceUSD) => {
+    if (!tasaBCV) return null
+    const bs = priceUSD * parseFloat(tasaBCV)
+    return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(bs)
+  }
 
   const selectedPlan = useMemo(() => plans.find((p) => p.id === selectedId) || plans[0], [plans, selectedId])
 
@@ -95,9 +105,16 @@ export default function PricingPage() {
                       <h3 className="text-2xl font-black text-gray-900">{plan.title}</h3>
                     </div>
                     <div className="text-right">
-                      <p className="text-4xl font-black leading-none text-gray-900">
-                        {plan.priceLabel || plan.price}
-                      </p>
+                  <div className="flex items-end gap-2">
+                        <p className="text-4xl font-black leading-none text-gray-900">
+                          {plan.priceLabel || plan.price}
+                        </p>
+                        {cargandoBCV ? (
+                          <p className="mb-0.5 text-sm font-semibold text-gray-400 animate-pulse">Bs. •••</p>
+                        ) : toBs(plan.price) ? (
+                          <p className="mb-0.5 text-sm font-semibold text-gray-500">≈ Bs. {toBs(plan.price)}</p>
+                        ) : null}
+                      </div>
                       <p className="mt-1 text-[10px] font-bold text-gray-500">{plan.billing}</p>
                     </div>
                   </div>
@@ -140,7 +157,14 @@ export default function PricingPage() {
                   <h3 className="text-xl font-bold">{plan.title}</h3>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-extrabold leading-none">{plan.priceLabel || plan.price}</p>
+                  <div className="flex items-end justify-end gap-2">
+                    <p className="text-3xl font-extrabold leading-none">{plan.priceLabel || plan.price}</p>
+                    {cargandoBCV ? (
+                      <p className="mb-0.5 text-xs font-semibold text-gray-400 animate-pulse">Bs. •••</p>
+                    ) : toBs(plan.price) ? (
+                      <p className="mb-0.5 text-xs font-semibold text-gray-500">≈ Bs. {toBs(plan.price)}</p>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-[10px] font-bold text-gray-400">{plan.billing}</p>
                 </div>
               </button>

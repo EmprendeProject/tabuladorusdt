@@ -23,12 +23,20 @@ export default function LandingPage() {
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
              <h2 className="text-2xl font-black tracking-tighter">Cattaly</h2>
           </Link>
-          <button
-            onClick={() => navigate('/register')}
-            className="bg-[#1840f5] hover:bg-[#1430b8] text-white text-sm font-bold px-5 py-2 rounded-full transition-all shadow-lg shadow-[#1840f5]/20 hover:shadow-[#1840f5]/40 active:scale-95"
-          >
-            Comenzar Gratis
-          </button>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => navigate('/login')}
+              className="text-gray-700 hover:text-[#1840f5] text-sm font-bold transition-colors"
+            >
+              Iniciar sesión
+            </button>
+            <button
+              onClick={() => navigate('/register')}
+              className="bg-[#1840f5] hover:bg-[#1430b8] text-white text-sm font-bold px-4 py-2 sm:px-5 rounded-full transition-all shadow-lg shadow-[#1840f5]/20 hover:shadow-[#1840f5]/40 active:scale-95"
+            >
+              Comenzar Gratis
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -73,6 +81,12 @@ export default function LandingPage() {
             >
               Crear mi catálogo gratis
               <ArrowRight size={24} />
+            </button>
+            <button
+              onClick={() => navigate('/precios')}
+              className="w-full sm:w-auto h-16 px-12 rounded-2xl bg-white border-2 border-gray-200 text-gray-700 hover:text-gray-900 text-xl font-bold flex items-center justify-center shadow-lg hover:shadow-xl hover:bg-gray-50 hover:-translate-y-1 transition-all active:translate-y-0"
+            >
+              Ver precios
             </button>
           </div>
 
@@ -195,6 +209,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <p>© {new Date().getFullYear()} Cataly. Todos los derechos reservados.</p>
             <div className="flex gap-4">
+                <Link to="/precios" className="hover:text-black transition-colors font-medium">Precios</Link>
                 <Link to="/privacidad" className="hover:text-black transition-colors">Privacidad</Link>
                 <Link to="/terminos" className="hover:text-black transition-colors">Términos</Link>
             </div>
