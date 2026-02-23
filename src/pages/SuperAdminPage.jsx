@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Store,
+  MessageCircle,
 } from 'lucide-react'
 
 import { useAuthSession } from '../hooks/useAuthSession'
@@ -618,7 +619,18 @@ export default function SuperAdminPage() {
                         <span className="text-[11px] text-slate-400">{u.joinedAt ? `Desde ${formatJoined(u.joinedAt)}` : ''}</span>
                       </div>
 
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 items-center">
+                        {u.telefono ? (
+                          <a
+                            href={`https://wa.me/${String(u.telefono).replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-500 hover:text-emerald-600 transition-colors flex items-center justify-center"
+                            title={`WhatsApp: ${u.telefono}`}
+                          >
+                            <MessageCircle size={16} />
+                          </a>
+                        ) : null}
                         {u.handle ? (
                             <Link
                                 to={`/${u.handle}`}
@@ -784,9 +796,10 @@ export default function SuperAdminPage() {
                     }
                   }}
                 >
-                  <option value="Free">Free</option>
-                  <option value="Pro">Pro</option>
-                  <option value="Enterprise">Enterprise</option>
+                  <option value="free">Free</option>
+                  {PRICING_PLANS.map((p) => (
+                    <option key={p.id} value={p.id}>{getPlanLabel(p.id)}</option>
+                  ))}
                 </select>
               </div>
 

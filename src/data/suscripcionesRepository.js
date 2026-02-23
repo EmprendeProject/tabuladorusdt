@@ -39,7 +39,7 @@ export const suscripcionesRepository = {
         .order('created_at', { ascending: false }),
       supabase
         .from('perfiles')
-        .select('user_id,email,created_at')
+        .select('user_id,email,telefono,created_at')
         .order('created_at', { ascending: false }),
       supabase
         .from('suscripciones')
@@ -68,6 +68,7 @@ export const suscripcionesRepository = {
         handle: t.handle,
         nombreNegocio: t.nombre_negocio,
         email: perfil?.email || '',
+        telefono: perfil?.telefono || '',
         joinedAt: t.created_at || perfil?.created_at || null,
         plan,
         activa,
