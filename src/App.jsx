@@ -76,6 +76,22 @@ const AdminPage = () => {
   const [pendingSolicitud, setPendingSolicitud] = useState(null)
   const [pendingSolicitudLoading, setPendingSolicitudLoading] = useState(false)
 
+  // Banner de dias restantes (hooks deben ir antes de cualquier return condicional)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+  const daysLeft = useMemo(() => {
+    if (!subStatus?.expiresAt) return null
+    const exp = new Date(subStatus.expiresAt)
+    if (!Number.isFinite(exp.getTime())) return null
+    const diffMs = exp.getTime() - Date.now()
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  }, [subStatus])
+  const showBanner = !bannerDismissed && daysLeft !== null && daysLeft <= 7
+  const bannerColor = useMemo(() => {
+    if (daysLeft !== null && daysLeft <= 1) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', btn: 'bg-red-700 hover:bg-red-800', icon: '\u26a0\ufe0f' }
+    if (daysLeft !== null && daysLeft <= 3) return { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', btn: 'bg-orange-700 hover:bg-orange-800', icon: '\u23f3' }
+    return { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-800', btn: 'bg-yellow-600 hover:bg-yellow-700', icon: '\ud83d\udd14' }
+  }, [daysLeft])
+
   const {
     catalogTemplate,
     setCatalogTemplate: guardarCatalogTemplate,
@@ -481,6 +497,36 @@ const AdminPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {showBanner && (
+        <div className={`relative z-[55] border-b ${bannerColor.border} ${bannerColor.bg} px-4 py-2.5 flex items-center justify-between gap-3`}>
+          <div className={`flex items-center gap-2 text-sm font-semibold ${bannerColor.text}`}>
+            <span>{bannerColor.icon}</span>
+            <span>
+              {daysLeft <= 0
+                ? 'Tu plan vence hoy. ¡Renueva para no perder acceso!'
+                : daysLeft === 1
+                ? 'Te queda 1 día de tu plan. ¡Renuévalo ahora!'
+                : `Te quedan ${daysLeft} días de tu plan.`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/precios"
+              className={`text-xs font-bold text-white px-3 py-1.5 rounded-full ${bannerColor.btn} transition-colors`}
+            >
+              Renovar plan
+            </Link>
+            <button
+              type="button"
+              onClick={() => setBannerDismissed(true)}
+              className={`p-1 rounded-full hover:bg-black/10 transition-colors ${bannerColor.text}`}
+              aria-label="Cerrar aviso"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
       <div className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
