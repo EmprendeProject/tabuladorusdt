@@ -165,6 +165,8 @@ export default function SuperAdminPage() {
 
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('all')
+  // statusFilter values: 'all' | 'expired' | 'expiring' | 'trial'
 
   useEffect(() => {
     let mounted = true
@@ -244,14 +246,36 @@ export default function SuperAdminPage() {
 
   const filtered = useMemo(() => {
     const q = String(search || '').trim().toLowerCase()
+    const now = Date.now()
 
     return accounts.filter((a) => {
+      // Plan filter
       if (planFilter !== 'All' && a.plan !== planFilter) return false
+
+      // Status filter
+      if (statusFilter !== 'all') {
+        const exp = a.expiresAt ? new Date(a.expiresAt) : null
+        const expMs = exp && Number.isFinite(exp.getTime()) ? exp.getTime() : null
+
+        if (statusFilter === 'expired') {
+          // Vencidas: tiene fecha de expiración y ya pasó
+          if (!expMs || expMs > now) return false
+        } else if (statusFilter === 'expiring') {
+          // Por vencer: activa y le quedan 7 días o menos
+          const sevenDays = 7 * 24 * 60 * 60 * 1000
+          if (!a.hasAccess || !expMs || expMs <= now || expMs - now > sevenDays) return false
+        } else if (statusFilter === 'trial') {
+          // Trial / Free: plan free o sin acceso y sin fecha de expiración (nunca pagaron)
+          if (a.plan !== 'free') return false
+        }
+      }
+
+      // Text search
       if (!q) return true
       const hay = `${a.nombreNegocio || ''} ${a.email || ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [accounts, planFilter, search])
+  }, [accounts, planFilter, statusFilter, search])
 
   const stats = useMemo(() => {
     const total = accounts.length
@@ -559,8 +583,8 @@ export default function SuperAdminPage() {
               </label>
             </div>
 
-            {/* Chips */}
-            <div className="flex gap-2 p-4 overflow-x-auto no-scrollbar">
+            {/* Chips de plan */}
+            <div className="flex gap-2 px-4 pb-1 overflow-x-auto no-scrollbar">
               {PLANS.map((p) => (
                 <PlanChip
                   key={p}
@@ -568,6 +592,33 @@ export default function SuperAdminPage() {
                   active={planFilter === p}
                   onClick={() => setPlanFilter(p)}
                 />
+              ))}
+            </div>
+
+            {/* Chips de estado */}
+            <div className="flex gap-2 px-4 pb-3 overflow-x-auto no-scrollbar">
+              {[
+                { key: 'all', label: 'Cualquier estado' },
+                { key: 'expired',  label: '⛔ Vencidas' },
+                { key: 'expiring', label: '⚠️ Por vencer' },
+                { key: 'trial',    label: '🆓 Free / Trial' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStatusFilter(key)}
+                  className={
+                    statusFilter === key
+                      ? 'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full px-4 text-sm font-semibold ' +
+                        (key === 'expired' ? 'bg-rose-600 text-white' :
+                         key === 'expiring' ? 'bg-orange-500 text-white' :
+                         key === 'trial' ? 'bg-slate-600 text-white' :
+                         'bg-primary text-white')
+                      : 'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white border border-slate-200 px-4 text-sm font-medium text-slate-700'
+                  }
+                >
+                  {label}
+                </button>
               ))}
             </div>
 

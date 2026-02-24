@@ -14,6 +14,7 @@ export default function RegisterPage({ preferredHandle } = {}) {
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [nombreNegocio, setNombreNegocio] = useState('')
   const [email, setEmail] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [direccion, setDireccion] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -26,9 +27,10 @@ export default function RegisterPage({ preferredHandle } = {}) {
       String(nombreCompleto).trim().length > 0 &&
       String(nombreNegocio).trim().length > 0 &&
       String(email).trim().length > 0 &&
+      String(telefono).replace(/\D/g, '').length >= 7 &&
       String(password).length >= 6
     )
-  }, [nombreCompleto, nombreNegocio, email, password])
+  }, [nombreCompleto, nombreNegocio, email, telefono, password])
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -62,6 +64,7 @@ export default function RegisterPage({ preferredHandle } = {}) {
         await perfilesRepository.upsertMine({
           nombreCompleto,
           direccion,
+          telefono: String(telefono).replace(/\D/g, ''),
         })
       } catch {
         // noop: puede fallar si no hay sesión por confirmación de email.
@@ -139,6 +142,26 @@ export default function RegisterPage({ preferredHandle } = {}) {
               required
             />
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-bold text-gray-700">Número de teléfono</p>
+          <div className="flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-4 focus-within:border-[#1840f5] focus-within:ring-1 focus-within:ring-[#1840f5] transition-all">
+            <input
+              className="w-full bg-transparent py-3 text-gray-900 outline-none placeholder:text-gray-400"
+              placeholder="+58 412 000 0000"
+              type="tel"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              onBlur={() => setTelefono((v) => v.trim())}
+              autoComplete="tel"
+              inputMode="tel"
+              required
+              minLength={7}
+              title="Escribe un número de teléfono válido."
+            />
+          </div>
+          <p className="mt-0.5 text-xs text-gray-500 font-medium">Mínimo 7 dígitos</p>
         </div>
 
         <div className="flex flex-col gap-2">
