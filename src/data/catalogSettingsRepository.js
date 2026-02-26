@@ -33,14 +33,14 @@ const toFriendlyCatalogSettingsError = (error) => {
   if (looksLikeMissingColumn || looksLikeRls || looksLikePermission) {
     return new Error(
       'No se pudo leer/guardar la plantilla por permisos o porque falta la migración. ' +
-        'Solución: migra `catalog_settings` a multiusuario (owner_id + policies) ejecutando el bloque “CATALOG_SETTINGS” actualizado.'
+      'Solución: migra `catalog_settings` a multiusuario (owner_id + policies) ejecutando el bloque “CATALOG_SETTINGS” actualizado.'
     )
   }
 
   if (looksLikeCheckConstraint) {
     return new Error(
       'Tu base de datos está rechazando el valor de plantilla (constraint/CHECK). ' +
-        'Solución: actualiza el CHECK de `catalog_settings.catalog_template` para incluir `heavy` y vuelve a intentar.'
+      'Solución: actualiza el CHECK de `catalog_settings.catalog_template` para incluir `heavy` y vuelve a intentar.'
     )
   }
 
@@ -63,13 +63,16 @@ export const catalogSettingsRepository = {
 
     const { data, error } = await supabase
       .from('catalog_settings')
-      .select('owner_id,catalog_template')
+      .select('owner_id,catalog_template,logo_url')
       .eq('owner_id', effectiveOwnerId)
       .maybeSingle()
 
     if (error) throw toFriendlyCatalogSettingsError(error)
 
-    return normalizeTemplate(data?.catalog_template)
+    return {
+      template: normalizeTemplate(data?.catalog_template),
+      logoUrl: data?.logo_url || null,
+    }
   },
 
   async saveTemplate(template, { ownerId } = {}) {
@@ -86,9 +89,22 @@ export const catalogSettingsRepository = {
     return next
   },
 
+  async saveLogoUrl(logoUrl, { ownerId } = {}) {
+    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
+    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar el logo.')
+
+    const { error } = await supabase
+      .from('catalog_settings')
+      .upsert({ owner_id: effectiveOwnerId, logo_url: logoUrl }, { onConflict: 'owner_id' })
+
+    if (error) throw toFriendlyCatalogSettingsError(error)
+
+    return logoUrl
+  },
+
   subscribeTemplate({ ownerId, onChange } = {}) {
     const effectiveOwnerId = String(ownerId || '').trim()
-    if (!effectiveOwnerId) return () => {}
+    if (!effectiveOwnerId) return () => { }
 
     const channel = supabase
       .channel('catalog-settings-realtime')
@@ -96,8 +112,14 @@ export const catalogSettingsRepository = {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'catalog_settings', filter: `owner_id=eq.${effectiveOwnerId}` },
         (payload) => {
-          const next = payload?.new?.catalog_template
-          if (typeof onChange === 'function') onChange(normalizeTemplate(next))
+          const nextTemplate = payload?.new?.catalog_template
+          const nextLogo = payload?.new?.logo_url
+          if (typeof onChange === 'function') {
+            onChange({
+              template: normalizeTemplate(nextTemplate),
+              logoUrl: nextLogo || null,
+            })
+          }
         },
       )
       .subscribe()

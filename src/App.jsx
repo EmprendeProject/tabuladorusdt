@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ToastStack from './components/ToastStack';
 import { useToasts } from './hooks/useToasts';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { Check, Copy, LogOut, Palette, Store, User, X } from 'lucide-react'
+import { Check, Copy, LogOut, Palette, Store, User, X, Upload, Loader2, Trash2 } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
 import { CATALOG_TEMPLATES } from './data/catalogSettingsRepository'
@@ -30,6 +30,7 @@ import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
 import { suscripcionesRepository } from './data/suscripcionesRepository'
 import { solicitudesPagoRepository } from './data/solicitudesPagoRepository'
+import { uploadBrandLogo } from './lib/storage'
 
 const LegacyCatalogRedirect = () => {
   const { handle } = useParams()
@@ -62,6 +63,7 @@ const AdminPage = () => {
   const [profileDireccion, setProfileDireccion] = useState('')
   const [profileTelefono, setProfileTelefono] = useState('')
   const [profileMapsUrl, setProfileMapsUrl] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   const normalizeTelefono = (telefono) => String(telefono || '').replace(/\D/g, '')
 
@@ -95,6 +97,8 @@ const AdminPage = () => {
   const {
     catalogTemplate,
     setCatalogTemplate: guardarCatalogTemplate,
+    logoUrl,
+    setLogoUrl: guardarLogoUrl,
     cargando: cargandoCatalogSettings,
     guardando: guardandoCatalogSettings,
     error: catalogSettingsError,
@@ -130,6 +134,36 @@ const AdminPage = () => {
       setProfileError(err?.message || 'No se pudieron cargar tus datos.')
     } finally {
       setProfileLoading(false)
+    }
+  }
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setProfileError('')
+    setUploadingLogo(true)
+    try {
+      const { publicUrl } = await uploadBrandLogo({ file, ownerId: sessionUserId })
+      await guardarLogoUrl(publicUrl)
+    } catch (err) {
+      setProfileError(err?.message || 'Error al subir el logo.')
+    } finally {
+      setUploadingLogo(false)
+      // reset input
+      e.target.value = ''
+    }
+  }
+
+  const handleLogoRemove = async () => {
+    setProfileError('')
+    setUploadingLogo(true)
+    try {
+      await guardarLogoUrl(null)
+    } catch (err) {
+      setProfileError('Error al eliminar el logo.')
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
@@ -734,6 +768,44 @@ const AdminPage = () => {
                         readOnly
                         className="mt-1 w-full p-2 border rounded-lg bg-gray-50 text-gray-700"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo del catálogo</label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center shrink-0">
+                          {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-gray-400 font-bold uppercase select-none">{avatarLabel}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 flex flex-col items-start gap-2">
+                          <label className={`relative inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-sm font-medium hover:bg-gray-50 cursor-pointer ${uploadingLogo ? 'opacity-50 pointer-events-none' : ''}`}>
+                            {uploadingLogo ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                            {uploadingLogo ? 'Subiendo...' : 'Cambiar logo'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="sr-only"
+                              onChange={handleLogoUpload}
+                              disabled={uploadingLogo || profileSaving}
+                            />
+                          </label>
+                          {logoUrl && !uploadingLogo && (
+                            <button
+                              type="button"
+                              onClick={handleLogoRemove}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700 inline-flex items-center gap-1"
+                            >
+                              <Trash2 size={12} /> Eliminar logo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-1.5 text-xs text-gray-500">
+                        La imagen aparecerá en el encabezado de tu catálogo. Formato JPG, PNG o WebP, recomendado 1:1.
+                      </p>
                     </div>
 
                     <div>

@@ -44,6 +44,7 @@ const CatalogTemplateUrbanStreet = ({
   error,
   onSelectProducto,
   brandName,
+  logoUrl,
 }) => {
   const nombreTienda = String(brandName || 'URBAN STREET').trim().toUpperCase()
   const cats = Array.isArray(categorias) ? categorias : []
@@ -90,16 +91,14 @@ const CatalogTemplateUrbanStreet = ({
         {/* TopAppBar */}
         <header className="sticky top-0 z-50 bg-[#f8f7f6]/80 dark:bg-[#121212]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-[#eca413]/20">
           <div className="flex items-center gap-3">
-            {/* Menu button - commented out */}
-            {/* <div className="p-2 rounded-lg bg-[#eca413]/10 border border-[#eca413]/30">
-              <svg className="w-6 h-6 text-[#eca413]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </div> */}
-            <h1 className="text-xl font-bold tracking-tighter uppercase italic leading-none">
-              {nombreTienda.split(' ')[0] || 'URBAN'}<br />
-              <span className="text-[#eca413]">{nombreTienda.split(' ').slice(1).join(' ') || 'STREET'}</span>
-            </h1>
+            {logoUrl ? (
+              <img src={logoUrl} alt={nombreTienda} className="h-10 object-contain" />
+            ) : (
+              <h1 className="text-xl font-bold tracking-tighter uppercase italic leading-none">
+                {nombreTienda.split(' ')[0] || 'URBAN'}<br />
+                <span className="text-[#eca413]">{nombreTienda.split(' ').slice(1).join(' ') || 'STREET'}</span>
+              </h1>
+            )}
           </div>
           <div className="flex gap-2">
             <button

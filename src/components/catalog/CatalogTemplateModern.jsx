@@ -41,6 +41,7 @@ const CatalogTemplateModern = ({
   onSelectProducto,
   brandName,
   shopName,
+  logoUrl,
 }) => {
   const nombreTienda = String(shopName || brandName || 'Tu Tienda')
   const cats = Array.isArray(categorias) ? categorias : []
@@ -77,7 +78,11 @@ const CatalogTemplateModern = ({
       <header className="sticky top-0 z-50 bg-[#f6f7f8]/80 backdrop-blur-md">
         <div className="flex items-center p-4 pb-2 justify-between">
           <div className="flex items-center min-w-0">
-            <h1 className="text-lg font-bold leading-tight truncate">{nombreTienda}</h1>
+            {logoUrl ? (
+              <img src={logoUrl} alt={nombreTienda} className="h-8 object-contain" />
+            ) : (
+              <h1 className="text-lg font-bold leading-tight truncate">{nombreTienda}</h1>
+            )}
           </div>
           <div className="flex gap-2">
             <button

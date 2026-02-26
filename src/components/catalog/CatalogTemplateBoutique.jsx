@@ -35,6 +35,7 @@ const CatalogTemplateBoutique = ({
   error,
   onSelectProducto,
   brandName = 'Boutique',
+  logoUrl,
 }) => {
   const [categorias, setCategorias] = useState([])
   const [cargandoCategorias, setCargandoCategorias] = useState(true)
@@ -100,9 +101,15 @@ const CatalogTemplateBoutique = ({
         <header className="sticky top-0 z-50 flex items-center bg-[#fdfcfb]/90 backdrop-blur-md p-4 pb-2 justify-between border-b border-gray-100">
           <div className="size-12 shrink-0" aria-hidden="true" />
 
-          <h1 className="text-[#111318] text-2xl italic leading-tight tracking-tight flex-1 text-center font-[Newsreader,serif]">
-            {brandName}
-          </h1>
+          <div className="flex-1 flex justify-center items-center">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="h-10 object-contain" />
+            ) : (
+              <h1 className="text-[#111318] text-2xl italic leading-tight tracking-tight text-center font-[Newsreader,serif]">
+                {brandName}
+              </h1>
+            )}
+          </div>
 
           <div className="flex w-12 items-center justify-end">
             <button

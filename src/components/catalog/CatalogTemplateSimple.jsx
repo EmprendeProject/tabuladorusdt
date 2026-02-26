@@ -37,6 +37,7 @@ const CatalogTemplateSimple = ({
   error,
   onSelectProducto,
   brandName,
+  logoUrl,
 }) => {
   const nombreTienda = String(brandName || 'Elégance').trim() || 'Elégance'
   const cats = Array.isArray(categorias) ? categorias : []
@@ -95,11 +96,17 @@ const CatalogTemplateSimple = ({
             </button>
           </div>
 
-          <div className="flex flex-col items-center">
-            <h1 className="text-[#181611] text-xl font-bold leading-tight tracking-[0.2em] uppercase text-center" style={{ fontFamily: 'ui-serif, Georgia, Times New Roman, serif' }}>
-              {nombreTienda}
-            </h1>
-            <div className="h-[1px] w-8 bg-[#f2a60d] mt-1" />
+          <div className="flex flex-col items-center flex-1">
+            {logoUrl ? (
+              <img src={logoUrl} alt={nombreTienda} className="h-10 object-contain" />
+            ) : (
+              <>
+                <h1 className="text-[#181611] text-xl font-bold leading-tight tracking-[0.2em] uppercase text-center" style={{ fontFamily: 'ui-serif, Georgia, Times New Roman, serif' }}>
+                  {nombreTienda}
+                </h1>
+                <div className="h-[1px] w-8 bg-[#f2a60d] mt-1" />
+              </>
+            )}
           </div>
 
           <div className="flex w-12 items-center justify-end">

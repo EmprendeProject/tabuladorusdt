@@ -6,6 +6,7 @@ import {
 
 export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
   const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE)
+  const [logoUrl, setLogoUrl] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -17,9 +18,10 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
 
     catalogSettingsRepository
       .fetchTemplate({ ownerId })
-      .then((t) => {
+      .then((data) => {
         if (!mounted) return
-        setCatalogTemplate(t)
+        setCatalogTemplate(data.template)
+        setLogoUrl(data.logoUrl)
       })
       .catch((e) => {
         if (!mounted) return
@@ -33,9 +35,12 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
 
     const unsubscribe = ownerId
       ? catalogSettingsRepository.subscribeTemplate({
-          ownerId,
-          onChange: (next) => setCatalogTemplate(next),
-        })
+        ownerId,
+        onChange: (next) => {
+          setCatalogTemplate(next.template)
+          setLogoUrl(next.logoUrl)
+        },
+      })
       : null
 
     return () => {
@@ -60,9 +65,27 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     }
   }
 
+  const guardarLogo = async (nextLogoUrl) => {
+    if (!enableSave) return
+
+    setError('')
+    setGuardando(true)
+
+    try {
+      const saved = await catalogSettingsRepository.saveLogoUrl(nextLogoUrl, { ownerId })
+      setLogoUrl(saved)
+    } catch (e) {
+      setError(e?.message || 'No se pudo guardar el logo')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   return {
     catalogTemplate,
     setCatalogTemplate: enableSave ? guardar : setCatalogTemplate,
+    logoUrl,
+    setLogoUrl: enableSave ? guardarLogo : setLogoUrl,
     cargando,
     guardando,
     error,

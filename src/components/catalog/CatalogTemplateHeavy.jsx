@@ -46,6 +46,7 @@ const CatalogTemplateHeavy = ({
   onReload,
   onSelectProducto,
   brandName = 'Catálogo',
+  logoUrl,
 }) => {
   const cats = Array.isArray(categorias) ? categorias : []
   const activeCat = String(categoriaActiva || '')
@@ -71,7 +72,11 @@ const CatalogTemplateHeavy = ({
     <div className="bg-[#121212] text-slate-100 min-h-screen font-sans">
       <header className="sticky top-0 z-50 bg-[#121212] border-b border-zinc-800">
         <div className="flex items-center justify-center p-4 pb-2">
-          <h2 className="text-xl font-bold tracking-tighter uppercase truncate text-center">{brandName}</h2>
+          {logoUrl ? (
+            <img src={logoUrl} alt={brandName} className="h-10 object-contain" />
+          ) : (
+            <h2 className="text-xl font-bold tracking-tighter uppercase truncate text-center">{brandName}</h2>
+          )}
         </div>
       </header>
 

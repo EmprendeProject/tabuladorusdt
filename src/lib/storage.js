@@ -231,7 +231,7 @@ export const uploadProductImage = async ({ file, productId, ownerId }) => {
     if (msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found')) {
       throw new Error(
         `No existe el bucket de Storage "${bucket}" en tu Supabase. ` +
-          `Créalo en Storage (recomendado: bucket público) o ajusta VITE_SUPABASE_PRODUCT_IMAGES_BUCKET.`
+        `Créalo en Storage (recomendado: bucket público) o ajusta VITE_SUPABASE_PRODUCT_IMAGES_BUCKET.`
       );
     }
 
@@ -241,6 +241,60 @@ export const uploadProductImage = async ({ file, productId, ownerId }) => {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   if (!data?.publicUrl) {
     throw new Error('No se pudo generar la URL pública de la imagen.');
+  }
+
+  return { publicUrl: data.publicUrl, path, bucket };
+};
+
+export const uploadBrandLogo = async ({ file, ownerId }) => {
+  if (!file) throw new Error('No se seleccionó ningún archivo.');
+  if (!ownerId) throw new Error('Se requiere un ID de usuario para subir el logo.');
+
+  const bucket = getBucketName();
+
+  if (file.size > MAX_INPUT_SIZE_BYTES) {
+    throw new Error('La imagen es muy pesada para procesar (máx. 20MB).');
+  }
+
+  // Comprimir/redimensionar
+  let fileToUpload = file;
+  if ((file.type || '').startsWith('image/')) {
+    fileToUpload = await compressImageFile(file, {
+      maxDimension: 800, // Logo no necesita ser tan grande como producto
+      quality: 0.85,
+      maxBytes: MAX_UPLOAD_SIZE_BYTES,
+      mimeType: 'image/webp',
+    });
+  }
+
+  const ext = getFileExtension(fileToUpload);
+  const ownerPart = safeId(ownerId);
+  const uuid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now());
+
+  const path = `logos/${ownerPart}/${uuid}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(path, fileToUpload, {
+      upsert: true,
+      contentType: fileToUpload.type || undefined,
+      cacheControl: '3600',
+    });
+
+  if (uploadError) {
+    const msg = String(uploadError?.message || '').toLowerCase();
+    if (msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found')) {
+      throw new Error(
+        `No existe el bucket de Storage "${bucket}" en tu Supabase. ` +
+        `Créalo en Storage (recomendado: bucket público) o ajusta VITE_SUPABASE_PRODUCT_IMAGES_BUCKET.`
+      );
+    }
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  if (!data?.publicUrl) {
+    throw new Error('No se pudo generar la URL pública del logo.');
   }
 
   return { publicUrl: data.publicUrl, path, bucket };
