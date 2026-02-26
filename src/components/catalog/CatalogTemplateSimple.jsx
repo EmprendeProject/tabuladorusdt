@@ -10,16 +10,19 @@ const formatearNumero = (value, digits = 2) => {
   })
 }
 
-const Tab = ({ active, onClick, children }) => {
+const Tab = ({ active, onClick, children, activeColor }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
         active
-          ? 'flex flex-col items-center justify-center border-b-[2px] border-[#f2a60d] text-[#181611] pb-3 pt-4 min-w-fit'
+          ? 'flex flex-col items-center justify-center border-b-[2px] text-[#181611] pb-3 pt-4 min-w-fit'
           : 'flex flex-col items-center justify-center border-b-[2px] border-transparent text-[#8a7c60] pb-3 pt-4 min-w-fit'
       }
+      style={{
+        borderBottomColor: active ? (activeColor || '#f2a60d') : 'transparent',
+      }}
     >
       <p className="text-[10px] font-bold leading-normal tracking-[0.1em] uppercase">{children}</p>
     </button>
@@ -38,6 +41,7 @@ const CatalogTemplateSimple = ({
   onSelectProducto,
   brandName,
   logoUrl,
+  accentColor,
 }) => {
   const nombreTienda = String(brandName || 'Elégance').trim() || 'Elégance'
   const cats = Array.isArray(categorias) ? categorias : []
@@ -87,7 +91,8 @@ const CatalogTemplateSimple = ({
           <div className="flex size-12 shrink-0 items-center justify-start">
             <button
               type="button"
-              className="text-[#f2a60d] size-12 flex items-center justify-start"
+              className="size-12 flex items-center justify-start"
+              style={{ color: accentColor || '#f2a60d' }}
               title="Menú"
               aria-label="Menú"
               onClick={() => {}}
@@ -104,7 +109,7 @@ const CatalogTemplateSimple = ({
                 <h1 className="text-[#181611] text-xl font-bold leading-tight tracking-[0.2em] uppercase text-center" style={{ fontFamily: 'ui-serif, Georgia, Times New Roman, serif' }}>
                   {nombreTienda}
                 </h1>
-                <div className="h-[1px] w-8 bg-[#f2a60d] mt-1" />
+                <div className="h-[1px] w-8 mt-1" style={{ backgroundColor: accentColor || '#f2a60d' }} />
               </>
             )}
           </div>
@@ -155,12 +160,15 @@ const CatalogTemplateSimple = ({
 
         <nav className="bg-[#f8f7f5]">
           <div
-            className="flex border-b border-[#f2a60d]/10 px-4 gap-8 overflow-x-auto"
-            style={{ scrollbarWidth: 'none' }}
+            className="flex border-b px-4 gap-8 overflow-x-auto"
+            style={{
+              scrollbarWidth: 'none',
+              borderBottomColor: accentColor ? `${accentColor}1A` : 'rgba(242, 166, 13, 0.1)'
+            }}
           >
-            <Tab active={!activeCat} onClick={() => setCategoriaActiva?.('')}>All Collections</Tab>
+            <Tab active={!activeCat} activeColor={accentColor} onClick={() => setCategoriaActiva?.('')}>All Collections</Tab>
             {cats.map((c) => (
-              <Tab key={c} active={activeCat === c} onClick={() => setCategoriaActiva?.(c)}>
+              <Tab key={c} active={activeCat === c} activeColor={accentColor} onClick={() => setCategoriaActiva?.(c)}>
                 {c}
               </Tab>
             ))}
@@ -182,7 +190,11 @@ const CatalogTemplateSimple = ({
             </div>
             <button
               type="button"
-              className="text-[#f2a60d] text-xs uppercase tracking-widest border-b border-[#f2a60d] pb-1"
+              className="text-xs uppercase tracking-widest border-b pb-1"
+              style={{
+                color: accentColor || '#f2a60d',
+                borderBottomColor: accentColor || '#f2a60d'
+              }}
               onClick={() => {
                 const el = globalThis?.document?.getElementById?.('elegance-latest')
                 el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
@@ -215,7 +227,10 @@ const CatalogTemplateSimple = ({
                       />
                     ) : null}
                     {p.destacado && (
-                      <div className="absolute top-2 right-2 bg-[#f2a60d] text-white p-1.5 rounded shadow-lg">
+                      <div
+                        className="absolute top-2 right-2 text-white p-1.5 rounded shadow-lg"
+                        style={{ backgroundColor: accentColor || '#f2a60d' }}
+                      >
                         <span className="text-sm block">⭐</span>
                       </div>
                     )}
@@ -224,7 +239,10 @@ const CatalogTemplateSimple = ({
                     <p className="text-[#181611] text-lg font-light leading-normal" style={{ fontFamily: 'ui-serif, Georgia, Times New Roman, serif' }}>
                       {p.nombre || 'Sin nombre'}
                     </p>
-                    <p className="text-[#f2a60d] text-sm font-medium tracking-widest mt-1">
+                    <p
+                      className="text-sm font-medium tracking-widest mt-1"
+                      style={{ color: accentColor || '#f2a60d' }}
+                    >
                       ${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}
                     </p>
                   </div>
@@ -237,7 +255,10 @@ const CatalogTemplateSimple = ({
             </div>
           </div>
 
-          <div className="mx-4 my-6 h-[0.5px] bg-[#f2a60d]/20" />
+          <div
+            className="mx-4 my-6 h-[0.5px]"
+            style={{ backgroundColor: accentColor ? `${accentColor}33` : 'rgba(242, 166, 13, 0.2)' }}
+          />
 
           <h3
             id="elegance-latest"

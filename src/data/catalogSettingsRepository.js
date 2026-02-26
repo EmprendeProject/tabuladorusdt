@@ -63,7 +63,7 @@ export const catalogSettingsRepository = {
 
     const { data, error } = await supabase
       .from('catalog_settings')
-      .select('owner_id,catalog_template,logo_url')
+      .select('owner_id,catalog_template,logo_url,accent_color')
       .eq('owner_id', effectiveOwnerId)
       .maybeSingle()
 
@@ -72,6 +72,7 @@ export const catalogSettingsRepository = {
     return {
       template: normalizeTemplate(data?.catalog_template),
       logoUrl: data?.logo_url || null,
+      accentColor: data?.accent_color || null,
     }
   },
 
@@ -102,6 +103,19 @@ export const catalogSettingsRepository = {
     return logoUrl
   },
 
+  async saveAccentColor(colorHex, { ownerId } = {}) {
+    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
+    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar el color.')
+
+    const { error } = await supabase
+      .from('catalog_settings')
+      .upsert({ owner_id: effectiveOwnerId, accent_color: colorHex }, { onConflict: 'owner_id' })
+
+    if (error) throw toFriendlyCatalogSettingsError(error)
+
+    return colorHex
+  },
+
   subscribeTemplate({ ownerId, onChange } = {}) {
     const effectiveOwnerId = String(ownerId || '').trim()
     if (!effectiveOwnerId) return () => { }
@@ -114,10 +128,12 @@ export const catalogSettingsRepository = {
         (payload) => {
           const nextTemplate = payload?.new?.catalog_template
           const nextLogo = payload?.new?.logo_url
+          const nextColor = payload?.new?.accent_color
           if (typeof onChange === 'function') {
             onChange({
               template: normalizeTemplate(nextTemplate),
               logoUrl: nextLogo || null,
+              accentColor: nextColor || null,
             })
           }
         },

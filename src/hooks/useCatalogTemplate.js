@@ -7,6 +7,7 @@ import {
 export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
   const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE)
   const [logoUrl, setLogoUrl] = useState(null)
+  const [accentColor, setAccentColor] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -22,6 +23,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
         if (!mounted) return
         setCatalogTemplate(data.template)
         setLogoUrl(data.logoUrl)
+        setAccentColor(data.accentColor)
       })
       .catch((e) => {
         if (!mounted) return
@@ -39,6 +41,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
         onChange: (next) => {
           setCatalogTemplate(next.template)
           setLogoUrl(next.logoUrl)
+          setAccentColor(next.accentColor)
         },
       })
       : null
@@ -81,11 +84,29 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     }
   }
 
+  const guardarColor = async (nextColor) => {
+    if (!enableSave) return
+
+    setError('')
+    setGuardando(true)
+
+    try {
+      const saved = await catalogSettingsRepository.saveAccentColor(nextColor, { ownerId })
+      setAccentColor(saved)
+    } catch (e) {
+      setError(e?.message || 'No se pudo guardar el color')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   return {
     catalogTemplate,
     setCatalogTemplate: enableSave ? guardar : setCatalogTemplate,
     logoUrl,
     setLogoUrl: enableSave ? guardarLogo : setLogoUrl,
+    accentColor,
+    setAccentColor: enableSave ? guardarColor : setAccentColor,
     cargando,
     guardando,
     error,

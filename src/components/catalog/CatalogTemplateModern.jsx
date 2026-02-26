@@ -10,18 +10,21 @@ const formatearNumero = (value, digits = 2) => {
   })
 }
 
-const Chip = ({ active, children, onClick }) => {
+const Chip = ({ active, children, onClick, activeColor }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
         active
-          ? 'flex h-9 shrink-0 items-center justify-center rounded-full bg-black px-5 shadow-md shadow-black/20'
-          : 'flex h-9 shrink-0 items-center justify-center rounded-full bg-white px-5 border border-gray-100'
+          ? 'flex h-9 shrink-0 items-center justify-center rounded-full px-5 shadow-md shadow-black/20 text-white'
+          : 'flex h-9 shrink-0 items-center justify-center rounded-full bg-white px-5 border border-gray-100 text-gray-700'
       }
+      style={{
+        backgroundColor: active ? (activeColor || '#000000') : 'transparent',
+      }}
     >
-      <p className={active ? 'text-white text-sm font-semibold' : 'text-gray-700 text-sm font-medium'}>
+      <p className={active ? 'text-sm font-semibold' : 'text-sm font-medium'}>
         {children}
       </p>
     </button>
@@ -42,6 +45,7 @@ const CatalogTemplateModern = ({
   brandName,
   shopName,
   logoUrl,
+  accentColor,
 }) => {
   const nombreTienda = String(shopName || brandName || 'Tu Tienda')
   const cats = Array.isArray(categorias) ? categorias : []
@@ -112,7 +116,8 @@ const CatalogTemplateModern = ({
               />
               <button
                 type="button"
-                className="flex bg-white items-center justify-center pr-4 text-[#137fec]"
+                className="flex bg-white items-center justify-center pr-4"
+                style={{ color: accentColor || '#137fec' }}
                 title="Refrescar"
                 aria-label="Refrescar"
                 onClick={onReload}
@@ -127,6 +132,7 @@ const CatalogTemplateModern = ({
         <div className="flex gap-2 px-4 py-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <Chip
             active={!activeCat}
+            activeColor={accentColor}
             onClick={() => setCategoriaActiva?.('')}
           >
             Todo
@@ -135,6 +141,7 @@ const CatalogTemplateModern = ({
             <Chip
               key={c}
               active={activeCat === c}
+              activeColor={accentColor}
               onClick={() => setCategoriaActiva?.(c)}
             >
               {c}
@@ -183,7 +190,12 @@ const CatalogTemplateModern = ({
 
                   <div className="p-3">
                     <h3 className="font-bold text-sm line-clamp-1">{p.nombre || 'Sin nombre'}</h3>
-                    <p className="text-[#137fec] font-extrabold text-base mt-1">${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}</p>
+                    <p
+                      className="font-extrabold text-base mt-1"
+                      style={{ color: accentColor || '#137fec' }}
+                    >
+                      ${formatearNumero(p.precioSugeridoUsd ?? p.precioUSDT, 2)}
+                    </p>
                   </div>
                 </button>
               </div>

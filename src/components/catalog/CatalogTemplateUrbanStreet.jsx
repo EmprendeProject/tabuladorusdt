@@ -10,19 +10,25 @@ const formatearNumero = (value, digits = 2) => {
   })
 }
 
-const Chip = ({ active, children, onClick, icon }) => {
+const Chip = ({ active, children, onClick, icon, activeColor }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
         active
-          ? 'flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-xl bg-[#eca413] px-5 shadow-lg shadow-[#eca413]/20'
+          ? 'flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-xl px-5 shadow-lg shadow-[#eca413]/20'
           : 'flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-xl bg-white dark:bg-zinc-800 px-5 border border-zinc-200 dark:border-zinc-700'
       }
+      style={{
+        backgroundColor: active ? (activeColor || '#eca413') : 'transparent',
+      }}
     >
       {icon && (
-        <span className={active ? 'text-black text-xl' : 'text-[#eca413] text-xl'}>
+        <span
+          className={active ? 'text-black text-xl' : 'text-xl'}
+          style={!active ? { color: activeColor || '#eca413' } : {}}
+        >
           {icon}
         </span>
       )}
@@ -45,6 +51,7 @@ const CatalogTemplateUrbanStreet = ({
   onSelectProducto,
   brandName,
   logoUrl,
+  accentColor,
 }) => {
   const nombreTienda = String(brandName || 'URBAN STREET').trim().toUpperCase()
   const cats = Array.isArray(categorias) ? categorias : []
@@ -89,14 +96,17 @@ const CatalogTemplateUrbanStreet = ({
         backgroundSize: '24px 24px'
       }}>
         {/* TopAppBar */}
-        <header className="sticky top-0 z-50 bg-[#f8f7f6]/80 dark:bg-[#121212]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-[#eca413]/20">
+        <header
+          className="sticky top-0 z-50 bg-[#f8f7f6]/80 dark:bg-[#121212]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b"
+          style={{ borderBottomColor: accentColor ? `${accentColor}33` : 'rgba(236, 164, 19, 0.2)' }}
+        >
           <div className="flex items-center gap-3">
             {logoUrl ? (
               <img src={logoUrl} alt={nombreTienda} className="h-10 object-contain" />
             ) : (
               <h1 className="text-xl font-bold tracking-tighter uppercase italic leading-none">
                 {nombreTienda.split(' ')[0] || 'URBAN'}<br />
-                <span className="text-[#eca413]">{nombreTienda.split(' ').slice(1).join(' ') || 'STREET'}</span>
+                <span style={{ color: accentColor || '#eca413' }}>{nombreTienda.split(' ').slice(1).join(' ') || 'STREET'}</span>
               </h1>
             )}
           </div>
@@ -137,6 +147,7 @@ const CatalogTemplateUrbanStreet = ({
         <div className="flex gap-3 px-4 py-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <Chip
             active={!activeCat}
+            activeColor={accentColor}
             onClick={() => setCategoriaActiva?.('')}
             icon="🔥"
           >
@@ -148,6 +159,7 @@ const CatalogTemplateUrbanStreet = ({
               <Chip
                 key={c}
                 active={isActive}
+                activeColor={accentColor}
                 onClick={() => setCategoriaActiva?.(c)}
               >
                 {c}
@@ -180,7 +192,10 @@ const CatalogTemplateUrbanStreet = ({
                     : 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, transparent 100%), linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                 }}
               />
-              <div className="absolute top-4 left-4 bg-[#eca413] text-black px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
+              <div
+                className="absolute top-4 left-4 text-black px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest"
+                style={{ backgroundColor: accentColor || '#eca413' }}
+              >
                 Destacado
               </div>
               <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
@@ -188,11 +203,17 @@ const CatalogTemplateUrbanStreet = ({
                   <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter leading-none">
                     {(featuredProduct.nombre || 'PRODUCTO').split(' ').slice(0, 2).join(' ')}
                   </h3>
-                  <p className="text-[#eca413] font-bold text-xl mt-1">
+                  <p
+                    className="font-bold text-xl mt-1"
+                    style={{ color: accentColor || '#eca413' }}
+                  >
                     ${formatearNumero(featuredProduct.precioSugeridoUsd ?? featuredProduct.precioUSDT, 2)}
                   </p>
                 </div>
-                <div className="bg-[#eca413] text-black font-black px-6 py-2 rounded-lg text-sm uppercase shadow-lg active:scale-95 transition-transform">
+                <div
+                  className="text-black font-black px-6 py-2 rounded-lg text-sm uppercase shadow-lg active:scale-95 transition-transform"
+                  style={{ backgroundColor: accentColor || '#eca413' }}
+                >
                   VER +
                 </div>
               </div>
@@ -226,7 +247,10 @@ const CatalogTemplateUrbanStreet = ({
                   />
                   <div className="absolute top-2 right-2 flex gap-1">
                     {p.destacado && (
-                      <div className="bg-[#eca413] text-black p-1 rounded-md">
+                      <div
+                        className="text-black p-1 rounded-md"
+                        style={{ backgroundColor: accentColor || '#eca413' }}
+                      >
                         <span className="text-sm block">⭐</span>
                       </div>
                     )}

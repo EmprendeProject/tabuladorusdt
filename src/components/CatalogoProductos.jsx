@@ -16,7 +16,7 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
   const [categoriaActiva, setCategoriaActiva] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
-  const { catalogTemplate, logoUrl } = useCatalogTemplate({ ownerId });
+  const { catalogTemplate, logoUrl, accentColor } = useCatalogTemplate({ ownerId });
   const { tasaBCV, tasaUSDT } = useTasas();
 
   useEffect(() => {
@@ -104,6 +104,7 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
     onReload: recargar,
     brandName,
     logoUrl,
+    accentColor,
     onSelectProducto: (p) => setProductoSeleccionado({ ...p, _tasaBCV: tasaBCVNum }),
   };
 

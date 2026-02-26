@@ -10,16 +10,19 @@ const money = (value, digits = 2) => {
   })
 }
 
-const Chip = ({ active, children, onClick }) => {
+const Chip = ({ active, children, onClick, activeColor }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
         active
-          ? 'flex h-10 shrink-0 items-center justify-center rounded bg-[#ec6d13] px-5 shadow-lg'
+          ? 'flex h-10 shrink-0 items-center justify-center rounded px-5 shadow-lg'
           : 'flex h-10 shrink-0 items-center justify-center rounded border border-zinc-800 bg-[#1e1e1e] px-5'
       }
+      style={{
+        backgroundColor: active ? (activeColor || '#ec6d13') : 'transparent',
+      }}
     >
       <p className={active ? 'text-white text-xs font-black uppercase tracking-widest' : 'text-zinc-400 text-xs font-black uppercase tracking-widest'}>
         {children}
@@ -47,6 +50,7 @@ const CatalogTemplateHeavy = ({
   onSelectProducto,
   brandName = 'Catálogo',
   logoUrl,
+  accentColor,
 }) => {
   const cats = Array.isArray(categorias) ? categorias : []
   const activeCat = String(categoriaActiva || '')
@@ -83,7 +87,10 @@ const CatalogTemplateHeavy = ({
       <main className="max-w-md mx-auto">
         <div className="px-4 py-4">
           <label className="flex flex-col min-w-40 h-14 w-full">
-            <div className="flex w-full flex-1 items-stretch rounded border-2 border-zinc-800 focus-within:border-[#ec6d13] transition-colors bg-[#1e1e1e]">
+            <div
+              className={`flex w-full flex-1 items-stretch rounded border-2 border-zinc-800 transition-colors bg-[#1e1e1e] ${query ? '' : 'focus-within:border-[#ec6d13]'}`}
+              style={query ? {} : { '--tw-ring-color': accentColor || '#ec6d13' }} // We'll manage focus ring custom with a hack or inline styles
+            >
               <div className="flex items-center justify-center pl-4 pr-2">
                 <Search className="text-zinc-500" size={18} />
               </div>
@@ -101,21 +108,25 @@ const CatalogTemplateHeavy = ({
         </div>
 
         <div className="flex gap-2 p-4 pt-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          <Chip active={!activeCat} onClick={() => setCategoriaActiva?.('')}>Todo</Chip>
+          <Chip active={!activeCat} activeColor={accentColor} onClick={() => setCategoriaActiva?.('')}>Todo</Chip>
           {cats.map((c) => (
-            <Chip key={c} active={activeCat === c} onClick={() => setCategoriaActiva?.(c)}>
+            <Chip key={c} active={activeCat === c} activeColor={accentColor} onClick={() => setCategoriaActiva?.(c)}>
               {c}
             </Chip>
           ))}
         </div>
 
         <div className="flex items-center justify-between px-4 pt-6 pb-2">
-          <h3 className="text-white text-sm font-black uppercase tracking-[0.2em] border-l-4 border-[#ec6d13] pl-3">
+          <h3
+            className="text-white text-sm font-black uppercase tracking-[0.2em] border-l-4 pl-3"
+            style={{ borderLeftColor: accentColor || '#ec6d13' }}
+          >
             Productos
           </h3>
           <button
             type="button"
-            className="text-[#ec6d13] text-[10px] font-bold tracking-widest uppercase"
+            className="text-[10px] font-bold tracking-widest uppercase"
+            style={{ color: accentColor || '#ec6d13' }}
             onClick={onReload}
             disabled={cargando}
           >
@@ -157,12 +168,18 @@ const CatalogTemplateHeavy = ({
                     }}
                   >
                     {p.destacado && (
-                      <div className="absolute top-2 left-2 bg-[#ec6d13] text-white p-1.5 rounded-sm shadow-lg">
+                      <div
+                        className="absolute top-2 left-2 text-white p-1.5 rounded-sm shadow-lg"
+                        style={{ backgroundColor: accentColor || '#ec6d13' }}
+                      >
                         <span className="text-sm block">⭐</span>
                       </div>
                     )}
                     {typeof p?.stock === 'number' ? (
-                      <span className="bg-black/80 text-[#ec6d13] text-[10px] font-black px-2 py-1 rounded-sm uppercase">
+                      <span
+                        className="bg-black/80 text-[10px] font-black px-2 py-1 rounded-sm uppercase"
+                        style={{ color: accentColor || '#ec6d13' }}
+                      >
                         Stock: {String(p.stock).padStart(2, '0')}
                       </span>
                     ) : null}
@@ -174,7 +191,12 @@ const CatalogTemplateHeavy = ({
                       {p.nombre || 'Sin nombre'}
                     </h4>
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-[#ec6d13] font-bold text-lg">${money(precio, 2)}</span>
+                      <span
+                        className="font-bold text-lg"
+                        style={{ color: accentColor || '#ec6d13' }}
+                      >
+                        ${money(precio, 2)}
+                      </span>
                     </div>
                   </div>
                 </button>

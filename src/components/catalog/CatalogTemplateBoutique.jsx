@@ -11,15 +11,23 @@ const formatearNumero = (value, digits = 2) => {
   })
 }
 
-const Tab = ({ active, onClick, children }) => {
+const Tab = ({ active, onClick, children, activeColor }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
         active
-          ? 'flex flex-col items-center justify-center border-b-2 border-[#111318] pb-[10px] pt-4 whitespace-nowrap'
+          ? 'flex flex-col items-center justify-center border-b-2 pb-[10px] pt-4 whitespace-nowrap'
           : 'flex flex-col items-center justify-center border-b-2 border-transparent text-[#636c88] pb-[10px] pt-4 whitespace-nowrap'
+      }
+      style={
+        active
+          ? {
+            borderColor: activeColor || '#111318',
+            color: activeColor || '#111318',
+          }
+          : {}
       }
     >
       <p className="text-sm font-medium tracking-widest uppercase">{children}</p>
@@ -36,6 +44,7 @@ const CatalogTemplateBoutique = ({
   onSelectProducto,
   brandName = 'Boutique',
   logoUrl,
+  accentColor,
 }) => {
   const [categorias, setCategorias] = useState([])
   const [cargandoCategorias, setCargandoCategorias] = useState(true)
@@ -128,7 +137,7 @@ const CatalogTemplateBoutique = ({
 
         <nav className="pb-1 bg-[#fdfcfb]">
           <div className="flex border-b border-[#dcdee5] px-4 gap-8 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            <Tab active={!categoriaActiva} onClick={() => setCategoriaActiva('')}>Todo</Tab>
+            <Tab active={!categoriaActiva} activeColor={accentColor} onClick={() => setCategoriaActiva('')}>Todo</Tab>
             {cargandoCategorias ? (
               <div className="flex items-center text-xs text-[#636c88] py-4">Cargando categorías…</div>
             ) : null}
@@ -136,6 +145,7 @@ const CatalogTemplateBoutique = ({
               <Tab
                 key={c.id}
                 active={categoriaActiva === c.nombre}
+                activeColor={accentColor}
                 onClick={() => setCategoriaActiva(c.nombre)}
               >
                 {c.nombre}
@@ -163,7 +173,8 @@ const CatalogTemplateBoutique = ({
                 <button
                   type="button"
                   onClick={() => setBusquedaVisible(false)}
-                  className="shrink-0 text-xs text-[#1745cf] font-bold uppercase tracking-[0.2em]"
+                  className="shrink-0 text-xs font-bold uppercase tracking-[0.2em]"
+                  style={{ color: accentColor || '#1745cf' }}
                   aria-label="Cerrar búsqueda"
                   title="Cerrar"
                 >
@@ -202,7 +213,10 @@ const CatalogTemplateBoutique = ({
                         }}
                       />
                       {p.destacado && (
-                        <div className="absolute top-2 right-2 bg-amber-500 text-white p-1.5 rounded-md shadow-lg">
+                        <div
+                          className="absolute top-2 right-2 text-white p-1.5 rounded-md shadow-lg"
+                          style={{ backgroundColor: accentColor || '#f59e0b' }} // #f59e0b is tailwind amber-500
+                        >
                           <span className="text-sm block">⭐</span>
                         </div>
                       )}

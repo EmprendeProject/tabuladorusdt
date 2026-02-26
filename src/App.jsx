@@ -99,6 +99,8 @@ const AdminPage = () => {
     setCatalogTemplate: guardarCatalogTemplate,
     logoUrl,
     setLogoUrl: guardarLogoUrl,
+    accentColor,
+    setAccentColor: guardarAccentColor,
     cargando: cargandoCatalogSettings,
     guardando: guardandoCatalogSettings,
     error: catalogSettingsError,
@@ -806,6 +808,39 @@ const AdminPage = () => {
                       <p className="mt-1.5 text-xs text-gray-500">
                         La imagen aparecerá en el encabezado de tu catálogo. Formato JPG, PNG o WebP, recomendado 1:1.
                       </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Color del catálogo</label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-gray-200 shrink-0 shadow-sm">
+                          <input
+                            type="color"
+                            value={accentColor || '#000000'}
+                            onChange={(e) => guardarAccentColor(e.target.value)}
+                            disabled={profileSaving}
+                            className="absolute inset-[-10px] w-[calc(100%+20px)] h-[calc(100%+20px)] cursor-pointer"
+                            title="Desliza para elegir un color"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            {accentColor ? String(accentColor).toUpperCase() : 'Predeterminado'}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Este color se usará para resaltar botones y detalles clave en tu plantilla.
+                          </p>
+                          {accentColor && (
+                            <button
+                              type="button"
+                              onClick={() => guardarAccentColor(null)}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700 mt-2 inline-block"
+                            >
+                              Restaurar
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div>
