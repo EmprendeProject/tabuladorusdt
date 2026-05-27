@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { Minus, Plus, ShoppingCart, X } from 'lucide-react'
 
 const formatearNumero = (value, digits = 2) => {
   const num = Number(value) || 0
@@ -9,8 +9,9 @@ const formatearNumero = (value, digits = 2) => {
   })
 }
 
-export default function ProductoDetalleModal({ open, producto, onClose }) {
+export default function ProductoDetalleModal({ open, producto, onClose, onAddToCart, accentColor }) {
   const [activeIndex, setActiveIndex] = useState(0)
+  const [cantidad, setCantidad] = useState(1)
   const touchStartRef = useRef(null)
   const [shouldRender, setShouldRender] = useState(false)
   const [isShowing, setIsShowing] = useState(false)
@@ -94,7 +95,10 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
   useEffect(() => {
     if (!open) return
     // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
-    Promise.resolve().then(() => setActiveIndex(0))
+    Promise.resolve().then(() => {
+      setActiveIndex(0)
+      setCantidad(1)
+    })
   }, [open, productoActual?.id])
 
   if (!shouldRender || !productoActual) return null
@@ -268,11 +272,51 @@ export default function ProductoDetalleModal({ open, producto, onClose }) {
               <p className="mt-3 text-sm text-gray-500">Sin descripción.</p>
             )}
 
-            <div className="mt-5 flex items-center justify-end">
+            {/* Controles de cantidad + añadir al carrito */}
+            <div className="mt-5 space-y-3">
+              {onAddToCart && (
+                <div className="flex items-center gap-3">
+                  {/* Selector de cantidad */}
+                  <div className="flex items-center gap-2 rounded-2xl border border-gray-200 px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => setCantidad((c) => Math.max(1, c - 1))}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+                      aria-label="Disminuir cantidad"
+                    >
+                      <Minus size={14} className="text-gray-600" />
+                    </button>
+                    <span className="text-sm font-bold text-gray-900 w-6 text-center select-none">{cantidad}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCantidad((c) => c + 1)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+                      aria-label="Aumentar cantidad"
+                    >
+                      <Plus size={14} className="text-gray-600" />
+                    </button>
+                  </div>
+
+                  {/* Botón añadir al carrito */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddToCart?.(productoActual, cantidad)
+                      onClose?.()
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-bold shadow-md active:scale-[0.98] transition-transform"
+                    style={{ backgroundColor: accentColor || '#137fec' }}
+                  >
+                    <ShoppingCart size={16} />
+                    Añadir al carrito
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => onClose?.()}
-                className="px-4 py-2 rounded-2xl text-sm font-semibold bg-slate-950 text-white hover:bg-slate-900"
+                className="w-full py-2.5 rounded-2xl text-sm font-semibold text-gray-500 hover:bg-gray-50 border border-gray-200 transition-colors"
               >
                 Cerrar
               </button>

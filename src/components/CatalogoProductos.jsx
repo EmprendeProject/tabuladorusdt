@@ -3,6 +3,7 @@ import { CATALOG_TEMPLATES } from '../data/catalogSettingsRepository';
 import { useCatalogTemplate } from '../hooks/useCatalogTemplate';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
+import { perfilesRepository } from '../data/perfilesRepository';
 
 import CatalogTemplateSimple from './catalog/CatalogTemplateSimple';
 import CatalogTemplateBoutique from './catalog/CatalogTemplateBoutique';
@@ -10,23 +11,39 @@ import CatalogTemplateModern from './catalog/CatalogTemplateModern';
 import CatalogTemplateHeavy from './catalog/CatalogTemplateHeavy';
 import CatalogTemplateUrbanStreet from './catalog/CatalogTemplateUrbanStreet';
 import ProductoDetalleModal from './ProductoDetalleModal';
+import CartDrawer from './CartDrawer';
+import CartFab from './CartFab';
+import { CartProvider, useCart } from '../context/CartContext';
 
-const CatalogoProductos = ({ ownerId, brandName } = {}) => {
+// Inner component that consumes CartContext
+const CatalogoProductosInner = ({ ownerId, brandName }) => {
   const [query, setQuery] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
   const { catalogTemplate, logoUrl, accentColor } = useCatalogTemplate({ ownerId });
   const { tasaBCV, tasaUSDT } = useTasas();
+  const { addItem } = useCart();
+
+  // Fetch the store owner's WhatsApp number for the cart
+  useEffect(() => {
+    if (!ownerId) return;
+    perfilesRepository.getPublicContactByUserId(ownerId)
+      .then((contact) => {
+        const digits = String(contact?.telefono || '').replace(/\D/g, '');
+        setWhatsappNumber(digits);
+      })
+      .catch(() => {});
+  }, [ownerId]);
 
   useEffect(() => {
-    // Si el usuario cambia de plantilla, no mantenemos un filtro oculto.
     if (
       catalogTemplate !== CATALOG_TEMPLATES.MODERN &&
       catalogTemplate !== CATALOG_TEMPLATES.HEAVY &&
       catalogTemplate !== CATALOG_TEMPLATES.SIMPLE
     ) {
-      // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
       Promise.resolve().then(() => {
         setCategoriaActiva('');
       });
@@ -41,9 +58,6 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
     return list.map((p) => {
       const costo = Number(p?.precioUSDT) || 0;
       const profit = Number(p?.profit) || 0;
-
-      // Precio sugerido ($) basado en: (costo * USDT / BCV) * (1 + profit%)
-      // Si es PRECIO FIJO (isFixedPrice), el costo es directamente el precio final.
       let precioSugeridoUsd = 0;
       if (p.isFixedPrice) {
         precioSugeridoUsd = costo;
@@ -51,7 +65,6 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
         const base = tasaBCVNum > 0 && tasaUSDTNum > 0 ? (costo * tasaUSDTNum) / tasaBCVNum : costo;
         precioSugeridoUsd = base * (1 + profit / 100);
       }
-
       return { ...p, precioSugeridoUsd };
     });
   }, [productos, tasaBCVNum, tasaUSDTNum]);
@@ -68,18 +81,15 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
     return productosConPrecioSugerido.filter((p) => {
       const nombre = String(p?.nombre || '').toLowerCase();
       if (q && !nombre.includes(q)) return false;
-
       if (supportsCategoryFilter && cat) {
         const pc = String(p?.categoria || '').trim().toLowerCase();
         if (pc !== cat) return false;
       }
-
       return true;
     });
   }, [productosConPrecioSugerido, query, categoriaActiva, catalogTemplate]);
 
   const categorias = useMemo(() => {
-    // Categorías “del usuario” derivadas de sus productos (visible en catálogo público).
     const list = Array.isArray(productosConPrecioSugerido) ? productosConPrecioSugerido : [];
     const map = new Map();
     for (const p of list) {
@@ -90,6 +100,11 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
     }
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'es'));
   }, [productosConPrecioSugerido]);
+
+  const handleAddToCart = (producto, cantidad) => {
+    addItem(producto, cantidad);
+    setCartOpen(true);
+  };
 
   const templateProps = {
     productos: productosConPrecioSugerido,
@@ -122,13 +137,39 @@ const CatalogoProductos = ({ ownerId, brandName } = {}) => {
   return (
     <>
       <Template {...templateProps} />
+
       <ProductoDetalleModal
         open={!!productoSeleccionado}
         producto={productoSeleccionado}
         onClose={() => setProductoSeleccionado(null)}
+        onAddToCart={handleAddToCart}
+        accentColor={accentColor}
+      />
+
+      {/* Floating cart button — only visible when cart has items */}
+      <CartFab
+        onClick={() => setCartOpen(true)}
+        accentColor={accentColor}
+      />
+
+      {/* Cart drawer */}
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        whatsappNumber={whatsappNumber}
+        tasaBCV={tasaBCVNum}
+        accentColor={accentColor}
+        shopName={brandName}
       />
     </>
   );
 };
 
+const CatalogoProductos = ({ ownerId, brandName } = {}) => (
+  <CartProvider>
+    <CatalogoProductosInner ownerId={ownerId} brandName={brandName} />
+  </CartProvider>
+);
+
 export default CatalogoProductos;
+

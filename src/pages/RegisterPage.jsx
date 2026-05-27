@@ -54,6 +54,7 @@ export default function RegisterPage({ preferredHandle } = {}) {
             full_name: String(nombreCompleto).trim(),
             business_name: negocio,
             direccion: direccion ? String(direccion).trim() : null,
+            telefono: String(telefono).replace(/\D/g, ''),
           },
         },
       })
