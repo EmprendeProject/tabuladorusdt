@@ -12,6 +12,8 @@ import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
 const DashboardPrecios = ({ ownerId } = {}) => {
+    // Estado para mostrar/ocultar precios en Bs
+    const [mostrarBs, setMostrarBs] = useState(true);
   const {
     tasaBCV,
     tasaUSDT,
@@ -418,6 +420,16 @@ const DashboardPrecios = ({ ownerId } = {}) => {
               <Tags size={18} />
               <span className="hidden sm:inline">Categorías</span>
             </button>
+            {/* Botón mostrar/ocultar Bs */}
+            <button
+              onClick={() => setMostrarBs((v) => !v)}
+              className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium border ${mostrarBs ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-500 border-gray-200'} hover:bg-blue-100`}
+              title={mostrarBs ? 'Ocultar precios en Bs' : 'Mostrar precios en Bs'}
+              type="button"
+            >
+              <span className="font-bold">Bs</span>
+              <span className="hidden sm:inline">{mostrarBs ? 'Ocultar' : 'Mostrar'}</span>
+            </button>
           </div>
         </div>
 
@@ -626,6 +638,12 @@ const DashboardPrecios = ({ ownerId } = {}) => {
                                   <div className="text-2xl sm:text-xl md:text-2xl font-black text-blue-600 tabular-nums leading-none">
                                     ${calcularPrecioVenta(prod).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </div>
+                                  {/* Mostrar precio en Bs solo si mostrarBs está activo */}
+                                  {mostrarBs && (
+                                    <div className="text-xs font-semibold text-gray-500 mt-1">
+                                      Bs. {(calcularPrecioVenta(prod) * getTasaBCV()).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
