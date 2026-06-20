@@ -8,7 +8,7 @@ const resend = new Resend(import.meta.env.VITE_RESEND_API_KEY || 're_TyEQvENy_Av
 export async function sendEmail({ to, subject, html, from }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: from || 'onboarding@resend.dev', // Usa tu dominio verificado en Resend una vez configurado
+      from: from || 'no-reply@cattaly.com',
       to,
       subject,
       html,
