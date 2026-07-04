@@ -20,7 +20,7 @@ export default function LandingPage() {
     const digits = whatsappNumber.replace(/\D/g, '')
     whatsappHref = `https://wa.me/${digits}?text=${encodeURIComponent(whatsappMessage)}`
   } else {
-    whatsappHref = `https://wa.me/584120000000?text=${encodeURIComponent(whatsappMessage)}`
+    whatsappHref = `https://wa.me/584144503048?text=${encodeURIComponent(whatsappMessage)}`
   }
 
   return (
