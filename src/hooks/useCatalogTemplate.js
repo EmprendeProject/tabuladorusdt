@@ -8,6 +8,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
   const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE)
   const [logoUrl, setLogoUrl] = useState(null)
   const [accentColor, setAccentColor] = useState(null)
+  const [mostrarPrecioBs, setMostrarPrecioBs] = useState(true)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -24,6 +25,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
         setCatalogTemplate(data.template)
         setLogoUrl(data.logoUrl)
         setAccentColor(data.accentColor)
+        setMostrarPrecioBs(data.mostrarPrecioBs ?? true)
       })
       .catch((e) => {
         if (!mounted) return
@@ -42,6 +44,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
           setCatalogTemplate(next.template)
           setLogoUrl(next.logoUrl)
           setAccentColor(next.accentColor)
+          setMostrarPrecioBs(next.mostrarPrecioBs ?? true)
         },
       })
       : null
@@ -100,6 +103,20 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     }
   }
 
+  const guardarMostrarPrecioBs = async (value) => {
+    // Actualizar estado local inmediatamente para respuesta instantánea
+    setMostrarPrecioBs(value)
+    if (!enableSave) return
+
+    try {
+      await catalogSettingsRepository.saveMostrarPrecioBs(value, { ownerId })
+    } catch (e) {
+      // Revertir si falla
+      setMostrarPrecioBs(!value)
+      setError(e?.message || 'No se pudo guardar la preferencia')
+    }
+  }
+
   return {
     catalogTemplate,
     setCatalogTemplate: enableSave ? guardar : setCatalogTemplate,
@@ -107,6 +124,8 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     setLogoUrl: enableSave ? guardarLogo : setLogoUrl,
     accentColor,
     setAccentColor: enableSave ? guardarColor : setAccentColor,
+    mostrarPrecioBs,
+    setMostrarPrecioBs: guardarMostrarPrecioBs,
     cargando,
     guardando,
     error,

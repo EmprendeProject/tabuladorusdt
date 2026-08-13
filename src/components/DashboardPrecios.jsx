@@ -4,6 +4,7 @@ import { deleteStorageObject, getProductImagesBucketName, getStorageObjectFromPu
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
 import { useCategorias } from '../hooks/useCategorias';
+import { useCatalogTemplate } from '../hooks/useCatalogTemplate';
 import { eliminarProducto, guardarCambiosProductos, setProductoActivo } from '../usecases/productosUsecases';
 import ProductoFormModal from './ProductoFormModal';
 import NuevaCategoriaModal from './NuevaCategoriaModal';
@@ -12,8 +13,11 @@ import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
 const DashboardPrecios = ({ ownerId } = {}) => {
-    // Estado para mostrar/ocultar precios en Bs
-    const [mostrarBs, setMostrarBs] = useState(true);
+  // Preferencia persistida en Supabase: mostrar/ocultar precios en Bs
+  const {
+    mostrarPrecioBs: mostrarBs,
+    setMostrarPrecioBs: setMostrarBs,
+  } = useCatalogTemplate({ enableSave: true, ownerId });
   const {
     tasaBCV,
     tasaUSDT,
@@ -422,7 +426,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
             </button>
             {/* Botón mostrar/ocultar Bs */}
             <button
-              onClick={() => setMostrarBs((v) => !v)}
+              onClick={() => setMostrarBs(!mostrarBs)}
               className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium border ${mostrarBs ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-500 border-gray-200'} hover:bg-blue-100`}
               title={mostrarBs ? 'Ocultar precios en Bs' : 'Mostrar precios en Bs'}
               type="button"

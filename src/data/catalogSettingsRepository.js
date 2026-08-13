@@ -63,7 +63,7 @@ export const catalogSettingsRepository = {
 
     const { data, error } = await supabase
       .from('catalog_settings')
-      .select('owner_id,catalog_template,logo_url,accent_color')
+      .select('owner_id,catalog_template,logo_url,accent_color,mostrar_precio_bs')
       .eq('owner_id', effectiveOwnerId)
       .maybeSingle()
 
@@ -73,6 +73,7 @@ export const catalogSettingsRepository = {
       template: normalizeTemplate(data?.catalog_template),
       logoUrl: data?.logo_url || null,
       accentColor: data?.accent_color || null,
+      mostrarPrecioBs: data?.mostrar_precio_bs ?? true,
     }
   },
 
@@ -116,6 +117,19 @@ export const catalogSettingsRepository = {
     return colorHex
   },
 
+  async saveMostrarPrecioBs(value, { ownerId } = {}) {
+    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
+    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar la preferencia.')
+
+    const { error } = await supabase
+      .from('catalog_settings')
+      .upsert({ owner_id: effectiveOwnerId, mostrar_precio_bs: value }, { onConflict: 'owner_id' })
+
+    if (error) throw toFriendlyCatalogSettingsError(error)
+
+    return value
+  },
+
   subscribeTemplate({ ownerId, onChange } = {}) {
     const effectiveOwnerId = String(ownerId || '').trim()
     if (!effectiveOwnerId) return () => { }
@@ -129,11 +143,13 @@ export const catalogSettingsRepository = {
           const nextTemplate = payload?.new?.catalog_template
           const nextLogo = payload?.new?.logo_url
           const nextColor = payload?.new?.accent_color
+          const nextMostrarBs = payload?.new?.mostrar_precio_bs
           if (typeof onChange === 'function') {
             onChange({
               template: normalizeTemplate(nextTemplate),
               logoUrl: nextLogo || null,
               accentColor: nextColor || null,
+              mostrarPrecioBs: nextMostrarBs ?? true,
             })
           }
         },
