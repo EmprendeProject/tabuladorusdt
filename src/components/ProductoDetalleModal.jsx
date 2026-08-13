@@ -9,7 +9,7 @@ const formatearNumero = (value, digits = 2) => {
   })
 }
 
-export default function ProductoDetalleModal({ open, producto, onClose, onAddToCart, accentColor }) {
+export default function ProductoDetalleModal({ open, producto, onClose, onAddToCart, accentColor, mostrarPrecioBs = true }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [cantidad, setCantidad] = useState(1)
   const touchStartRef = useRef(null)
@@ -260,7 +260,7 @@ export default function ProductoDetalleModal({ open, producto, onClose, onAddToC
               <div className="text-lg font-semibold text-gray-900 truncate">{nombre}</div>
               <div className="text-right shrink-0">
                 <div className="text-xl font-black text-emerald-600">${formatearNumero(precio, 2)}</div>
-                {precioBs !== null ? (
+                {mostrarPrecioBs && precioBs !== null ? (
                   <div className="text-xs font-semibold text-gray-500">Bs. {formatearNumero(precioBs, 2)}</div>
                 ) : null}
               </div>

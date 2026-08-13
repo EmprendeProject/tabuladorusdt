@@ -23,7 +23,7 @@ const CatalogoProductosInner = ({ ownerId, brandName }) => {
   const [cartOpen, setCartOpen] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
-  const { catalogTemplate, logoUrl, accentColor } = useCatalogTemplate({ ownerId });
+  const { catalogTemplate, logoUrl, accentColor, mostrarPrecioBs } = useCatalogTemplate({ ownerId });
   const { tasaBCV, tasaUSDT } = useTasas();
   const { addItem } = useCart();
 
@@ -144,6 +144,7 @@ const CatalogoProductosInner = ({ ownerId, brandName }) => {
         onClose={() => setProductoSeleccionado(null)}
         onAddToCart={handleAddToCart}
         accentColor={accentColor}
+        mostrarPrecioBs={mostrarPrecioBs}
       />
 
       {/* Floating cart button — only visible when cart has items */}
