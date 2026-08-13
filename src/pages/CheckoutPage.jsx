@@ -150,6 +150,18 @@ export default function CheckoutPage() {
         comprobanteFile: proofFile,
       })
 
+      // Notificar al admin por email (fire-and-forget — no bloquea al usuario si falla)
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        fetch(`${supabaseUrl}/functions/v1/notify-admin-new-payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ record: created }),
+        }).catch(() => {/* silencioso — el pago ya se guardó */})
+      } catch {
+        // Silencioso — no bloquear el flujo del usuario
+      }
+
       setSentOk(true)
       const query = new URLSearchParams({
         plan: String(plan?.id || ''),
