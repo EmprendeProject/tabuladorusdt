@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ToastStack from './components/ToastStack';
 import { useToasts } from './hooks/useToasts';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { Check, Copy, LogOut, Palette, Store, User, X, Upload, Loader2, Trash2 } from 'lucide-react'
+import { Check, Copy, LogOut, Palette, Store, User, X, Upload, Loader2, Trash2, AlertTriangle } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
 import { CATALOG_TEMPLATES } from './data/catalogSettingsRepository'
@@ -30,7 +30,9 @@ import { tiendasRepository } from './data/tiendasRepository'
 import { perfilesRepository } from './data/perfilesRepository'
 import { suscripcionesRepository } from './data/suscripcionesRepository'
 import { solicitudesPagoRepository } from './data/solicitudesPagoRepository'
-import { uploadBrandLogo } from './lib/storage'
+import { uploadBrandLogo, deleteStorageObject, getStorageObjectFromPublicUrl } from './lib/storage'
+import { productosRepository } from './data/productosRepository'
+import { supabase } from './lib/supabase'
 
 const LegacyCatalogRedirect = () => {
   const { handle } = useParams()
@@ -64,6 +66,11 @@ const AdminPage = () => {
   const [profileTelefono, setProfileTelefono] = useState('')
   const [profileMapsUrl, setProfileMapsUrl] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  const [formatAccountOpen, setFormatAccountOpen] = useState(false)
+  const [formatAccountKeyword, setFormatAccountKeyword] = useState('')
+  const [isFormattingAccount, setIsFormattingAccount] = useState(false)
+  const [formatAccountError, setFormatAccountError] = useState('')
 
   const normalizeTelefono = (telefono) => String(telefono || '').replace(/\D/g, '')
 
@@ -166,6 +173,46 @@ const AdminPage = () => {
       setProfileError('Error al eliminar el logo.')
     } finally {
       setUploadingLogo(false)
+    }
+  }
+
+  const handleFormatAccount = async () => {
+    if (formatAccountKeyword.trim().toUpperCase() !== 'FORMATEAR') {
+      setFormatAccountError('La palabra no coincide. Escribe FORMATEAR.')
+      return
+    }
+
+    setFormatAccountError('')
+    setIsFormattingAccount(true)
+    try {
+      const allProductos = await productosRepository.listAll(sessionUserId)
+      
+      const urlsToDelete = []
+      for (const prod of allProductos) {
+        if (prod.imagen_url) urlsToDelete.push(prod.imagen_url)
+        if (prod.imagenes_urls && prod.imagenes_urls.length > 0) {
+          prod.imagenes_urls.forEach(url => urlsToDelete.push(url))
+        }
+      }
+
+      for (const url of urlsToDelete) {
+        const obj = getStorageObjectFromPublicUrl(url)
+        if (obj) {
+          await deleteStorageObject(obj)
+        }
+      }
+
+      const { error } = await supabase.from('productos').delete().eq('owner_id', sessionUserId)
+      if (error) throw error
+
+      setFormatAccountOpen(false)
+      setFormatAccountKeyword('')
+      setProfileOpen(false) 
+      window.location.reload()
+    } catch (err) {
+      setFormatAccountError(err?.message || 'Error al formatear la cuenta.')
+    } finally {
+      setIsFormattingAccount(false)
     }
   }
 
@@ -911,6 +958,29 @@ const AdminPage = () => {
                       <p className="mt-1 text-xs text-gray-500">Se guardará sin espacios ni símbolos (solo dígitos).</p>
                     </div>
 
+                    <div className="pt-4 border-t border-gray-100 mt-6">
+                      <div className="bg-red-50 rounded-xl p-4 border border-red-100 flex items-start gap-3">
+                        <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={20} />
+                        <div>
+                          <h4 className="text-sm font-semibold text-red-900">Zona de Peligro</h4>
+                          <p className="text-xs text-red-700 mt-1 mb-3">
+                            Si deseas borrar todos tus productos y fotos para empezar de cero, puedes formatear tu catálogo.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormatAccountOpen(true)
+                              setFormatAccountKeyword('')
+                              setFormatAccountError('')
+                            }}
+                            className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-700 text-xs font-semibold hover:bg-red-50"
+                          >
+                            Formatear catálogo
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <button
                         type="button"
@@ -948,6 +1018,75 @@ const AdminPage = () => {
           </div>
         </div>
       ) : null}
+
+      {formatAccountOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              if (!isFormattingAccount) setFormatAccountOpen(false)
+            }}
+            aria-label="Cerrar"
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-red-200 w-full max-w-sm p-6 overflow-hidden">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 leading-tight">Formatear Cuenta</h3>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Esta acción <strong>eliminará para siempre</strong> todos tus productos y sus fotos. Tu catálogo quedará vacío. Esta acción no se puede deshacer.
+            </p>
+
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Escribe la palabra <span className="font-bold text-red-600">FORMATEAR</span> para confirmar:
+              </label>
+              <input
+                type="text"
+                value={formatAccountKeyword}
+                onChange={(e) => setFormatAccountKeyword(e.target.value)}
+                placeholder="FORMATEAR"
+                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                disabled={isFormattingAccount}
+              />
+              {formatAccountError && (
+                <p className="text-xs text-red-600 mt-2 font-medium">{formatAccountError}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleFormatAccount}
+                disabled={isFormattingAccount || formatAccountKeyword.trim().toUpperCase() !== 'FORMATEAR'}
+                className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600 transition-colors"
+              >
+                {isFormattingAccount ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin mr-2" />
+                    Borrando todo...
+                  </>
+                ) : (
+                  'Sí, formatear catálogo'
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormatAccountOpen(false)}
+                disabled={isFormattingAccount}
+                className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
 
       <DashboardPrecios ownerId={session?.user?.id} />
     </div>
