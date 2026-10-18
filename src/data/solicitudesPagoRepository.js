@@ -160,16 +160,21 @@ export const solicitudesPagoRepository = {
   async listSolicitudes({ status } = {}) {
     const statusNorm = safeTrim(status)
 
-    const solicitudesRes = await supabase
+    let query = supabase
       .from('solicitudes_pago')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(50000)
+
+    if (statusNorm) {
+      query = query.eq('status', statusNorm)
+    }
+
+    const solicitudesRes = await query
 
     if (solicitudesRes.error) throw solicitudesRes.error
 
-    const rows = solicitudesRes.data || []
-    const filtered = statusNorm ? rows.filter((r) => r.status === statusNorm) : rows
+    const filtered = solicitudesRes.data || []
 
     const ownerIds = Array.from(new Set(filtered.map((r) => r.owner_id).filter(Boolean)))
 
@@ -195,6 +200,18 @@ export const solicitudesPagoRepository = {
         email: perfil?.email || '',
       }
     })
+  },
+
+  async getTotalEarnings() {
+    const { data, error } = await supabase
+      .from('solicitudes_pago')
+      .select('plan_price_usd')
+      .eq('status', 'approved')
+      .limit(50000)
+      
+    if (error) throw error
+    
+    return (data || []).reduce((acc, row) => acc + (Number(row.plan_price_usd) || 0), 0)
   },
 
   async updateStatus(id, { status, reviewNote } = {}) {

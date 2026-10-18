@@ -8,6 +8,7 @@ import { useAuthSession } from './hooks/useAuthSession'
 import { CATALOG_TEMPLATES } from './data/catalogSettingsRepository'
 import { useCatalogTemplate } from './hooks/useCatalogTemplate'
 import DashboardPrecios from './components/DashboardPrecios'
+import RespaldoProductos from './components/RespaldoProductos'
 import CatalogoProductos from './components/CatalogoProductos'
 import FloatingWhatsAppButton from './components/FloatingWhatsAppButton'
 import FloatingLocationButton from './components/FloatingLocationButton'
@@ -956,6 +957,10 @@ const AdminPage = () => {
                         autoComplete="tel"
                       />
                       <p className="mt-1 text-xs text-gray-500">Se guardará sin espacios ni símbolos (solo dígitos).</p>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 mt-2">
+                      <RespaldoProductos ownerId={sessionUserId} />
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 mt-6">

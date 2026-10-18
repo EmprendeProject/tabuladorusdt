@@ -4,6 +4,12 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const ADMIN_EMAIL = 'brayandmg1998@gmail.com'
 const FROM_EMAIL = 'no-reply@cattaly.com'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
 const getPlanLabel = (planId: string) => {
   if (planId === 'monthly') return '1 Mes'
   if (planId === 'biannual') return '6 Meses'
@@ -18,13 +24,18 @@ const getMetodoLabel = (metodo: string) => {
 }
 
 Deno.serve(async (req) => {
+  // Manejar preflight CORS (OPTIONS) — el browser siempre lo envía primero
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
+
   try {
     const payload = await req.json()
 
     // Supabase DB Webhook envía { type, table, record, old_record, schema }
     const record = payload?.record
     if (!record) {
-      return new Response('No record found', { status: 400 })
+      return new Response('No record found', { status: 400, headers: CORS_HEADERS })
     }
 
     const planLabel = getPlanLabel(record.plan_id || '')
@@ -77,7 +88,7 @@ Deno.serve(async (req) => {
 
         <div style="margin-top: 28px;">
           <a
-            href="https://cattaly.com/superadmin"
+            href="https://cataly.shop/superadmin"
             style="display: inline-block; background: #1840f5; color: #fff; font-weight: 800; font-size: 15px; padding: 14px 24px; border-radius: 12px; text-decoration: none;"
           >Ir a revisar → Superadmin</a>
         </div>
@@ -105,17 +116,17 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const err = await res.text()
       console.error('Resend error:', err)
-      return new Response(`Resend error: ${err}`, { status: 500 })
+      return new Response(`Resend error: ${err}`, { status: 500, headers: CORS_HEADERS })
     }
 
     const data = await res.json()
     console.log('Email enviado:', data.id)
     return new Response(JSON.stringify({ ok: true, id: data.id }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
 
   } catch (err) {
     console.error('Error en edge function:', err)
-    return new Response(`Error: ${err.message}`, { status: 500 })
+    return new Response(`Error: ${err.message}`, { status: 500, headers: CORS_HEADERS })
   }
 })

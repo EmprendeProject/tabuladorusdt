@@ -36,14 +36,17 @@ export const suscripcionesRepository = {
       supabase
         .from('tiendas')
         .select('owner_id,handle,nombre_negocio,created_at')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(50000),
       supabase
         .from('perfiles')
         .select('user_id,email,telefono,created_at')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(50000),
       supabase
         .from('suscripciones')
-        .select('owner_id,plan,activa,expires_at,created_at,updated_at'),
+        .select('owner_id,plan,activa,expires_at,created_at,updated_at')
+        .limit(50000),
     ])
 
     if (tiendasRes.error) throw tiendasRes.error

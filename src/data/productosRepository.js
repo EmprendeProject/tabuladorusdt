@@ -7,6 +7,9 @@ export const PRODUCTOS_EVENT = {
   DELETE: 'delete',
 }
 
+// Evento de ventana: se dispara tras cambios masivos (ej. carga masiva) para refrescar listados.
+export const PRODUCTOS_CHANGED_EVENT = 'cataly:productos-changed'
+
 const mapRows = (rows) => (rows || []).map(productoFromDb).filter(Boolean)
 
 const isMissingColumn = (error, columnName) => {

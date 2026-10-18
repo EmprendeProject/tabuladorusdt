@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { productosRepository, PRODUCTOS_EVENT } from '../data/productosRepository'
+import { productosRepository, PRODUCTOS_EVENT, PRODUCTOS_CHANGED_EVENT } from '../data/productosRepository'
 
 export const useProductos = ({ scope, ownerId } = {}) => {
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async ({ silent = false } = {}) => {
     setError('')
-    setCargando(true)
+    if (!silent) setCargando(true)
 
     try {
       const list =
@@ -26,6 +26,10 @@ export const useProductos = ({ scope, ownerId } = {}) => {
 
   useEffect(() => {
     cargar()
+
+    // Refresco silencioso cuando se hace una carga masiva desde el perfil.
+    const onChanged = () => cargar({ silent: true })
+    globalThis.addEventListener?.(PRODUCTOS_CHANGED_EVENT, onChanged)
 
     const unsubscribe = productosRepository.subscribe((event) => {
       const isPublic = scope === 'public'
@@ -53,6 +57,7 @@ export const useProductos = ({ scope, ownerId } = {}) => {
     })
 
     return () => {
+      globalThis.removeEventListener?.(PRODUCTOS_CHANGED_EVENT, onChanged)
       unsubscribe?.()
     }
   }, [cargar, ownerId, scope])

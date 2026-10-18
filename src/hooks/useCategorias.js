@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { categoriasRepository } from '../data/categoriasRepository'
+import { PRODUCTOS_CHANGED_EVENT } from '../data/productosRepository'
 
 export function useCategorias() {
   const [categorias, setCategorias] = useState([])
@@ -24,6 +25,11 @@ export function useCategorias() {
 
   useEffect(() => {
     refresh()
+
+    // Una carga masiva puede crear categorías nuevas.
+    const onChanged = () => refresh()
+    globalThis.addEventListener?.(PRODUCTOS_CHANGED_EVENT, onChanged)
+    return () => globalThis.removeEventListener?.(PRODUCTOS_CHANGED_EVENT, onChanged)
   }, [refresh])
 
   const createCategoria = useCallback(async (nombre) => {

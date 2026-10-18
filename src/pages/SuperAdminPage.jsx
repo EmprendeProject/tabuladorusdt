@@ -147,6 +147,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [accounts, setAccounts] = useState([])
+  const [totalEarnings, setTotalEarnings] = useState(0)
 
   const [tab, setTab] = useState('usuarios')
 
@@ -209,10 +210,14 @@ export default function SuperAdminPage() {
     setError('')
     setLoading(true)
     try {
-      const rows = await suscripcionesRepository.listAccounts()
+      const [rows, earnings] = await Promise.all([
+        suscripcionesRepository.listAccounts(),
+        solicitudesPagoRepository.getTotalEarnings()
+      ])
       setAccounts(rows)
+      setTotalEarnings(earnings)
     } catch (e) {
-      setError(e?.message || 'No se pudieron cargar las cuentas.')
+      setError(e?.message || 'No se pudieron cargar los datos.')
     } finally {
       setLoading(false)
     }
@@ -282,19 +287,7 @@ export default function SuperAdminPage() {
     const active = accounts.filter((a) => a.hasAccess).length
     const expired = total - active
 
-    const planPrices = {
-      free: 0,
-      monthly: PRICING_PLANS.find((p) => p.id === 'monthly')?.price ?? 0,
-      biannual: PRICING_PLANS.find((p) => p.id === 'biannual')?.price ?? 0,
-      annual: PRICING_PLANS.find((p) => p.id === 'annual')?.price ?? 0,
-    }
-
-    const revenue = accounts.reduce((acc, a) => {
-      if (!a.hasAccess) return acc
-      return acc + (planPrices[a.plan] ?? 0)
-    }, 0)
-
-    return { total, active, expired, revenue }
+    return { total, active, expired }
   }, [accounts])
 
   const isExpiredAt = (value) => {
@@ -559,9 +552,9 @@ export default function SuperAdminPage() {
                 </div>
               </div>
               <div className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl p-4 bg-white shadow-sm border border-slate-100">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Revenue (estimado)</p>
+                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Ganancias totales</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-[#0e141b] tracking-tight text-xl font-bold leading-tight">${stats.revenue}</p>
+                  <p className="text-[#0e141b] tracking-tight text-xl font-bold leading-tight">${totalEarnings.toFixed(2)}</p>
                 </div>
               </div>
             </div>
