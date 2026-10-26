@@ -1,3 +1,6 @@
+// Máximo de fotos por producto (mantener en sync con el CHECK en la base de datos).
+export const MAX_PRODUCT_IMAGES = 10;
+
 export const productoFromDb = (row) => {
   if (!row) return null;
 
@@ -43,7 +46,7 @@ export const productoFromDb = (row) => {
 
 export const productoToInsertDb = (producto) => {
   const imagenes = Array.isArray(producto?.imagenes)
-    ? producto.imagenes.filter(Boolean).slice(0, 3)
+    ? producto.imagenes.filter(Boolean).slice(0, MAX_PRODUCT_IMAGES)
     : (producto?.imagenUrl ? [String(producto.imagenUrl)].filter(Boolean) : []);
 
   const payload = {
@@ -70,7 +73,7 @@ export const productoToUpdateDb = (cambios) => {
   if (cambios?.descripcion !== undefined) cambiosDb.descripcion = cambios.descripcion || null;
   if (cambios?.categoria !== undefined) cambiosDb.categoria = cambios.categoria || null;
   if (cambios?.imagenes !== undefined) {
-    const imagenes = Array.isArray(cambios.imagenes) ? cambios.imagenes.filter(Boolean).slice(0, 3) : [];
+    const imagenes = Array.isArray(cambios.imagenes) ? cambios.imagenes.filter(Boolean).slice(0, MAX_PRODUCT_IMAGES) : [];
     cambiosDb.imagenes_urls = imagenes.length ? imagenes : null;
     // Mantener cover en sync
     cambiosDb.imagen_url = (imagenes[0] ?? '') || null;

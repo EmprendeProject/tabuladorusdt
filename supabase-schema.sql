@@ -78,11 +78,12 @@ ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagenes_urls TEXT[];
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS activo BOOLEAN;
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS categoria TEXT;
 
--- Máx 3 fotos por producto (idempotente)
+-- Máx 10 fotos por producto (idempotente)
 ALTER TABLE public.productos DROP CONSTRAINT IF EXISTS productos_imagenes_urls_max_3;
+ALTER TABLE public.productos DROP CONSTRAINT IF EXISTS productos_imagenes_urls_max_10;
 ALTER TABLE public.productos
-  ADD CONSTRAINT productos_imagenes_urls_max_3
-  CHECK (coalesce(array_length(imagenes_urls, 1), 0) <= 3);
+  ADD CONSTRAINT productos_imagenes_urls_max_10
+  CHECK (coalesce(array_length(imagenes_urls, 1), 0) <= 10);
 
 -- Backfill y asegurar NOT NULL + DEFAULT (idempotente)
 UPDATE productos SET activo = true WHERE activo IS NULL;

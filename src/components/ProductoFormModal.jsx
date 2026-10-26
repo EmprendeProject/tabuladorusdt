@@ -1,5 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, DollarSign, Plus, RefreshCw, Trash2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, DollarSign, ImagePlus, RefreshCw, Trash2, X } from 'lucide-react'
+import { MAX_PRODUCT_IMAGES } from '../lib/productos'
+
+// Cuántas fotos se comprimen/suben a la vez (evita saturar el móvil).
+const UPLOAD_CONCURRENCY = 3
+
+const revokePreviews = (list) => {
+  for (const f of list || []) {
+    try {
+      if (f?.preview) URL.revokeObjectURL(f.preview)
+    } catch {
+      // noop
+    }
+  }
+}
 
 const formatMoney = (value) => {
   const num = Number(value) || 0
@@ -45,9 +59,22 @@ export default function ProductoFormModal({
     else if (profit > 200) setProfit(200)
   }, [profit])
 
-  const [imagenes, setImagenes] = useState([]) // array de URLs públicas (máx 3)
-  const [previewUrls, setPreviewUrls] = useState([]) // object URLs para preview inmediato
-  const [subiendo, setSubiendo] = useState(false)
+  // Fotos del producto (máx MAX_PRODUCT_IMAGES). Cada item: { key, url, preview, uploading }
+  // - url: URL pública ya subida ('' mientras sube)
+  // - preview: object URL para mostrar la foto al instante
+  const [fotos, setFotos] = useState([])
+  const [arrastrando, setArrastrando] = useState(false)
+  const fotosRef = useRef([])
+  const keyCounterRef = useRef(0)
+
+  const commitFotos = (updater) => {
+    const next = typeof updater === 'function' ? updater(fotosRef.current) : updater
+    fotosRef.current = next
+    setFotos(next)
+  }
+
+  const imagenes = useMemo(() => fotos.filter((f) => f.url && !f.uploading).map((f) => f.url), [fotos])
+  const subiendo = useMemo(() => fotos.some((f) => f.uploading), [fotos])
 
   const [step, setStep] = useState(1)
   const [guardando, setGuardando] = useState(false)
@@ -89,7 +116,13 @@ export default function ProductoFormModal({
       const imgs = Array.isArray(initialData.imagenes) 
         ? initialData.imagenes 
         : (initialData.imagenUrl ? [initialData.imagenUrl] : [])
-      setImagenes(imgs.filter(Boolean))
+      revokePreviews(fotosRef.current)
+      commitFotos(
+        imgs
+          .filter(Boolean)
+          .slice(0, MAX_PRODUCT_IMAGES)
+          .map((url) => ({ key: `e${++keyCounterRef.current}`, url, preview: '', uploading: false })),
+      )
       setDestacado(!!initialData.destacado)
     } else {
       // Create mode: reset
@@ -104,27 +137,20 @@ export default function ProductoFormModal({
       setPrecioUSDT('')
       setProfit(40)
       setIsFixedPrice(true)
-      setImagenes([])
+      revokePreviews(fotosRef.current)
+      commitFotos([])
       setDestacado(false)
     }
     
-    setPreviewUrls([])
-    setSubiendo(false)
+    setArrastrando(false)
     setStep(1)
     setGuardando(false)
   }, [open, initialData])
 
+  // Liberar object URLs al desmontar el modal.
   useEffect(() => {
-    return () => {
-      for (const u of previewUrls) {
-        try {
-          if (u) URL.revokeObjectURL(u)
-        } catch {
-          // noop
-        }
-      }
-    }
-  }, [previewUrls])
+    return () => revokePreviews(fotosRef.current)
+  }, [])
 
   if (!open) return null
 
@@ -138,85 +164,95 @@ export default function ProductoFormModal({
     onClose?.()
   }
 
-  const handleFileSelected = async (file) => {
-    if (!file || !draftId) return
-    if (imagenes.length >= 3) {
-      if (typeof notify === 'function') {
-        notify({ type: 'warning', title: 'Límite', message: 'Máximo 3 fotos por producto.' })
-      }
+  const warn = (title, message) => {
+    if (typeof notify === 'function') notify({ type: 'warning', title, message })
+  }
+
+  // Acepta varias fotos a la vez (selector múltiple o drag & drop) y las sube en paralelo limitado.
+  const handleFilesSelected = async (fileList) => {
+    if (!draftId || guardando) return
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+
+    const imageFiles = files.filter((f) => (f.type || '').startsWith('image/'))
+    if (imageFiles.length < files.length) {
+      warn('Archivos omitidos', 'Solo se pueden subir imágenes (JPG, PNG, WEBP…).')
+    }
+    if (!imageFiles.length) return
+
+    const cupo = MAX_PRODUCT_IMAGES - fotosRef.current.length
+    if (cupo <= 0) {
+      warn('Límite', `Máximo ${MAX_PRODUCT_IMAGES} fotos por producto.`)
       return
     }
+    const aSubir = imageFiles.slice(0, cupo)
+    if (imageFiles.length > cupo) {
+      warn('Límite', `Máximo ${MAX_PRODUCT_IMAGES} fotos por producto: se agregaron solo ${cupo}.`)
+    }
 
-    const nextPreviewUrl = URL.createObjectURL(file)
-    setPreviewUrls((prev) => [...prev, nextPreviewUrl])
+    const nuevos = aSubir.map((file) => ({
+      key: `n${++keyCounterRef.current}`,
+      url: '',
+      preview: URL.createObjectURL(file),
+      uploading: true,
+    }))
+    commitFotos((prev) => [...prev, ...nuevos])
 
-    try {
-      setSubiendo(true)
-      // Use draftId (which might be real ID in edit mode, or temp ID in create mode)
-      const { publicUrl } = await uploadImage(draftId, file)
-      setImagenes((prev) => {
-        const next = [...prev, publicUrl].filter(Boolean).slice(0, 3)
-        return next
-      })
-    } catch (e) {
-      console.error('Error subiendo imagen:', e)
-      // quitar el último preview si falla
-      setPreviewUrls((prev) => {
-        const next = [...prev]
-        const last = next.pop()
-        if (last) URL.revokeObjectURL(last)
-        return next
-      })
-
-      if (typeof notify === 'function') {
-        notify({
-          type: 'error',
-          title: 'Error',
-          message: 'No se pudo subir la imagen: ' + (e?.message || 'Desconocido'),
-          durationMs: 6000,
-        })
-      } else {
-        alert('No se pudo subir la imagen: ' + (e?.message || 'Desconocido'))
+    const errores = []
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < nuevos.length) {
+        const i = cursor++
+        const item = nuevos[i]
+        try {
+          // draftId puede ser el ID real (edición) o uno temporal (creación)
+          const { publicUrl } = await uploadImage(draftId, aSubir[i])
+          commitFotos((prev) => prev.map((f) => (f.key === item.key ? { ...f, url: publicUrl, uploading: false } : f)))
+        } catch (e) {
+          console.error('Error subiendo imagen:', e)
+          errores.push(e?.message || 'Desconocido')
+          revokePreviews([item])
+          commitFotos((prev) => prev.filter((f) => f.key !== item.key))
+        }
       }
-    } finally {
-      setSubiendo(false)
+    }
+    await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, nuevos.length) }, worker))
+
+    if (errores.length) {
+      const msg =
+        (errores.length === 1 ? 'No se pudo subir la imagen: ' : `No se pudieron subir ${errores.length} imágenes: `) +
+        errores[0]
+      if (typeof notify === 'function') {
+        notify({ type: 'error', title: 'Error', message: msg, durationMs: 6000 })
+      } else {
+        alert(msg)
+      }
     }
   }
 
-  const handleRemoveImageAt = (idx) => {
-    if (subiendo || guardando) return
-    setImagenes((prev) => prev.filter((_, i) => i !== idx))
-    setPreviewUrls((prev) => {
-      const next = prev.filter((_, i) => i !== idx)
-      const removed = prev[idx]
-      if (removed) {
-        try {
-          URL.revokeObjectURL(removed)
-        } catch {
-          // noop
-        }
-      }
-      return next
-    })
+  const handleRemoveFoto = (key) => {
+    if (guardando) return
+    const target = fotosRef.current.find((f) => f.key === key)
+    if (!target || target.uploading) return
+    revokePreviews([target])
+    commitFotos((prev) => prev.filter((f) => f.key !== key))
   }
 
   const moveImage = (fromIdx, direction) => {
-    if (subiendo || guardando) return
+    if (guardando) return
     const toIdx = fromIdx + (direction === 'left' ? -1 : 1)
-    if (toIdx < 0 || toIdx > 2) return
+    commitFotos((prev) => {
+      if (fromIdx < 0 || toIdx < 0 || fromIdx >= prev.length || toIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]]
+      return next
+    })
+  }
 
-    setImagenes((prev) => {
-      const next = [...prev]
-      if (fromIdx >= next.length || toIdx >= next.length) return prev
-      ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]]
-      return next
-    })
-    setPreviewUrls((prev) => {
-      const next = [...prev]
-      if (fromIdx >= next.length || toIdx >= next.length) return prev
-      ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]]
-      return next
-    })
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setArrastrando(false)
+    handleFilesSelected(e.dataTransfer?.files)
   }
 
   const handleSubmit = async () => {
@@ -433,92 +469,137 @@ export default function ProductoFormModal({
               </div>
 
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  {[0, 1, 2].map((idx) => {
-                    const url = imagenes[idx]
-                    const preview = previewUrls[idx]
-                    const src = url || preview
-
-                    // Slot vacío: lo usamos como botón de subir (solo el primero vacío y si hay cupo)
-                    if (!src) {
-                      const canUploadHere = idx === imagenes.length && imagenes.length < 3
-                      return (
-                        <div key={idx} className="aspect-square">
-                          {canUploadHere ? (
-                            <label className="h-full w-full rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                disabled={subiendo || guardando}
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (file) handleFileSelected(file)
-                                  e.target.value = ''
-                                }}
-                              />
-                              <Plus size={18} />
-                              <span className="text-[10px] mt-1 font-medium">Subir</span>
-                              {subiendo ? (
-                                <span className="mt-1 text-[10px] text-blue-600 animate-pulse">Subiendo…</span>
-                              ) : null}
-                            </label>
-                          ) : (
-                            <div className="h-full w-full rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center text-gray-300 text-xs">
-                              Vacío
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
-                        <img alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" src={src} />
-
-                        <div className="absolute top-1 left-1 flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moveImage(idx, 'left')}
-                            disabled={idx === 0 || subiendo || guardando}
-                            className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
-                            title="Mover a la izquierda"
-                            aria-label="Mover a la izquierda"
-                          >
-                            <ArrowLeft size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveImage(idx, 'right')}
-                            disabled={idx === imagenes.length - 1 || subiendo || guardando}
-                            className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
-                            title="Mover a la derecha"
-                            aria-label="Mover a la derecha"
-                          >
-                            <ArrowRight size={14} />
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImageAt(idx)}
-                          className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"
-                          aria-label={`Quitar foto ${idx + 1}`}
-                          title="Quitar"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    )
-                  })}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-500">La primera foto es la portada</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      fotos.length >= MAX_PRODUCT_IMAGES ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {fotos.length}/{MAX_PRODUCT_IMAGES}
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400">
-                  <span>Formatos: JPG/PNG</span>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    if (!arrastrando) setArrastrando(true)
+                  }}
+                  onDragLeave={() => setArrastrando(false)}
+                  onDrop={handleDrop}
+                  className={`rounded-xl transition-colors ${arrastrando ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''}`}
+                >
+                  {fotos.length === 0 ? (
+                    <label className="flex flex-col items-center justify-center gap-1 py-8 rounded-xl border-2 border-dashed border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={guardando}
+                        onChange={(e) => {
+                          handleFilesSelected(e.target.files)
+                          e.target.value = ''
+                        }}
+                      />
+                      <ImagePlus size={28} className="text-blue-600" />
+                      <span className="text-sm font-semibold text-gray-700">Agregar fotos</span>
+                      <span className="text-[11px] text-gray-400 text-center px-4">
+                        Toca para elegir (puedes seleccionar varias) o arrástralas aquí
+                      </span>
+                    </label>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3">
+                      {fotos.map((foto, idx) => (
+                        <div
+                          key={foto.key}
+                          className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-100"
+                        >
+                          <img
+                            alt={`Foto ${idx + 1}`}
+                            className={`w-full h-full object-cover ${foto.uploading ? 'opacity-50' : ''}`}
+                            src={foto.preview || foto.url}
+                          />
+
+                          {idx === 0 ? (
+                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wide">
+                              Portada
+                            </span>
+                          ) : null}
+
+                          {foto.uploading ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[10px] font-semibold text-blue-700 bg-white/90 rounded-full px-2 py-0.5 animate-pulse">
+                                Subiendo…
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="absolute top-1 left-1 flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => moveImage(idx, 'left')}
+                                  disabled={idx === 0 || guardando}
+                                  className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
+                                  title="Mover a la izquierda"
+                                  aria-label="Mover a la izquierda"
+                                >
+                                  <ArrowLeft size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveImage(idx, 'right')}
+                                  disabled={idx === fotos.length - 1 || guardando}
+                                  className="rounded-full bg-white/90 text-gray-800 shadow p-1 disabled:opacity-40"
+                                  title="Mover a la derecha"
+                                  aria-label="Mover a la derecha"
+                                >
+                                  <ArrowRight size={12} />
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFoto(foto.key)}
+                                disabled={guardando}
+                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full shadow-lg disabled:opacity-50"
+                                aria-label={`Quitar foto ${idx + 1}`}
+                                title="Quitar"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+
+                      {fotos.length < MAX_PRODUCT_IMAGES ? (
+                        <label className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={guardando}
+                            onChange={(e) => {
+                              handleFilesSelected(e.target.files)
+                              e.target.value = ''
+                            }}
+                          />
+                          <ImagePlus size={20} />
+                          <span className="text-[10px] mt-1 font-medium">Agregar</span>
+                        </label>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-gray-400">
+                  <span>Formatos: JPG/PNG/WEBP</span>
                   <span>•</span>
-                  <span>Máx 5MB</span>
+                  <span>Se optimizan solas</span>
                   <span>•</span>
-                  <span>Máx 3 fotos</span>
+                  <span>Máx {MAX_PRODUCT_IMAGES} fotos</span>
                 </div>
               </div>
             </section>

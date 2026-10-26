@@ -152,14 +152,15 @@ create policy "tiendas_update_own"
 -- Si ya existe la tabla productos del proyecto, solo añadimos columnas.
 alter table public.productos add column if not exists owner_id uuid;
 
--- Soporte multi-foto (máx 3 por producto)
+-- Soporte multi-foto (máx 10 por producto)
 alter table public.productos add column if not exists imagenes_urls text[];
 
--- Constraint: máx 3 fotos (idempotente)
+-- Constraint: máx 10 fotos (idempotente)
 alter table public.productos drop constraint if exists productos_imagenes_urls_max_3;
+alter table public.productos drop constraint if exists productos_imagenes_urls_max_10;
 alter table public.productos
-  add constraint productos_imagenes_urls_max_3
-  check (coalesce(array_length(imagenes_urls, 1), 0) <= 3);
+  add constraint productos_imagenes_urls_max_10
+  check (coalesce(array_length(imagenes_urls, 1), 0) <= 10);
 
 -- Índices útiles
 create index if not exists idx_productos_owner_id on public.productos(owner_id);
