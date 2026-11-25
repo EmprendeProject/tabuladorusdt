@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { productosRepository, PRODUCTOS_EVENT, PRODUCTOS_CHANGED_EVENT } from '../data/productosRepository'
 
-export const useProductos = ({ scope, ownerId } = {}) => {
+export const useProductos = ({ scope, ownerId, tiendaId } = {}) => {
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -13,8 +13,8 @@ export const useProductos = ({ scope, ownerId } = {}) => {
     try {
       const list =
         scope === 'public'
-          ? await productosRepository.listPublic(ownerId)
-          : await productosRepository.listAll(ownerId)
+          ? await productosRepository.listPublic(ownerId, { tiendaId })
+          : await productosRepository.listAll(ownerId, { tiendaId })
       setProductos(list)
     } catch (e) {
       console.error('Error al cargar productos:', e)
@@ -22,7 +22,7 @@ export const useProductos = ({ scope, ownerId } = {}) => {
     } finally {
       setCargando(false)
     }
-  }, [ownerId, scope])
+  }, [ownerId, scope, tiendaId])
 
   useEffect(() => {
     cargar()
@@ -33,14 +33,20 @@ export const useProductos = ({ scope, ownerId } = {}) => {
 
     const unsubscribe = productosRepository.subscribe((event) => {
       const isPublic = scope === 'public'
-      const isDifferentOwner = ownerId && event?.producto?.ownerId && event.producto.ownerId !== ownerId
+      const isDifferentOwner =
+        (ownerId && event?.producto?.ownerId && event.producto.ownerId !== ownerId) ||
+        (tiendaId && event?.producto?.tiendaId && event.producto.tiendaId !== tiendaId)
 
       if (event.type === PRODUCTOS_EVENT.INSERT) {
         if (isDifferentOwner) return
         if (isPublic && event.producto?.activo === false) return
         setProductos((prev) => [event.producto, ...prev.filter((p) => p.id !== event.producto.id)])
       } else if (event.type === PRODUCTOS_EVENT.UPDATE) {
-        if (isDifferentOwner) return
+        if (isDifferentOwner) {
+          // Si se movió a otro catálogo, sale de este listado.
+          setProductos((prev) => prev.filter((p) => p.id !== event.producto.id))
+          return
+        }
         if (isPublic && event.producto?.activo === false) {
           setProductos((prev) => prev.filter((p) => p.id !== event.producto.id))
           return
@@ -60,7 +66,7 @@ export const useProductos = ({ scope, ownerId } = {}) => {
       globalThis.removeEventListener?.(PRODUCTOS_CHANGED_EVENT, onChanged)
       unsubscribe?.()
     }
-  }, [cargar, ownerId, scope])
+  }, [cargar, ownerId, scope, tiendaId])
 
   return { productos, setProductos, cargando, error, recargar: cargar }
 }

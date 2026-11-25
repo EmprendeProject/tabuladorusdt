@@ -14,6 +14,7 @@ export const productoFromDb = (row) => {
   return {
     id: row.id,
     ownerId: row.ownerId ?? row.owner_id ?? null,
+    tiendaId: row.tiendaId ?? row.tienda_id ?? null,
     nombre: row.nombre ?? '',
     descripcion: row.descripcion ?? '',
     categoria: row.categoria ?? '',
@@ -63,6 +64,7 @@ export const productoToInsertDb = (producto) => {
   };
 
   if (producto?.ownerId) payload.owner_id = producto.ownerId;
+  if (producto?.tiendaId) payload.tienda_id = producto.tiendaId;
   return payload;
 };
 

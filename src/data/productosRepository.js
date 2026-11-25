@@ -28,7 +28,8 @@ const isMissingColumn = (error, columnName) => {
 }
 
 export const productosRepository = {
-  async listAll(ownerId) {
+  // `tiendaId` filtra por catálogo (multi-catálogo). Sin él, trae todo lo del dueño.
+  async listAll(ownerId, { tiendaId } = {}) {
     let allData = []
     let from = 0
     const step = 1000
@@ -42,6 +43,7 @@ export const productosRepository = {
         .range(from, to)
 
       if (ownerId) q = q.eq('owner_id', ownerId)
+      if (tiendaId) q = q.eq('tienda_id', tiendaId)
 
       const { data, error } = await q
         .order('destacado', { ascending: false })
@@ -64,11 +66,12 @@ export const productosRepository = {
     return mapRows(allData)
   },
 
-  async listPublic(ownerId) {
+  async listPublic(ownerId, { tiendaId } = {}) {
     const runQuery = async (fields, from, to, filterActivo) => {
       let q = supabase.from('productos').select(fields.join(','))
       if (filterActivo) q = q.eq('activo', true)
       if (ownerId) q = q.eq('owner_id', ownerId)
+      if (tiendaId) q = q.eq('tienda_id', tiendaId)
       return q
         .order('destacado', { ascending: false })
         .order('created_at', { ascending: false })
@@ -88,7 +91,7 @@ export const productosRepository = {
     let hasMore = true
 
     // Definición inicial de fields
-    let fields = ['id', 'owner_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo', 'is_fixed_price', 'destacado']
+    let fields = ['id', 'owner_id', 'tienda_id', 'nombre', 'descripcion', 'precio_usdt', 'profit', 'categoria', 'imagen_url', 'imagenes_urls', 'activo', 'is_fixed_price', 'destacado']
     let filterActivo = true
 
     // Función auxiliar para traer una página con "retry" si faltan columnas
@@ -105,6 +108,10 @@ export const productosRepository = {
         }
         if (isMissingColumn(error, 'imagenes_urls')) {
           fields = fields.filter((f) => f !== 'imagenes_urls')
+          continue
+        }
+        if (isMissingColumn(error, 'tienda_id')) {
+          fields = fields.filter((f) => f !== 'tienda_id')
           continue
         }
         if (isMissingColumn(error, 'owner_id')) {
@@ -318,6 +325,20 @@ export const productosRepository = {
   async remove(id) {
     const { error } = await supabase.from('productos').delete().eq('id', id)
     if (error) throw error
+  },
+
+  // Mueve productos a otro catálogo del mismo dueño (la BD valida la pertenencia).
+  async moveToTienda(ids, tiendaId) {
+    const list = (ids || []).filter((id) => id != null)
+    if (!list.length) return 0
+    if (!tiendaId) throw new Error('Catálogo destino inválido.')
+    const { data, error } = await supabase
+      .from('productos')
+      .update({ tienda_id: tiendaId })
+      .in('id', list)
+      .select('id')
+    if (error) throw error
+    return data?.length || 0
   },
 
   subscribe(onEvent) {

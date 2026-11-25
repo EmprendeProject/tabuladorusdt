@@ -1,15 +1,33 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { PRICING_PLANS } from '../data/pricingPlans'
+import { getPlansByTier, getPricingPlanById } from '../data/pricingPlans'
+import { TIERS } from '../lib/planFeatures'
 import { useTasas } from '../hooks/useTasas'
+
+const TIER_TABS = [
+  { id: TIERS.STANDARD, label: 'Estándar' },
+  { id: TIERS.PREMIUM, label: 'Premium ✨' },
+]
 
 export default function PricingPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
 
-  const plans = useMemo(() => PRICING_PLANS, [])
-  const defaultSelected = params.get('plan') || plans.find((p) => p.featured)?.id || plans[0]?.id
+  // ?plan=premium_annual o ?tier=premium preseleccionan el nivel.
+  const initialPlan = getPricingPlanById(params.get('plan'))
+  const initialTier = initialPlan?.tier || (params.get('tier') === TIERS.PREMIUM ? TIERS.PREMIUM : TIERS.STANDARD)
+  const [tier, setTier] = useState(initialTier)
+
+  const plans = useMemo(() => getPlansByTier(tier), [tier])
+  const defaultSelected = initialPlan?.id || plans.find((p) => p.featured)?.id || plans[0]?.id
   const [selectedId, setSelectedId] = useState(defaultSelected)
+
+  const onChangeTier = (nextTier) => {
+    if (nextTier === tier) return
+    setTier(nextTier)
+    const nextPlans = getPlansByTier(nextTier)
+    setSelectedId(nextPlans.find((p) => p.featured)?.id || nextPlans[0]?.id)
+  }
   const [helpOpen, setHelpOpen] = useState(false)
 
   const { tasaBCV, cargandoBCV } = useTasas()
@@ -74,6 +92,26 @@ export default function PricingPage() {
             Potencia tu negocio y vende mas con los catalogos inteligentes de Cattaly App
           </p>
         </section>
+
+        <div className="px-6 pb-6">
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1" role="tablist" aria-label="Nivel del plan">
+            {TIER_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tier === t.id}
+                onClick={() => onChangeTier(t.id)}
+                className={
+                  'h-11 rounded-xl text-sm font-black transition-all ' +
+                  (tier === t.id ? 'bg-white text-[#1840f5] shadow' : 'text-gray-500 hover:text-gray-900')
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="flex flex-col gap-4 px-6">
           {plans.map((plan) => {

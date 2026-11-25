@@ -4,7 +4,7 @@ import {
   DEFAULT_CATALOG_TEMPLATE,
 } from '../data/catalogSettingsRepository'
 
-export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
+export const useCatalogTemplate = ({ enableSave = false, ownerId, tiendaId } = {}) => {
   const [catalogTemplate, setCatalogTemplate] = useState(DEFAULT_CATALOG_TEMPLATE)
   const [logoUrl, setLogoUrl] = useState(null)
   const [accentColor, setAccentColor] = useState(null)
@@ -19,7 +19,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     setCargando(true)
 
     catalogSettingsRepository
-      .fetchTemplate({ ownerId })
+      .fetchTemplate({ ownerId, tiendaId })
       .then((data) => {
         if (!mounted) return
         setCatalogTemplate(data.template)
@@ -37,9 +37,9 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
         setCargando(false)
       })
 
-    const unsubscribe = ownerId
+    const unsubscribe = tiendaId
       ? catalogSettingsRepository.subscribeTemplate({
-        ownerId,
+        tiendaId,
         onChange: (next) => {
           setCatalogTemplate(next.template)
           setLogoUrl(next.logoUrl)
@@ -53,7 +53,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
       mounted = false
       unsubscribe?.()
     }
-  }, [ownerId])
+  }, [ownerId, tiendaId])
 
   const guardar = async (nextTemplate) => {
     if (!enableSave) return
@@ -62,7 +62,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     setGuardando(true)
 
     try {
-      const saved = await catalogSettingsRepository.saveTemplate(nextTemplate, { ownerId })
+      const saved = await catalogSettingsRepository.saveTemplate(nextTemplate, { ownerId, tiendaId })
       setCatalogTemplate(saved)
     } catch (e) {
       setError(e?.message || 'No se pudo guardar la plantilla del catálogo')
@@ -78,7 +78,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     setGuardando(true)
 
     try {
-      const saved = await catalogSettingsRepository.saveLogoUrl(nextLogoUrl, { ownerId })
+      const saved = await catalogSettingsRepository.saveLogoUrl(nextLogoUrl, { ownerId, tiendaId })
       setLogoUrl(saved)
     } catch (e) {
       setError(e?.message || 'No se pudo guardar el logo')
@@ -94,7 +94,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     setGuardando(true)
 
     try {
-      const saved = await catalogSettingsRepository.saveAccentColor(nextColor, { ownerId })
+      const saved = await catalogSettingsRepository.saveAccentColor(nextColor, { ownerId, tiendaId })
       setAccentColor(saved)
     } catch (e) {
       setError(e?.message || 'No se pudo guardar el color')
@@ -109,7 +109,7 @@ export const useCatalogTemplate = ({ enableSave = false, ownerId } = {}) => {
     if (!enableSave) return
 
     try {
-      await catalogSettingsRepository.saveMostrarPrecioBs(value, { ownerId })
+      await catalogSettingsRepository.saveMostrarPrecioBs(value, { ownerId, tiendaId })
     } catch (e) {
       // Revertir si falla
       setMostrarPrecioBs(!value)

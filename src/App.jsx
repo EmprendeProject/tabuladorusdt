@@ -5,7 +5,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } 
 import { Check, Copy, LogOut, Palette, Store, User, X, Upload, Loader2, Trash2, AlertTriangle } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
-import { CATALOG_TEMPLATES } from './data/catalogSettingsRepository'
+import { CATALOG_TEMPLATE_OPTIONS } from './data/catalogSettingsRepository'
 import { useCatalogTemplate } from './hooks/useCatalogTemplate'
 import DashboardPrecios from './components/DashboardPrecios'
 import RespaldoProductos from './components/RespaldoProductos'
@@ -34,13 +34,20 @@ import { solicitudesPagoRepository } from './data/solicitudesPagoRepository'
 import { uploadBrandLogo, deleteStorageObject, getStorageObjectFromPublicUrl } from './lib/storage'
 import { productosRepository } from './data/productosRepository'
 import { supabase } from './lib/supabase'
+import { paginasRepository } from './data/paginasRepository'
+import { useMisCatalogos } from './hooks/useMisCatalogos'
+import { FEATURES, canUse, getEffectiveTier, getMaxCatalogos, isPremium } from './lib/planFeatures'
+import CatalogosManager from './components/premium/CatalogosManager'
+import PaginasManager from './components/premium/PaginasManager'
+import PremiumBadge from './components/premium/PremiumBadge'
+import PaginaPublica from './pages/PaginaPublica'
 
 const LegacyCatalogRedirect = () => {
   const { handle } = useParams()
   return <Navigate to={`/${handle}`} replace />
 }
 
-const AdminPage = () => {
+const AdminPage = ({ section = 'productos' } = {}) => {
   const navigate = useNavigate()
   const { session, cargando, error, cerrarSesion } = useAuthSession()
   const [themesOpen, setThemesOpen] = useState(false)
@@ -83,6 +90,17 @@ const AdminPage = () => {
   const [subLoading, setSubLoading] = useState(false)
   const [subError, setSubError] = useState('')
 
+  // Nivel efectivo (Premium solo si la suscripción está vigente).
+  const tier = getEffectiveTier(subStatus)
+  const premium = isPremium(tier)
+  const maxCatalogos = getMaxCatalogos(tier)
+
+  // Multi-catálogo: el catálogo "activo" es el que se edita en el panel.
+  const catalogosApi = useMisCatalogos({ userId: sessionUserId, canUseExtras: premium, reloadKey: tienda?.id })
+  const activeTienda = catalogosApi.activo || tienda
+  const activeTiendaId = activeTienda?.id || undefined
+  const [catalogMenuOpen, setCatalogMenuOpen] = useState(false)
+
   const [pendingSolicitud, setPendingSolicitud] = useState(null)
   const [pendingSolicitudLoading, setPendingSolicitudLoading] = useState(false)
 
@@ -112,7 +130,7 @@ const AdminPage = () => {
     cargando: cargandoCatalogSettings,
     guardando: guardandoCatalogSettings,
     error: catalogSettingsError,
-  } = useCatalogTemplate({ enableSave: true, ownerId: sessionUserId })
+  } = useCatalogTemplate({ enableSave: true, ownerId: sessionUserId, tiendaId: activeTiendaId })
 
   const avatarLabel = useMemo(() => {
     const email = session?.user?.email || ''
@@ -186,24 +204,26 @@ const AdminPage = () => {
     setFormatAccountError('')
     setIsFormattingAccount(true)
     try {
-      const allProductos = await productosRepository.listAll(sessionUserId)
-      
-      const urlsToDelete = []
+      // Solo el catálogo que estás editando (con varios catálogos, no tocamos los demás).
+      const allProductos = await productosRepository.listAll(sessionUserId, { tiendaId: activeTiendaId })
+
+      const urlsToDelete = new Set()
       for (const prod of allProductos) {
-        if (prod.imagen_url) urlsToDelete.push(prod.imagen_url)
-        if (prod.imagenes_urls && prod.imagenes_urls.length > 0) {
-          prod.imagenes_urls.forEach(url => urlsToDelete.push(url))
-        }
+        if (prod.imagenUrl) urlsToDelete.add(prod.imagenUrl)
+        for (const url of prod.imagenes || []) if (url) urlsToDelete.add(url)
       }
 
+      const allowedPrefix = `productos/${String(sessionUserId)}/`
       for (const url of urlsToDelete) {
         const obj = getStorageObjectFromPublicUrl(url)
-        if (obj) {
-          await deleteStorageObject(obj)
+        if (obj && String(obj.path || '').startsWith(allowedPrefix)) {
+          await deleteStorageObject(obj).catch(() => {})
         }
       }
 
-      const { error } = await supabase.from('productos').delete().eq('owner_id', sessionUserId)
+      let q = supabase.from('productos').delete().eq('owner_id', sessionUserId)
+      if (activeTiendaId) q = q.eq('tienda_id', activeTiendaId)
+      const { error } = await q
       if (error) throw error
 
       setFormatAccountOpen(false)
@@ -245,6 +265,7 @@ const AdminPage = () => {
       await tiendasRepository.ensureMine({ nombreNegocio: negocio })
       const updatedTienda = await tiendasRepository.updateMine({ nombreNegocio: negocio })
       setTienda(updatedTienda)
+      catalogosApi.recargar()
 
       setProfileOpen(false)
     } catch (err) {
@@ -386,12 +407,12 @@ const AdminPage = () => {
     }
   }, [sessionUserId])
 
-  const catalogPath = tienda?.handle ? `/${tienda.handle}` : '/'
+  const catalogPath = activeTienda?.handle ? `/${activeTienda.handle}` : '/'
 
   const dashboardLabel = useMemo(() => {
-    const nombre = (tienda?.nombreNegocio || sessionBusinessName || '').trim()
+    const nombre = (activeTienda?.nombreNegocio || sessionBusinessName || '').trim()
     return nombre ? `Hola! ${nombre}` : 'Dashboard'
-  }, [tienda?.nombreNegocio, sessionBusinessName])
+  }, [activeTienda?.nombreNegocio, sessionBusinessName])
 
   const ensureTienda = async () => {
     setTiendaLoading(true)
@@ -613,11 +634,61 @@ const AdminPage = () => {
       )}
       <div className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-gray-800">{dashboardLabel}</span>
-            {tienda?.handle ? (
+          <div className="flex items-center gap-3 min-w-0">
+            {premium && catalogosApi.catalogos.length > 1 ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCatalogMenuOpen((v) => !v)}
+                  onBlur={(e) => {
+                    if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) setCatalogMenuOpen(false)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 h-9 text-sm font-semibold text-gray-800 hover:bg-gray-50 max-w-[200px]"
+                  title="Cambiar de catálogo"
+                >
+                  <Store size={14} className="shrink-0" />
+                  <span className="truncate">{activeTienda?.nombreNegocio || 'Catálogo'}</span>
+                  <span className="material-symbols-outlined text-[18px] text-gray-500">expand_more</span>
+                </button>
+                {catalogMenuOpen ? (
+                  <div className="absolute left-0 mt-2 w-64 rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden z-10" role="menu">
+                    {catalogosApi.catalogos.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="menuitem"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          catalogosApi.setActiveId(c.id)
+                          setCatalogMenuOpen(false)
+                        }}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-800 hover:bg-gray-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-medium truncate">{c.nombreNegocio}</span>
+                          <span className="block text-xs text-gray-500 truncate">/{c.handle}</span>
+                        </span>
+                        {activeTienda?.id === c.id ? <Check size={16} className="text-emerald-600 shrink-0" /> : null}
+                      </button>
+                    ))}
+                    <Link
+                      to="/admin/catalogos"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setCatalogMenuOpen(false)}
+                      className="block border-t border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Gestionar catálogos
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <span className="text-sm font-semibold text-gray-800 truncate">{dashboardLabel}</span>
+            )}
+            {premium ? <PremiumBadge className="hidden sm:inline-flex" /> : null}
+            {activeTienda?.handle ? (
               <span className="hidden sm:inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600">
-                {publicBaseUrl ? `${publicBaseUrl}/${tienda.handle}` : `/${tienda.handle}`}
+                {publicBaseUrl ? `${publicBaseUrl}/${activeTienda.handle}` : `/${activeTienda.handle}`}
               </span>
             ) : (
               <button
@@ -647,7 +718,7 @@ const AdminPage = () => {
               disabled={tiendaLoading}
               onClick={async () => {
                 try {
-                  const t = tienda?.handle ? tienda : await ensureTienda()
+                  const t = activeTienda?.handle ? activeTienda : await ensureTienda()
                   if (!t?.handle) return
 
                   const path = `/${t.handle}`
@@ -662,7 +733,7 @@ const AdminPage = () => {
                 } catch {
                   // fallback
                   try {
-                    const t = tienda?.handle ? tienda : null
+                    const t = activeTienda?.handle ? activeTienda : null
                     const path = t?.handle ? `/${t.handle}` : catalogPath
                     const url = publicBaseUrl ? `${publicBaseUrl}${path}` : `${globalThis?.location?.origin || ''}${path}`
                     globalThis?.prompt?.('Copia el link de tu catálogo:', url)
@@ -708,29 +779,20 @@ const AdminPage = () => {
                     ) : null}
                   </div>
 
-                  {[{
-                    value: CATALOG_TEMPLATES.SIMPLE,
-                    label: 'Elegance',
-                  }, {
-                    value: CATALOG_TEMPLATES.BOUTIQUE,
-                    label: 'Boutique',
-                  }, {
-                    value: CATALOG_TEMPLATES.MODERN,
-                    label: 'Moderna',
-                  }, {
-                    value: CATALOG_TEMPLATES.HEAVY,
-                    label: 'Heavy',
-                  }, {
-                    value: CATALOG_TEMPLATES.URBAN_STREET,
-                    label: 'Urban Street',
-                  }].map((opt) => {
+                  {CATALOG_TEMPLATE_OPTIONS.map((opt) => {
                     const active = catalogTemplate === opt.value
+                    const locked = opt.premium && !canUse(tier, FEATURES.TEMAS_PREMIUM)
                     return (
                       <button
                         key={opt.value}
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={async () => {
+                          if (locked) {
+                            setThemesOpen(false)
+                            navigate('/precios?tier=premium')
+                            return
+                          }
                           try {
                             await guardarCatalogTemplate(opt.value)
                           } finally {
@@ -741,7 +803,10 @@ const AdminPage = () => {
                         role="menuitem"
                         disabled={guardandoCatalogSettings}
                       >
-                        <span className="font-medium">{opt.label}</span>
+                        <span className="font-medium inline-flex items-center gap-2">
+                          {opt.label}
+                          {opt.premium ? <PremiumBadge /> : null}
+                        </span>
                         {active ? <Check size={18} className="text-emerald-600" /> : <span className="w-[18px]" />}
                       </button>
                     )
@@ -762,6 +827,25 @@ const AdminPage = () => {
             </button>
           </div>
         </div>
+        <nav className="max-w-6xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto" aria-label="Secciones">
+          {[
+            { to: '/admin', key: 'productos', label: 'Productos' },
+            { to: '/admin/catalogos', key: 'catalogos', label: 'Catálogos', premium: true },
+            { to: '/admin/paginas', key: 'paginas', label: 'Páginas', premium: true },
+          ].map((tab) => (
+            <Link
+              key={tab.key}
+              to={tab.to}
+              className={
+                'inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors ' +
+                (section === tab.key ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800')
+              }
+            >
+              {tab.label}
+              {tab.premium && !premium ? <PremiumBadge /> : null}
+            </Link>
+          ))}
+        </nav>
       </div>
 
       {profileOpen ? (
@@ -960,7 +1044,7 @@ const AdminPage = () => {
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 mt-2">
-                      <RespaldoProductos ownerId={sessionUserId} />
+                      <RespaldoProductos ownerId={sessionUserId} tiendaId={activeTiendaId} />
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 mt-6">
@@ -1093,52 +1177,78 @@ const AdminPage = () => {
       ) : null}
 
 
-      <DashboardPrecios ownerId={session?.user?.id} />
+      {section === 'catalogos' ? (
+        <CatalogosManager
+          ownerId={sessionUserId}
+          catalogosApi={catalogosApi}
+          premium={premium}
+          maxCatalogos={maxCatalogos}
+          publicBaseUrl={publicBaseUrl}
+        />
+      ) : section === 'paginas' ? (
+        <PaginasManager
+          ownerId={sessionUserId}
+          premium={premium}
+          catalogos={catalogosApi.catalogos}
+          publicBaseUrl={publicBaseUrl}
+        />
+      ) : activeTiendaId ? (
+        <DashboardPrecios key={activeTiendaId} ownerId={sessionUserId} tiendaId={activeTiendaId} />
+      ) : (
+        <div className="p-6 text-center text-sm text-gray-500">
+          {tiendaError || catalogosApi.error || 'Cargando tu catálogo…'}
+        </div>
+      )}
     </div>
   )
 }
 
-const CatalogoTiendaPublica = () => {
+// Resuelve cataly.app/:handle → catálogo o página Premium (comparten el mismo espacio de links).
+const PublicSlugRoute = () => {
   const { handle } = useParams()
-  const [tienda, setTienda] = useState(null)
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState('')
-  const [telefonoWhatsApp, setTelefonoWhatsApp] = useState('')
-  const [mapsUrlNegocio, setMapsUrlNegocio] = useState('')
-
-  const [catalogAllowed, setCatalogAllowed] = useState(true)
-  const [catalogChecking, setCatalogChecking] = useState(false)
+  // Guardamos el handle resuelto: si no coincide con el actual, estamos cargando.
+  const [state, setState] = useState({ handle: null, error: '', tienda: null, pagina: null })
 
   useEffect(() => {
     let mounted = true
 
-    // Evitar setState síncrono directo en el cuerpo del effect (regla lint).
-    Promise.resolve().then(() => {
-      if (!mounted) return
-      setCargando(true)
-      setError('')
-    })
-
-    tiendasRepository
-      .getByHandle(handle)
-      .then((t) => {
-        if (!mounted) return
-        setTienda(t)
-      })
-      .catch((e) => {
-        if (!mounted) return
-        setError(e?.message || 'No se pudo cargar la tienda.')
-        setTienda(null)
-      })
-      .finally(() => {
-        if (!mounted) return
-        setCargando(false)
-      })
+    ;(async () => {
+      try {
+        const t = await tiendasRepository.getByHandle(handle)
+        if (t) {
+          if (mounted) setState({ handle, error: '', tienda: t, pagina: null })
+          return
+        }
+        const p = await paginasRepository.getPublicBySlug(handle)
+        if (mounted) setState({ handle, error: '', tienda: null, pagina: p })
+      } catch (e) {
+        if (mounted) setState({ handle, error: e?.message || 'No se pudo cargar la página.', tienda: null, pagina: null })
+      }
+    })()
 
     return () => {
       mounted = false
     }
   }, [handle])
+
+  if (state.handle !== handle) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">Cargando…</div>
+  }
+  if (state.error) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">{state.error}</div>
+  }
+  if (state.pagina) return <PaginaPublica pagina={state.pagina} />
+  return <CatalogoTiendaPublica tienda={state.tienda} />
+}
+
+const CatalogoTiendaPublica = ({ tienda }) => {
+  const cargando = false
+  const error = ''
+  const [telefonoWhatsApp, setTelefonoWhatsApp] = useState('')
+  const [mapsUrlNegocio, setMapsUrlNegocio] = useState('')
+
+  const [catalogAllowed, setCatalogAllowed] = useState(true)
+  const [catalogChecking, setCatalogChecking] = useState(Boolean(tienda?.ownerId))
 
   useEffect(() => {
     let mounted = true
@@ -1157,7 +1267,7 @@ const CatalogoTiendaPublica = () => {
     ;(async () => {
       setCatalogChecking(true)
       try {
-        const allowed = await suscripcionesRepository.getCatalogAccessForOwner(tienda.ownerId)
+        const allowed = await suscripcionesRepository.getCatalogAccessForTienda({ tiendaId: tienda.id, ownerId: tienda.ownerId })
         if (!mounted) return
         // Si la función aún no existe (null), no bloqueamos el catálogo.
         setCatalogAllowed(typeof allowed === 'boolean' ? allowed : true)
@@ -1172,7 +1282,7 @@ const CatalogoTiendaPublica = () => {
     return () => {
       mounted = false
     }
-  }, [tienda?.ownerId])
+  }, [tienda?.id, tienda?.ownerId])
 
   useEffect(() => {
     let mounted = true
@@ -1268,7 +1378,7 @@ const CatalogoTiendaPublica = () => {
         </div>
       </div>
 
-      <CatalogoProductos ownerId={tienda.ownerId} brandName={tienda?.nombreNegocio || ''} />
+      <CatalogoProductos ownerId={tienda.ownerId} tiendaId={tienda.id || undefined} brandName={tienda?.nombreNegocio || ''} />
 
       <FloatingLocationButton url={mapsUrlNegocio} />
 
@@ -1302,13 +1412,15 @@ function App() {
           <Route path="/catalogo" element={<Navigate to="/" replace />} />
           <Route path="/t/:handle" element={<LegacyCatalogRedirect />} />
           <Route path="/superadmin" element={<SuperAdminPage />} />
-          <Route path="/:handle" element={<CatalogoTiendaPublica />} />
+          <Route path="/:handle" element={<PublicSlugRoute />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verifica-email" element={<EmailVerificationSent />} />
         <Route path="/email-verified" element={<EmailVerifiedPage />} />
         <Route path="/pricing" element={<PricingPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/catalogos" element={<AdminPage section="catalogos" />} />
+          <Route path="/admin/paginas" element={<AdminPage section="paginas" />} />
           <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

@@ -24,17 +24,17 @@ const toFriendlyCategoriasError = (error) => {
 }
 
 export const categoriasRepository = {
-  async listAll() {
-    const { data, error } = await supabase
-      .from('categorias')
-      .select('id,nombre,created_at')
-      .order('nombre', { ascending: true })
+  // `tiendaId` filtra por catálogo. Sin él, trae todas las del usuario.
+  async listAll({ tiendaId } = {}) {
+    let q = supabase.from('categorias').select('id,nombre,created_at')
+    if (tiendaId) q = q.eq('tienda_id', tiendaId)
+    const { data, error } = await q.order('nombre', { ascending: true })
 
     if (error) throw toFriendlyCategoriasError(error)
     return mapRows(data)
   },
 
-  async create({ nombre }) {
+  async create({ nombre, tiendaId }) {
     const clean = String(nombre || '').trim()
     if (!clean) throw new Error('El nombre de la categoría es requerido')
 
@@ -47,7 +47,7 @@ export const categoriasRepository = {
     // Si tu tabla antigua no tiene owner_id, esto disparará un error claro.
     const { data, error } = await supabase
       .from('categorias')
-      .insert([{ owner_id: userId, nombre: clean }])
+      .insert([{ owner_id: userId, nombre: clean, ...(tiendaId ? { tienda_id: tiendaId } : {}) }])
       .select('id,nombre,created_at')
       .maybeSingle()
 

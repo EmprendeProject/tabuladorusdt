@@ -179,7 +179,7 @@ export const solicitudesPagoRepository = {
     const ownerIds = Array.from(new Set(filtered.map((r) => r.owner_id).filter(Boolean)))
 
     const [tiendasRes, perfilesRes] = await Promise.all([
-      supabase.from('tiendas').select('owner_id,handle,nombre_negocio').in('owner_id', ownerIds),
+      supabase.from('tiendas').select('owner_id,handle,nombre_negocio').in('owner_id', ownerIds).eq('es_principal', true),
       supabase.from('perfiles').select('user_id,email').in('user_id', ownerIds),
     ])
 

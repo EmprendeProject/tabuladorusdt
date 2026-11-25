@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { categoriasRepository } from '../data/categoriasRepository'
 import { PRODUCTOS_CHANGED_EVENT } from '../data/productosRepository'
 
-export function useCategorias() {
+export function useCategorias({ tiendaId } = {}) {
   const [categorias, setCategorias] = useState([])
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -13,7 +13,7 @@ export function useCategorias() {
     setError('')
     setCargando(true)
     try {
-      const data = await categoriasRepository.listAll()
+      const data = await categoriasRepository.listAll({ tiendaId })
       setCategorias(Array.isArray(data) ? data : [])
     } catch (e) {
       setCategorias([])
@@ -21,7 +21,7 @@ export function useCategorias() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [tiendaId])
 
   useEffect(() => {
     refresh()
@@ -36,7 +36,7 @@ export function useCategorias() {
     setError('')
     setGuardando(true)
     try {
-      const created = await categoriasRepository.create({ nombre })
+      const created = await categoriasRepository.create({ nombre, tiendaId })
       setCategorias((prev) => {
         const next = [...(prev || [])]
         // evitar duplicados por nombre
@@ -53,7 +53,7 @@ export function useCategorias() {
     } finally {
       setGuardando(false)
     }
-  }, [])
+  }, [tiendaId])
 
   const removeCategoria = useCallback(async (id) => {
     const cleanId = String(id || '').trim()

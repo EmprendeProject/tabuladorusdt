@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { normalizeTier } from '../lib/planFeatures'
 
 const parseExpiresAt = (value) => {
   if (!value) return null
@@ -26,6 +27,9 @@ const normalizePlan = (plan) => {
   if (lower === 'monthly') return 'monthly'
   if (lower === 'biannual') return 'biannual'
   if (lower === 'annual') return 'annual'
+  if (lower === 'premium_monthly') return 'premium_monthly'
+  if (lower === 'premium_biannual') return 'premium_biannual'
+  if (lower === 'premium_annual') return 'premium_annual'
 
   return lower
 }
@@ -36,6 +40,7 @@ export const suscripcionesRepository = {
       supabase
         .from('tiendas')
         .select('owner_id,handle,nombre_negocio,created_at')
+        .eq('es_principal', true)
         .order('created_at', { ascending: false })
         .limit(50000),
       supabase
@@ -45,7 +50,7 @@ export const suscripcionesRepository = {
         .limit(50000),
       supabase
         .from('suscripciones')
-        .select('owner_id,plan,activa,expires_at,created_at,updated_at')
+        .select('owner_id,plan,tier,activa,expires_at,created_at,updated_at')
         .limit(50000),
     ])
 
@@ -74,6 +79,7 @@ export const suscripcionesRepository = {
         telefono: perfil?.telefono || '',
         joinedAt: t.created_at || perfil?.created_at || null,
         plan,
+        tier: normalizeTier(sub?.tier),
         activa,
         expiresAt,
         hasAccess,
@@ -87,7 +93,7 @@ export const suscripcionesRepository = {
 
     const { data, error } = await supabase
       .from('suscripciones')
-      .select('owner_id,plan,activa,expires_at,created_at,updated_at')
+      .select('owner_id,plan,tier,activa,expires_at,created_at,updated_at')
       .eq('owner_id', id)
       .maybeSingle()
 
@@ -97,6 +103,7 @@ export const suscripcionesRepository = {
       return {
         ownerId: id,
         plan: 'free',
+        tier: 'standard',
         activa: false,
         expiresAt: undefined,
         hasAccess: false,
@@ -111,6 +118,7 @@ export const suscripcionesRepository = {
     return {
       ownerId: data.owner_id,
       plan,
+      tier: normalizeTier(data?.tier),
       activa,
       expiresAt,
       hasAccess,
@@ -130,7 +138,7 @@ export const suscripcionesRepository = {
 
     const { data, error } = await supabase
       .from('suscripciones')
-      .select('owner_id,plan,activa,expires_at,created_at,updated_at')
+      .select('owner_id,plan,tier,activa,expires_at,created_at,updated_at')
       .eq('owner_id', user.id)
       .maybeSingle()
 
@@ -146,6 +154,7 @@ export const suscripcionesRepository = {
     return {
       ownerId: user.id,
       plan,
+      tier: normalizeTier(data?.tier),
       activaFlag,
       expiresAt,
       hasAccess: access,
@@ -171,6 +180,24 @@ export const suscripcionesRepository = {
     return Boolean(data)
   },
 
+  // Acceso público por catálogo (considera Premium para catálogos extra).
+  // Si la función SQL aún no existe, cae al chequeo por dueño.
+  async getCatalogAccessForTienda({ tiendaId, ownerId } = {}) {
+    const id = String(tiendaId || '').trim()
+    if (!id) return this.getCatalogAccessForOwner(ownerId)
+
+    const { data, error } = await supabase.rpc('is_tienda_active', { p_tienda_id: id })
+    if (error) {
+      const msg = String(error?.message || '').toLowerCase()
+      const code = String(error?.code || '')
+      const looksMissingFn = (msg.includes('function') && msg.includes('does not exist')) || code === '42883' || code === 'PGRST202'
+      if (looksMissingFn) return this.getCatalogAccessForOwner(ownerId)
+      throw error
+    }
+
+    return Boolean(data)
+  },
+
   async setActive(ownerId, activa) {
     const id = String(ownerId || '').trim()
     if (!id) throw new Error('ownerId inválido')
@@ -188,7 +215,7 @@ export const suscripcionesRepository = {
     if (error) throw error
   },
 
-  async setPlan(ownerId, plan) {
+  async setPlan(ownerId, plan, { tier } = {}) {
     const id = String(ownerId || '').trim()
     if (!id) throw new Error('ownerId inválido')
 
@@ -198,6 +225,7 @@ export const suscripcionesRepository = {
         {
           owner_id: id,
           plan: normalizePlan(plan),
+          ...(typeof tier !== 'undefined' ? { tier: normalizeTier(tier) } : {}),
         },
         { onConflict: 'owner_id' },
       )
@@ -205,7 +233,7 @@ export const suscripcionesRepository = {
     if (error) throw error
   },
 
-  async upsertSubscription(ownerId, { plan, activa, expiresAt } = {}) {
+  async upsertSubscription(ownerId, { plan, tier, activa, expiresAt } = {}) {
     const id = String(ownerId || '').trim()
     if (!id) throw new Error('ownerId inválido')
 
@@ -215,6 +243,7 @@ export const suscripcionesRepository = {
 
     if (typeof activa !== 'undefined') payload.activa = Boolean(activa)
     if (typeof plan !== 'undefined') payload.plan = normalizePlan(plan)
+    if (typeof tier !== 'undefined') payload.tier = normalizeTier(tier)
     if (typeof expiresAt !== 'undefined') payload.expires_at = expiresAt
 
     const { error } = await supabase.from('suscripciones').upsert(payload, { onConflict: 'owner_id' })

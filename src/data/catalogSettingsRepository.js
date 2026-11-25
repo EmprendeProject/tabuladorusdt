@@ -10,6 +10,20 @@ export const CATALOG_TEMPLATES = {
 
 export const DEFAULT_CATALOG_TEMPLATE = CATALOG_TEMPLATES.SIMPLE
 
+// Temas que se muestran en el selector. `premium: true` = solo plan Premium.
+// Para agregar un tema exclusivo: créalo en components/catalog, agrégalo aquí con
+// premium: true y amplía el CHECK de `catalog_settings.catalog_template` en SQL.
+export const CATALOG_TEMPLATE_OPTIONS = [
+  { value: CATALOG_TEMPLATES.SIMPLE, label: 'Elegance', premium: false },
+  { value: CATALOG_TEMPLATES.BOUTIQUE, label: 'Boutique', premium: false },
+  { value: CATALOG_TEMPLATES.MODERN, label: 'Moderna', premium: false },
+  { value: CATALOG_TEMPLATES.HEAVY, label: 'Heavy', premium: false },
+  { value: CATALOG_TEMPLATES.URBAN_STREET, label: 'Urban Street', premium: false },
+]
+
+export const isPremiumTemplate = (value) =>
+  Boolean(CATALOG_TEMPLATE_OPTIONS.find((o) => o.value === value)?.premium)
+
 const normalizeTemplate = (value) => {
   if (value === CATALOG_TEMPLATES.BOUTIQUE) return CATALOG_TEMPLATES.BOUTIQUE
   if (value === CATALOG_TEMPLATES.MODERN) return CATALOG_TEMPLATES.MODERN
@@ -56,102 +70,104 @@ const getOwnerIdFromSession = async () => {
   return user?.id || null
 }
 
+const SETTINGS_FIELDS = 'owner_id,tienda_id,catalog_template,logo_url,accent_color,mostrar_precio_bs'
+
+const mapSettings = (data) => ({
+  template: normalizeTemplate(data?.catalog_template),
+  logoUrl: data?.logo_url || null,
+  accentColor: data?.accent_color || null,
+  mostrarPrecioBs: data?.mostrar_precio_bs ?? true,
+})
+
+// Sin tiendaId explícito usamos el catálogo principal del dueño.
+const resolveTiendaId = async ({ ownerId, tiendaId }) => {
+  if (tiendaId) return tiendaId
+  if (!ownerId) return null
+  const { data, error } = await supabase
+    .from('tiendas')
+    .select('id')
+    .eq('owner_id', ownerId)
+    .eq('es_principal', true)
+    .maybeSingle()
+  if (error) throw error
+  return data?.id || null
+}
+
+const upsertSettings = async (fields, { ownerId, tiendaId } = {}) => {
+  const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
+  if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar los ajustes del catálogo.')
+  const effectiveTiendaId = await resolveTiendaId({ ownerId: effectiveOwnerId, tiendaId })
+  if (!effectiveTiendaId) throw new Error('No se encontró el catálogo para guardar los ajustes.')
+
+  const { error } = await supabase
+    .from('catalog_settings')
+    .upsert({ owner_id: effectiveOwnerId, tienda_id: effectiveTiendaId, ...fields }, { onConflict: 'tienda_id' })
+
+  if (error) throw toFriendlyCatalogSettingsError(error)
+}
+
 export const catalogSettingsRepository = {
-  async fetchTemplate({ ownerId } = {}) {
+  async fetchTemplate({ ownerId, tiendaId } = {}) {
     const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
-    if (!effectiveOwnerId) return DEFAULT_CATALOG_TEMPLATE
+    const effectiveTiendaId = await resolveTiendaId({ ownerId: effectiveOwnerId, tiendaId })
+    if (!effectiveTiendaId) return mapSettings(null)
 
     const { data, error } = await supabase
       .from('catalog_settings')
-      .select('owner_id,catalog_template,logo_url,accent_color,mostrar_precio_bs')
-      .eq('owner_id', effectiveOwnerId)
+      .select(SETTINGS_FIELDS)
+      .eq('tienda_id', effectiveTiendaId)
       .maybeSingle()
 
     if (error) throw toFriendlyCatalogSettingsError(error)
-
-    return {
-      template: normalizeTemplate(data?.catalog_template),
-      logoUrl: data?.logo_url || null,
-      accentColor: data?.accent_color || null,
-      mostrarPrecioBs: data?.mostrar_precio_bs ?? true,
-    }
+    return mapSettings(data)
   },
 
-  async saveTemplate(template, { ownerId } = {}) {
+  async saveTemplate(template, opts = {}) {
     const next = normalizeTemplate(template)
-    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
-    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar la plantilla.')
-
-    const { error } = await supabase
-      .from('catalog_settings')
-      .upsert({ owner_id: effectiveOwnerId, catalog_template: next }, { onConflict: 'owner_id' })
-
-    if (error) throw toFriendlyCatalogSettingsError(error)
-
+    await upsertSettings({ catalog_template: next }, opts)
     return next
   },
 
-  async saveLogoUrl(logoUrl, { ownerId } = {}) {
-    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
-    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar el logo.')
-
-    const { error } = await supabase
-      .from('catalog_settings')
-      .upsert({ owner_id: effectiveOwnerId, logo_url: logoUrl }, { onConflict: 'owner_id' })
-
-    if (error) throw toFriendlyCatalogSettingsError(error)
-
+  async saveLogoUrl(logoUrl, opts = {}) {
+    await upsertSettings({ logo_url: logoUrl }, opts)
     return logoUrl
   },
 
-  async saveAccentColor(colorHex, { ownerId } = {}) {
-    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
-    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar el color.')
-
-    const { error } = await supabase
-      .from('catalog_settings')
-      .upsert({ owner_id: effectiveOwnerId, accent_color: colorHex }, { onConflict: 'owner_id' })
-
-    if (error) throw toFriendlyCatalogSettingsError(error)
-
+  async saveAccentColor(colorHex, opts = {}) {
+    await upsertSettings({ accent_color: colorHex }, opts)
     return colorHex
   },
 
-  async saveMostrarPrecioBs(value, { ownerId } = {}) {
-    const effectiveOwnerId = ownerId || (await getOwnerIdFromSession())
-    if (!effectiveOwnerId) throw new Error('No hay sesión activa para guardar la preferencia.')
-
-    const { error } = await supabase
-      .from('catalog_settings')
-      .upsert({ owner_id: effectiveOwnerId, mostrar_precio_bs: value }, { onConflict: 'owner_id' })
-
-    if (error) throw toFriendlyCatalogSettingsError(error)
-
+  async saveMostrarPrecioBs(value, opts = {}) {
+    await upsertSettings({ mostrar_precio_bs: value }, opts)
     return value
   },
 
-  subscribeTemplate({ ownerId, onChange } = {}) {
-    const effectiveOwnerId = String(ownerId || '').trim()
-    if (!effectiveOwnerId) return () => { }
+  // Copia la apariencia (tema, logo, color, precio Bs) de un catálogo a otro.
+  async copySettings({ fromTiendaId, toTiendaId, ownerId } = {}) {
+    const from = await this.fetchTemplate({ ownerId, tiendaId: fromTiendaId })
+    await upsertSettings(
+      {
+        catalog_template: from.template,
+        logo_url: from.logoUrl,
+        accent_color: from.accentColor,
+        mostrar_precio_bs: from.mostrarPrecioBs,
+      },
+      { ownerId, tiendaId: toTiendaId },
+    )
+  },
+
+  subscribeTemplate({ tiendaId, onChange } = {}) {
+    const id = String(tiendaId || '').trim()
+    if (!id) return () => { }
 
     const channel = supabase
-      .channel('catalog-settings-realtime')
+      .channel(`catalog-settings-realtime-${id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'catalog_settings', filter: `owner_id=eq.${effectiveOwnerId}` },
+        { event: '*', schema: 'public', table: 'catalog_settings', filter: `tienda_id=eq.${id}` },
         (payload) => {
-          const nextTemplate = payload?.new?.catalog_template
-          const nextLogo = payload?.new?.logo_url
-          const nextColor = payload?.new?.accent_color
-          const nextMostrarBs = payload?.new?.mostrar_precio_bs
-          if (typeof onChange === 'function') {
-            onChange({
-              template: normalizeTemplate(nextTemplate),
-              logoUrl: nextLogo || null,
-              accentColor: nextColor || null,
-              mostrarPrecioBs: nextMostrarBs ?? true,
-            })
-          }
+          if (typeof onChange === 'function') onChange(mapSettings(payload?.new))
         },
       )
       .subscribe()

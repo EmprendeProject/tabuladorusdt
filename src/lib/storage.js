@@ -299,3 +299,35 @@ export const uploadBrandLogo = async ({ file, ownerId }) => {
 
   return { publicUrl: data.publicUrl, path, bucket };
 };
+
+// Copia una imagen de producto a una ruta nueva (para duplicar productos entre catálogos
+// sin que compartan archivo: así borrar uno no rompe el otro).
+export const copyProductImage = async ({ publicUrl, ownerId, productKey }) => {
+  const meta = getStorageObjectFromPublicUrl(publicUrl);
+  const bucket = getBucketName();
+  const ownerPart = safeId(ownerId || '');
+  const allowedPrefix = `productos/${ownerPart}/`;
+
+  // Imágenes externas o de otra carpeta: se reutiliza la URL tal cual.
+  if (!meta || meta.bucket !== bucket || !ownerPart || !String(meta.path).startsWith(allowedPrefix)) {
+    return { publicUrl, copied: false };
+  }
+
+  const ext = (String(meta.path).match(/\.([a-zA-Z0-9]+)$/)?.[1] || 'webp').toLowerCase();
+  const uuid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now());
+  const toPath = `productos/${ownerPart}/${safeId(productKey || 'copia')}/${uuid}.${ext}`;
+
+  const { error } = await supabase.storage.from(bucket).copy(meta.path, toPath);
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(toPath);
+  return { publicUrl: data?.publicUrl || publicUrl, copied: true };
+};
+
+// Imagen para páginas Premium (homepage, link en la bio, landing).
+// Se guarda dentro de productos/{uid}/ porque es la carpeta que las policies de Storage permiten.
+export const uploadPageImage = async ({ file, ownerId }) => {
+  if (!file) throw new Error('No se seleccionó ningún archivo.');
+  if (!ownerId) throw new Error('Se requiere un ID de usuario para subir la imagen.');
+  return uploadProductImage({ file, productId: 'paginas', ownerId });
+};

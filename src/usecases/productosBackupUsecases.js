@@ -78,8 +78,8 @@ const todayStamp = () => new Date().toISOString().slice(0, 10)
 // EXPORTAR
 // ---------------------------------------------------------------------------
 
-export const exportarProductos = async ({ ownerId, onProgress } = {}) => {
-  const productos = await productosRepository.listAll(ownerId)
+export const exportarProductos = async ({ ownerId, tiendaId, onProgress } = {}) => {
+  const productos = await productosRepository.listAll(ownerId, { tiendaId })
   if (productos.length === 0) throw new Error('Aún no tienes productos para descargar.')
 
   const files = {}
@@ -201,7 +201,7 @@ const readPackage = async (file) => {
 }
 
 // Lee el archivo y calcula qué se va a crear/actualizar SIN modificar nada.
-export const analizarImportacion = async ({ file, ownerId }) => {
+export const analizarImportacion = async ({ file, ownerId, tiendaId }) => {
   const { csvText, images } = await readPackage(file)
   const rawRows = parseCsv(csvText)
 
@@ -209,7 +209,7 @@ export const analizarImportacion = async ({ file, ownerId }) => {
   if (rawRows.length > MAX_ROWS) throw new Error(`Demasiados productos (máx. ${MAX_ROWS} por carga).`)
   if (!('nombre' in rawRows[0])) throw new Error('Falta la columna "nombre". Usa el archivo que descargaste o la plantilla.')
 
-  const existentes = await productosRepository.listAll(ownerId)
+  const existentes = await productosRepository.listAll(ownerId, { tiendaId })
   const byName = new Map()
   const knownImages = new Map() // nombre de archivo en Storage -> URL pública
   for (const p of existentes) {
@@ -327,7 +327,7 @@ const bytesToFile = ({ name, bytes }) => {
   return new File([bytes], name, { type })
 }
 
-export const ejecutarImportacion = async ({ plan, ownerId, onProgress }) => {
+export const ejecutarImportacion = async ({ plan, ownerId, tiendaId, onProgress }) => {
   const result = { creados: 0, actualizados: 0, errors: [...plan.errors], warnings: [...plan.warnings] }
   const bucket = getProductImagesBucketName()
   const allowedPrefix = ownerId ? `productos/${String(ownerId)}/` : null
@@ -360,6 +360,7 @@ export const ejecutarImportacion = async ({ plan, ownerId, onProgress }) => {
         await productosRepository.create({
           ...item.fields,
           ...(ownerId ? { ownerId } : {}),
+          ...(tiendaId ? { tiendaId } : {}),
           imagenes: imagenesFinal || [],
         })
         result.creados += 1
@@ -390,12 +391,12 @@ export const ejecutarImportacion = async ({ plan, ownerId, onProgress }) => {
 
   // Crear las categorías nuevas para que aparezcan en el selector del formulario.
   try {
-    const actuales = await categoriasRepository.listAll()
+    const actuales = await categoriasRepository.listAll({ tiendaId })
     const existentes = new Set(actuales.map((c) => normalizeName(c.nombre)))
     for (const nombre of categoriasUsadas) {
       if (existentes.has(normalizeName(nombre))) continue
       try {
-        await categoriasRepository.create({ nombre })
+        await categoriasRepository.create({ nombre, tiendaId })
         existentes.add(normalizeName(nombre))
       } catch {
         // No es crítico: el producto ya quedó guardado con su categoría.

@@ -35,7 +35,7 @@ function getPlanBillingEs(plan) {
   if (id === 'annual') return 'Facturado anual • Acceso completo'
   if (id === 'monthly') return 'Facturado mensual • Acceso completo'
   if (id === 'biannual') return 'Facturado semestral • Acceso completo'
-  return ''
+  return plan?.billingShort || ''
 }
 
 function formatNumber(value) {

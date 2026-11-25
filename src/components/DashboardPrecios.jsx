@@ -12,12 +12,12 @@ import GestionCategoriasModal from './GestionCategoriasModal';
 import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
 
-const DashboardPrecios = ({ ownerId } = {}) => {
+const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
   // Preferencia persistida en Supabase: mostrar/ocultar precios en Bs
   const {
     mostrarPrecioBs: mostrarBs,
     setMostrarPrecioBs: setMostrarBs,
-  } = useCatalogTemplate({ enableSave: true, ownerId });
+  } = useCatalogTemplate({ enableSave: true, ownerId, tiendaId });
   const {
     tasaBCV,
     tasaUSDT,
@@ -33,7 +33,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     setProductos,
     cargando: cargandoProductos,
     error: productosError,
-  } = useProductos({ ownerId });
+  } = useProductos({ ownerId, tiendaId });
   const [cambiosSinGuardar, setCambiosSinGuardar] = useState(new Set()); // Set de IDs con cambios
   const [guardando, setGuardando] = useState(false);
   const [subiendoImagen, setSubiendoImagen] = useState({}); // id -> boolean
@@ -56,7 +56,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
     guardando: guardandoCategoria,
     eliminandoId: eliminandoCategoriaId,
     error: categoriasError,
-  } = useCategorias();
+  } = useCategorias({ tiendaId });
 
   // Funciones auxiliares para obtener valores numéricos
   const getTasaBCV = () => parseFloat(tasaBCV) || 0;
@@ -106,6 +106,7 @@ const DashboardPrecios = ({ ownerId } = {}) => {
          const productoConDefaults = {
            activo: true,
            ...(ownerId ? { ownerId } : {}),
+           ...(tiendaId ? { tiendaId } : {}),
            ...productData,
          };
          setProductos((prev) => [productoConDefaults, ...prev]);

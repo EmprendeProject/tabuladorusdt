@@ -45,6 +45,7 @@ const CatalogTemplateBoutique = ({
   brandName = 'Boutique',
   logoUrl,
   accentColor,
+  tiendaId,
 }) => {
   const [categorias, setCategorias] = useState([])
   const [cargandoCategorias, setCargandoCategorias] = useState(true)
@@ -66,7 +67,7 @@ const CatalogTemplateBoutique = ({
       setCategoriasError('')
       setCargandoCategorias(true)
       try {
-        const rows = await categoriasRepository.listAll()
+        const rows = await categoriasRepository.listAll({ tiendaId })
         if (mounted) setCategorias(Array.isArray(rows) ? rows : [])
       } catch (e) {
         if (mounted) {
@@ -81,7 +82,7 @@ const CatalogTemplateBoutique = ({
     return () => {
       mounted = false
     }
-  }, [])
+  }, [tiendaId])
 
   useEffect(() => {
     if (!busquedaVisible) return

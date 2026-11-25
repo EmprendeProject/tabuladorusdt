@@ -5,7 +5,7 @@ import { Download, Loader2, Upload } from 'lucide-react'
 const loadBackup = () => import('../usecases/productosBackupUsecases')
 
 // Sección compacta para descargar/cargar todos los productos (CSV + imágenes en un .zip).
-const RespaldoProductos = ({ ownerId }) => {
+const RespaldoProductos = ({ ownerId, tiendaId }) => {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(null) // 'export' | 'import' | null
   const [progress, setProgress] = useState('')
@@ -21,7 +21,7 @@ const RespaldoProductos = ({ ownerId }) => {
     setProgress('Preparando archivo…')
     try {
       const { exportarProductos, downloadBlob } = await loadBackup()
-      const { blob, filename, total, imageFailures } = await exportarProductos({ ownerId, onProgress })
+      const { blob, filename, total, imageFailures } = await exportarProductos({ ownerId, tiendaId, onProgress })
       downloadBlob(blob, filename)
       setMessage({
         type: 'ok',
@@ -46,7 +46,7 @@ const RespaldoProductos = ({ ownerId }) => {
     setProgress('Revisando archivo…')
     try {
       const { analizarImportacion, ejecutarImportacion } = await loadBackup()
-      const plan = await analizarImportacion({ file, ownerId })
+      const plan = await analizarImportacion({ file, ownerId, tiendaId })
 
       if (plan.items.length === 0) {
         setMessage({ type: 'error', text: 'No hay productos válidos para cargar.', details: plan.errors })
@@ -60,7 +60,7 @@ const RespaldoProductos = ({ ownerId }) => {
       )
       if (!ok) return
 
-      const res = await ejecutarImportacion({ plan, ownerId, onProgress })
+      const res = await ejecutarImportacion({ plan, ownerId, tiendaId, onProgress })
       setMessage({
         type: res.errors.length && !res.creados && !res.actualizados ? 'error' : 'ok',
         text: `Listo: ${res.creados} creado(s), ${res.actualizados} actualizado(s)${res.errors.length ? `, ${res.errors.length} con error` : ''}.`,

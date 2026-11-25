@@ -16,14 +16,14 @@ import CartFab from './CartFab';
 import { CartProvider, useCart } from '../context/CartContext';
 
 // Inner component that consumes CartContext
-const CatalogoProductosInner = ({ ownerId, brandName }) => {
+const CatalogoProductosInner = ({ ownerId, tiendaId, brandName }) => {
   const [query, setQuery] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
-  const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId });
-  const { catalogTemplate, logoUrl, accentColor, mostrarPrecioBs } = useCatalogTemplate({ ownerId });
+  const { productos, cargando, error, recargar } = useProductos({ scope: 'public', ownerId, tiendaId });
+  const { catalogTemplate, logoUrl, accentColor, mostrarPrecioBs } = useCatalogTemplate({ ownerId, tiendaId });
   const { tasaBCV, tasaUSDT } = useTasas();
   const { addItem } = useCart();
 
@@ -120,6 +120,7 @@ const CatalogoProductosInner = ({ ownerId, brandName }) => {
     brandName,
     logoUrl,
     accentColor,
+    tiendaId,
     onSelectProducto: (p) => setProductoSeleccionado({ ...p, _tasaBCV: tasaBCVNum }),
   };
 
@@ -166,9 +167,9 @@ const CatalogoProductosInner = ({ ownerId, brandName }) => {
   );
 };
 
-const CatalogoProductos = ({ ownerId, brandName } = {}) => (
+const CatalogoProductos = ({ ownerId, tiendaId, brandName } = {}) => (
   <CartProvider>
-    <CatalogoProductosInner ownerId={ownerId} brandName={brandName} />
+    <CatalogoProductosInner ownerId={ownerId} tiendaId={tiendaId} brandName={brandName} />
   </CartProvider>
 );
 

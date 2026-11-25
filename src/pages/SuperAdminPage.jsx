@@ -17,20 +17,11 @@ import {
 import { useAuthSession } from '../hooks/useAuthSession'
 import { adminRepository } from '../data/adminRepository'
 import { suscripcionesRepository } from '../data/suscripcionesRepository'
-import { PRICING_PLANS } from '../data/pricingPlans'
+import { PRICING_PLANS, getPricingPlanById, getPlanLabel } from '../data/pricingPlans'
+import { TIERS } from '../lib/planFeatures'
 import { solicitudesPagoRepository } from '../data/solicitudesPagoRepository'
 
 const PLANS = ['All', 'free', ...PRICING_PLANS.map((p) => p.id)]
-
-const getPlanLabel = (planId) => {
-  const id = String(planId || '').trim()
-  if (!id) return '—'
-  if (id === 'free') return 'Free'
-  if (id === 'monthly') return '1 Mes'
-  if (id === 'biannual') return '6 Meses'
-  if (id === 'annual') return 'Anual'
-  return id
-}
 
 const formatDateTime = (value) => {
   if (!value) return ''
@@ -356,8 +347,7 @@ export default function SuperAdminPage() {
   }
 
   const computeExtendedExpiresAtIso = (planId, currentExpiresAt) => {
-    const id = String(planId || '').trim()
-    const days = id === 'monthly' ? 30 : id === 'biannual' ? 180 : id === 'annual' ? 365 : 0
+    const days = getPricingPlanById(String(planId || '').trim())?.durationDays || 0
     if (!days) return null
 
     // Si ya tenía expiración null (lifetime), mantenemos null.
@@ -391,6 +381,7 @@ export default function SuperAdminPage() {
 
       await suscripcionesRepository.upsertSubscription(paymentDetails.owner_id, {
         plan: paymentDetails.plan_id,
+        tier: getPricingPlanById(paymentDetails.plan_id)?.tier || TIERS.STANDARD,
         activa: true,
         expiresAt: nextExpiresAt,
       })
@@ -648,7 +639,9 @@ export default function SuperAdminPage() {
                       <div className="flex gap-2 items-center">
                         <span
                           className={
-                            u.plan === 'annual'
+                            String(u.plan || '').startsWith('premium_')
+                              ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700'
+                              : u.plan === 'annual'
                               ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-primary/10 text-primary'
                               : u.plan === 'biannual'
                                 ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600'
@@ -660,6 +653,9 @@ export default function SuperAdminPage() {
                           {getPlanLabel(u.plan)}
                           {u.hasAccess ? '' : u.activa && isExpiredAt(u.expiresAt) ? ' (expirada)' : ' (sin acceso)'}
                         </span>
+                        {u.tier === TIERS.PREMIUM ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Premium</span>
+                        ) : null}
                         <span className="text-[11px] text-slate-400">{u.joinedAt ? `Desde ${formatJoined(u.joinedAt)}` : ''}</span>
                       </div>
 
@@ -827,11 +823,12 @@ export default function SuperAdminPage() {
                   disabled={detailsSaving}
                   onChange={async (e) => {
                     const nextPlan = e.target.value
+                    const nextTier = getPricingPlanById(nextPlan)?.tier || TIERS.STANDARD
                     setDetailsSaving(true)
-                    setDetailsAccount((prev) => (prev ? { ...prev, plan: nextPlan } : prev))
-                    setAccounts((prev) => prev.map((a) => (a.ownerId === detailsAccount.ownerId ? { ...a, plan: nextPlan } : a)))
+                    setDetailsAccount((prev) => (prev ? { ...prev, plan: nextPlan, tier: nextTier } : prev))
+                    setAccounts((prev) => prev.map((a) => (a.ownerId === detailsAccount.ownerId ? { ...a, plan: nextPlan, tier: nextTier } : a)))
                     try {
-                      await suscripcionesRepository.setPlan(detailsAccount.ownerId, nextPlan)
+                      await suscripcionesRepository.setPlan(detailsAccount.ownerId, nextPlan, { tier: nextTier })
                     } catch (err) {
                       setError(err?.message || 'No se pudo actualizar el plan.')
                       await reload()

@@ -13,6 +13,9 @@ function getPlanLabelEs(planId) {
   if (id === 'monthly') return 'Acceso mensual'
   if (id === 'biannual') return 'Acceso semestral'
   if (id === 'annual') return 'Acceso anual'
+  if (id === 'premium_monthly') return 'Premium mensual'
+  if (id === 'premium_biannual') return 'Premium semestral'
+  if (id === 'premium_annual') return 'Premium anual'
   return 'Acceso'
 }
 
