@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Package, RefreshCw, Plus, X, LayoutGrid, List, Tags, Search } from 'lucide-react';
+import { Eye, EyeOff, Package, RefreshCw, Plus, X, LayoutGrid, List, Tags, Search } from 'lucide-react';
 import { deleteStorageObject, getProductImagesBucketName, getStorageObjectFromPublicUrl, uploadProductImage } from '../lib/storage';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
@@ -471,10 +471,12 @@ const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
             <button
               type="button"
               onClick={() => setMostrarBs(!mostrarBs)}
-              className={`h-9 rounded-xl px-3 text-xs font-semibold transition-colors ${mostrarBs ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold transition-colors ${mostrarBs ? 'bg-neutral-900 text-white' : 'border border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}
               title={mostrarBs ? 'Ocultar precios en Bs' : 'Mostrar precios en Bs'}
+              aria-label={mostrarBs ? 'Precios en Bs visibles. Tocar para ocultar' : 'Precios en Bs ocultos. Tocar para mostrar'}
               aria-pressed={mostrarBs}
             >
+              {mostrarBs ? <Eye size={15} /> : <EyeOff size={15} />}
               Bs
             </button>
             <button
@@ -495,15 +497,17 @@ const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
             >
               {productosView === 'grid' ? <List size={18} /> : <LayoutGrid size={18} />}
             </button>
-            <button
-              type="button"
-              onClick={handleAgregarProducto}
-              className="ml-1 hidden md:inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800"
-            >
-              <Plus size={18} /> Nuevo producto
-            </button>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={handleAgregarProducto}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-900 py-3.5 text-white shadow-sm hover:bg-neutral-800 active:scale-[0.99] transition md:w-auto md:px-6"
+        >
+          <Plus size={18} />
+          <span className="font-semibold">Nuevo producto</span>
+        </button>
 
         {/* Búsqueda */}
         <label className="mt-3 flex h-11 items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3.5 focus-within:border-neutral-900">
@@ -650,17 +654,6 @@ const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
         </section>
       </div>
 
-      {/* Botón flotante para crear (móvil) */}
-      <button
-        type="button"
-        onClick={handleAgregarProducto}
-        className="md:hidden fixed right-4 z-30 flex size-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-xl shadow-neutral-900/25 active:scale-95 transition-transform"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-        aria-label="Nuevo producto"
-        title="Nuevo producto"
-      >
-        <Plus size={24} />
-      </button>
     </div>
     </>
   );

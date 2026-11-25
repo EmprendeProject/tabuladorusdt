@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ToastStack from './components/ToastStack';
 import { useToasts } from './hooks/useToasts';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { Check, Copy, ExternalLink, Globe, LayoutGrid, LogOut, Package, Palette, Store, User, X, Upload, Loader2, Trash2, AlertTriangle } from 'lucide-react'
+import { Check, Copy, Globe, LayoutGrid, LogOut, Package, Palette, Store, User, X, Upload, Loader2, Trash2, AlertTriangle } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
 import { CATALOG_TEMPLATE_OPTIONS } from './data/catalogSettingsRepository'
@@ -658,11 +658,6 @@ const AdminPage = ({ section = 'productos' } = {}) => {
       )}
       <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center gap-3">
-          {/* Marca / catálogo activo */}
-          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-900 text-white">
-            {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={18} />}
-          </div>
-
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
               {premium && catalogosApi.catalogos.length > 1 ? (
@@ -743,11 +738,9 @@ const AdminPage = ({ section = 'productos' } = {}) => {
             <Link
               to={catalogPath}
               target="_blank"
-              className="inline-flex size-9 items-center justify-center rounded-xl text-neutral-700 hover:bg-neutral-100"
-              title="Ver catálogo"
-              aria-label="Ver catálogo"
+              className="inline-flex h-9 items-center rounded-xl border border-neutral-200 px-3 text-xs font-semibold text-neutral-900 hover:bg-neutral-100"
             >
-              <ExternalLink size={18} />
+              Ver catálogo
             </Link>
 
             <button
