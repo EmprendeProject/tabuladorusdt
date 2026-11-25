@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ToastStack from './components/ToastStack';
 import { useToasts } from './hooks/useToasts';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { Check, Copy, LogOut, Palette, Store, User, X, Upload, Loader2, Trash2, AlertTriangle } from 'lucide-react'
+import { Check, Copy, ExternalLink, Globe, LayoutGrid, LogOut, Package, Palette, Store, User, X, Upload, Loader2, Trash2, AlertTriangle } from 'lucide-react'
 
 import { useAuthSession } from './hooks/useAuthSession'
 import { CATALOG_TEMPLATE_OPTIONS } from './data/catalogSettingsRepository'
@@ -41,6 +41,12 @@ import CatalogosManager from './components/premium/CatalogosManager'
 import PaginasManager from './components/premium/PaginasManager'
 import PremiumBadge from './components/premium/PremiumBadge'
 import PaginaPublica from './pages/PaginaPublica'
+
+const ADMIN_TABS = [
+  { to: '/admin', key: 'productos', label: 'Productos', icon: Package },
+  { to: '/admin/catalogos', key: 'catalogos', label: 'Catálogos', icon: LayoutGrid, premium: true },
+  { to: '/admin/paginas', key: 'paginas', label: 'Páginas', icon: Globe, premium: true },
+]
 
 const LegacyCatalogRedirect = () => {
   const { handle } = useParams()
@@ -409,6 +415,24 @@ const AdminPage = ({ section = 'productos' } = {}) => {
 
   const catalogPath = activeTienda?.handle ? `/${activeTienda.handle}` : '/'
 
+  const copyCatalogLink = async () => {
+    try {
+      const t = activeTienda?.handle ? activeTienda : await ensureTienda()
+      if (!t?.handle) return
+      const url = `${publicBaseUrl || globalThis?.location?.origin || ''}/${t.handle}`
+      if (globalThis?.navigator?.clipboard?.writeText) {
+        await globalThis.navigator.clipboard.writeText(url)
+      } else {
+        globalThis?.prompt?.('Copia el link de tu catálogo:', url)
+      }
+      setCopied(true)
+      globalThis?.setTimeout?.(() => setCopied(false), 1400)
+    } catch {
+      const url = `${publicBaseUrl || globalThis?.location?.origin || ''}${catalogPath}`
+      globalThis?.prompt?.('Copia el link de tu catálogo:', url)
+    }
+  }
+
   const dashboardLabel = useMemo(() => {
     const nombre = (activeTienda?.nombreNegocio || sessionBusinessName || '').trim()
     return nombre ? `Hola! ${nombre}` : 'Dashboard'
@@ -601,7 +625,7 @@ const AdminPage = ({ section = 'productos' } = {}) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50">
       {showBanner && (
         <div className={`relative z-[55] border-b ${bannerColor.border} ${bannerColor.bg} px-4 py-2.5 flex items-center justify-between gap-3`}>
           <div className={`flex items-center gap-2 text-sm font-semibold ${bannerColor.text}`}>
@@ -632,26 +656,31 @@ const AdminPage = ({ section = 'productos' } = {}) => {
           </div>
         </div>
       )}
-      <div className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {premium && catalogosApi.catalogos.length > 1 ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setCatalogMenuOpen((v) => !v)}
-                  onBlur={(e) => {
-                    if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) setCatalogMenuOpen(false)
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 h-9 text-sm font-semibold text-gray-800 hover:bg-gray-50 max-w-[200px]"
-                  title="Cambiar de catálogo"
-                >
-                  <Store size={14} className="shrink-0" />
-                  <span className="truncate">{activeTienda?.nombreNegocio || 'Catálogo'}</span>
-                  <span className="material-symbols-outlined text-[18px] text-gray-500">expand_more</span>
-                </button>
+      <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center gap-3">
+          {/* Marca / catálogo activo */}
+          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-900 text-white">
+            {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={18} />}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              {premium && catalogosApi.catalogos.length > 1 ? (
+                <div className="relative min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setCatalogMenuOpen((v) => !v)}
+                    onBlur={(e) => {
+                      if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) setCatalogMenuOpen(false)
+                    }}
+                    className="flex min-w-0 items-center gap-0.5 text-[15px] font-semibold text-neutral-900"
+                    title="Cambiar de catálogo"
+                  >
+                    <span className="truncate">{activeTienda?.nombreNegocio || 'Catálogo'}</span>
+                    <span className="material-symbols-outlined text-[18px] text-neutral-500">expand_more</span>
+                  </button>
                 {catalogMenuOpen ? (
-                  <div className="absolute left-0 mt-2 w-64 rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden z-10" role="menu">
+                  <div className="absolute left-0 mt-2 w-64 rounded-2xl border border-neutral-200 bg-white shadow-lg overflow-hidden z-10" role="menu">
                     {catalogosApi.catalogos.map((c) => (
                       <button
                         key={c.id}
@@ -662,91 +691,74 @@ const AdminPage = ({ section = 'productos' } = {}) => {
                           catalogosApi.setActiveId(c.id)
                           setCatalogMenuOpen(false)
                         }}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left text-sm text-gray-800 hover:bg-gray-50"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left text-sm text-neutral-800 hover:bg-neutral-50"
                       >
                         <span className="min-w-0">
                           <span className="block font-medium truncate">{c.nombreNegocio}</span>
-                          <span className="block text-xs text-gray-500 truncate">/{c.handle}</span>
+                          <span className="block text-xs text-neutral-500 truncate">/{c.handle}</span>
                         </span>
-                        {activeTienda?.id === c.id ? <Check size={16} className="text-emerald-600 shrink-0" /> : null}
+                        {activeTienda?.id === c.id ? <Check size={16} className="text-neutral-900 shrink-0" /> : null}
                       </button>
                     ))}
                     <Link
                       to="/admin/catalogos"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setCatalogMenuOpen(false)}
-                      className="block border-t border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                      className="block border-t border-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
                     >
                       Gestionar catálogos
                     </Link>
                   </div>
                 ) : null}
-              </div>
-            ) : (
-              <span className="text-sm font-semibold text-gray-800 truncate">{dashboardLabel}</span>
-            )}
-            {premium ? <PremiumBadge className="hidden sm:inline-flex" /> : null}
+                </div>
+              ) : (
+                <span className="truncate text-[15px] font-semibold text-neutral-900">{activeTienda?.nombreNegocio || dashboardLabel}</span>
+              )}
+              {premium ? <PremiumBadge className="shrink-0" /> : null}
+            </div>
             {activeTienda?.handle ? (
-              <span className="hidden sm:inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600">
-                {publicBaseUrl ? `${publicBaseUrl}/${activeTienda.handle}` : `/${activeTienda.handle}`}
-              </span>
+              <button
+                type="button"
+                onClick={copyCatalogLink}
+                className="block max-w-full truncate text-left text-xs text-neutral-500 hover:text-neutral-900"
+                title="Copiar link"
+              >
+                {copied ? '¡Link copiado!' : `${(publicBaseUrl || '').replace(/^https?:\/\//, '')}/${activeTienda.handle}`}
+              </button>
             ) : (
               <button
                 type="button"
                 disabled={tiendaLoading}
                 onClick={ensureTienda}
-                className="hidden sm:inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="text-xs font-medium text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
                 title={tiendaError || 'Generar link del catálogo'}
               >
-                {tiendaLoading ? 'Generando…' : (tiendaError ? 'Reintentar link' : 'Generar link')}
+                {tiendaLoading ? 'Generando link…' : (tiendaError ? 'Reintentar link' : 'Generar link')}
               </button>
             )}
           </div>
 
-          <div className="relative flex items-center gap-2">
+          {/* Acciones */}
+          <div className="relative flex shrink-0 items-center gap-1">
             <Link
               to={catalogPath}
-              className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              target="_blank"
+              className="inline-flex size-9 items-center justify-center rounded-xl text-neutral-700 hover:bg-neutral-100"
               title="Ver catálogo"
               aria-label="Ver catálogo"
             >
-              <Store size={18} />
+              <ExternalLink size={18} />
             </Link>
 
             <button
               type="button"
               disabled={tiendaLoading}
-              onClick={async () => {
-                try {
-                  const t = activeTienda?.handle ? activeTienda : await ensureTienda()
-                  if (!t?.handle) return
-
-                  const path = `/${t.handle}`
-                  const url = publicBaseUrl ? `${publicBaseUrl}${path}` : `${globalThis?.location?.origin || ''}${path}`
-                  if (globalThis?.navigator?.clipboard?.writeText) {
-                    await globalThis.navigator.clipboard.writeText(url)
-                  } else {
-                    globalThis?.prompt?.('Copia el link de tu catálogo:', url)
-                  }
-                  setCopied(true)
-                  globalThis?.setTimeout?.(() => setCopied(false), 1200)
-                } catch {
-                  // fallback
-                  try {
-                    const t = activeTienda?.handle ? activeTienda : null
-                    const path = t?.handle ? `/${t.handle}` : catalogPath
-                    const url = publicBaseUrl ? `${publicBaseUrl}${path}` : `${globalThis?.location?.origin || ''}${path}`
-                    globalThis?.prompt?.('Copia el link de tu catálogo:', url)
-                  } catch {
-                    // noop
-                  }
-                }
-              }}
-              className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              onClick={copyCatalogLink}
+              className="hidden sm:inline-flex size-9 items-center justify-center rounded-xl text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
               title={copied ? 'Copiado' : (tiendaError ? tiendaError : 'Copiar link del catálogo')}
               aria-label="Copiar link del catálogo"
             >
-              <Copy size={18} className={copied ? 'text-emerald-600' : undefined} />
+              {copied ? <Check size={18} /> : <Copy size={18} />}
             </button>
 
             <div className="relative">
@@ -757,7 +769,7 @@ const AdminPage = ({ section = 'productos' } = {}) => {
                   if (!e.currentTarget.contains(e.relatedTarget)) setThemesOpen(false)
                 }}
                 disabled={cargandoCatalogSettings}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="inline-flex size-9 items-center justify-center rounded-xl text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
                 title={catalogSettingsError ? catalogSettingsError : 'Temas del catálogo'}
                 aria-label="Temas del catálogo"
               >
@@ -766,12 +778,12 @@ const AdminPage = ({ section = 'productos' } = {}) => {
 
               {themesOpen ? (
                 <div
-                  className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden"
+                  className="absolute right-0 mt-2 w-56 rounded-2xl border border-neutral-200 bg-white shadow-lg overflow-hidden"
                   role="menu"
                 >
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="text-xs text-gray-500">Tema</div>
-                    <div className="text-sm font-semibold text-gray-900">
+                  <div className="px-4 py-3 border-b border-neutral-100">
+                    <div className="text-xs text-neutral-500">Tema</div>
+                    <div className="text-sm font-semibold text-neutral-900">
                       {guardandoCatalogSettings ? 'Guardando…' : 'Selecciona un tema'}
                     </div>
                     {catalogSettingsError ? (
@@ -799,7 +811,7 @@ const AdminPage = ({ section = 'productos' } = {}) => {
                             setThemesOpen(false)
                           }
                         }}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-neutral-800 hover:bg-neutral-50"
                         role="menuitem"
                         disabled={guardandoCatalogSettings}
                       >
@@ -807,7 +819,7 @@ const AdminPage = ({ section = 'productos' } = {}) => {
                           {opt.label}
                           {opt.premium ? <PremiumBadge /> : null}
                         </span>
-                        {active ? <Check size={18} className="text-emerald-600" /> : <span className="w-[18px]" />}
+                        {active ? <Check size={18} className="text-neutral-900" /> : <span className="w-[18px]" />}
                       </button>
                     )
                   })}
@@ -818,27 +830,25 @@ const AdminPage = ({ section = 'productos' } = {}) => {
             <button
               type="button"
               onClick={openProfile}
-              className="inline-flex items-center gap-2"
+              className="ml-1 hidden md:inline-flex"
               title="Tus datos"
             >
-              <span className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold select-none">
+              <span className="size-9 rounded-full bg-neutral-900 text-white text-xs flex items-center justify-center font-semibold select-none">
                 {avatarLabel}
               </span>
             </button>
           </div>
         </div>
-        <nav className="max-w-6xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto" aria-label="Secciones">
-          {[
-            { to: '/admin', key: 'productos', label: 'Productos' },
-            { to: '/admin/catalogos', key: 'catalogos', label: 'Catálogos', premium: true },
-            { to: '/admin/paginas', key: 'paginas', label: 'Páginas', premium: true },
-          ].map((tab) => (
+
+        {/* Pestañas (escritorio). En móvil se usa la barra inferior. */}
+        <nav className="hidden md:flex max-w-6xl mx-auto px-4 md:px-6 gap-1" aria-label="Secciones">
+          {ADMIN_TABS.map((tab) => (
             <Link
               key={tab.key}
               to={tab.to}
               className={
                 'inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors ' +
-                (section === tab.key ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800')
+                (section === tab.key ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-800')
               }
             >
               {tab.label}
@@ -1177,6 +1187,7 @@ const AdminPage = ({ section = 'productos' } = {}) => {
       ) : null}
 
 
+      <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
       {section === 'catalogos' ? (
         <CatalogosManager
           ownerId={sessionUserId}
@@ -1195,10 +1206,43 @@ const AdminPage = ({ section = 'productos' } = {}) => {
       ) : activeTiendaId ? (
         <DashboardPrecios key={activeTiendaId} ownerId={sessionUserId} tiendaId={activeTiendaId} />
       ) : (
-        <div className="p-6 text-center text-sm text-gray-500">
+        <div className="p-6 text-center text-sm text-neutral-500">
           {tiendaError || catalogosApi.error || 'Cargando tu catálogo…'}
         </div>
       )}
+      </div>
+
+      {/* Barra inferior (móvil) */}
+      <nav
+        className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        aria-label="Secciones"
+      >
+        <div className="grid grid-cols-4 h-16">
+          {ADMIN_TABS.map((tab) => {
+            const Icon = tab.icon
+            const active = section === tab.key
+            return (
+              <Link
+                key={tab.key}
+                to={tab.to}
+                className={`relative flex flex-col items-center justify-center gap-1 ${active ? 'text-neutral-900' : 'text-neutral-400'}`}
+              >
+                <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+                <span className={`text-[10px] ${active ? 'font-semibold' : 'font-medium'}`}>{tab.label}</span>
+                {tab.premium && !premium ? <span className="absolute top-2 right-[calc(50%-18px)] size-1.5 rounded-full bg-amber-500" /> : null}
+              </Link>
+            )
+          })}
+          <button
+            type="button"
+            onClick={openProfile}
+            className="flex flex-col items-center justify-center gap-1 text-neutral-400"
+          >
+            <span className="flex size-5 items-center justify-center rounded-full bg-neutral-900 text-[8px] font-semibold text-white">{avatarLabel}</span>
+            <span className="text-[10px] font-medium">Perfil</span>
+          </button>
+        </div>
+      </nav>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Package, RefreshCw, Plus, Trash2, Save, Pencil, X, LayoutGrid, List, Tags } from 'lucide-react';
+import { Package, RefreshCw, Plus, X, LayoutGrid, List, Tags, Search } from 'lucide-react';
 import { deleteStorageObject, getProductImagesBucketName, getStorageObjectFromPublicUrl, uploadProductImage } from '../lib/storage';
 import { useProductos } from '../hooks/useProductos';
 import { useTasas } from '../hooks/useTasas';
@@ -11,6 +11,23 @@ import NuevaCategoriaModal from './NuevaCategoriaModal';
 import GestionCategoriasModal from './GestionCategoriasModal';
 import ToastStack from './ToastStack';
 import { TOAST_TYPE, useToasts } from '../hooks/useToasts';
+
+const formatearUsd = (n) => (Number(n) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatearBs = (n) => (parseFloat(n) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Interruptor "visible en el catálogo".
+const VisibleSwitch = ({ isVisible, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors ${isVisible ? 'bg-neutral-900' : 'bg-neutral-300'}`}
+    aria-pressed={isVisible}
+    aria-label={isVisible ? 'Ocultar del catálogo' : 'Mostrar en el catálogo'}
+    title={isVisible ? 'Ocultar del catálogo' : 'Mostrar en el catálogo'}
+  >
+    <span className={`inline-block size-5 rounded-full bg-white shadow transition-transform ${isVisible ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+  </button>
+);
 
 const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
   // Preferencia persistida en Supabase: mostrar/ocultar precios en Bs
@@ -342,10 +359,10 @@ const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
 
   if (cargandoProductos) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-[60vh] bg-neutral-50">
         <div className="text-center">
-          <RefreshCw className="animate-spin mx-auto mb-4" size={48} />
-          <p className="text-gray-600">Cargando productos...</p>
+          <RefreshCw className="animate-spin mx-auto mb-3 text-neutral-400" size={28} />
+          <p className="text-sm text-neutral-500">Cargando productos…</p>
         </div>
       </div>
     );
@@ -354,7 +371,7 @@ const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
   return (
     <>
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50">
       <GestionCategoriasModal
         open={gestionarCategoriasOpen}
         onClose={() => setGestionarCategoriasOpen(false)}
@@ -406,294 +423,244 @@ const DashboardPrecios = ({ ownerId, tiendaId } = {}) => {
         }}
       />
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 pb-10">
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
-              <Package className="text-blue-600" size={22} />
-              Panel de Control
-            </h1>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-            <button
-              onClick={() => setGestionarCategoriasOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium bg-white text-gray-900 hover:bg-gray-50 border border-gray-200"
-              title="Gestionar categorías"
-              type="button"
-            >
-              <Tags size={18} />
-              <span className="hidden sm:inline">Categorías</span>
-            </button>
-            {/* Botón mostrar/ocultar Bs */}
-            <button
-              onClick={() => setMostrarBs(!mostrarBs)}
-              className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium border ${mostrarBs ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-500 border-gray-200'} hover:bg-blue-100`}
-              title={mostrarBs ? 'Ocultar precios en Bs' : 'Mostrar precios en Bs'}
-              type="button"
-            >
-              <span className="font-bold">Bs</span>
-              <span className="hidden sm:inline">{mostrarBs ? 'Ocultar' : 'Mostrar'}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6">
-          <div className="bg-white border border-gray-200 rounded-2xl p-4">
-            <div className="text-xs text-gray-500">Productos</div>
-            <div className="mt-1 text-2xl font-semibold text-gray-900">{productos.length}</div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-4">
-            <div className="text-xs text-gray-500">BCV (Bs.)</div>
-            <div className="mt-1 text-2xl font-semibold text-gray-900">{(parseFloat(tasaBCV) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-4">
-            <div className="text-xs text-gray-500">USDT (Bs.)</div>
-            <div className="mt-1 text-2xl font-semibold text-gray-900">{(parseFloat(tasaUSDT) || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-          </div>
-        </div>
-
-        {productosError ? (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
-            {productosError}
-          </div>
-        ) : null}
-
-        {categoriasError ? (
-          <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4">
-            {categoriasError}
-          </div>
-        ) : null}
-
-        <section id="productos" className="mb-6">
-          <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-            <div className="p-4 md:p-6 bg-white border-b border-gray-100">
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={handleAgregarProducto}
-                  className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-950 text-white shadow-sm hover:bg-slate-900"
-                >
-                  <Plus size={18} />
-                  <span className="font-semibold">Nuevo Producto</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setProductosView('grid')}
-                    className={`p-3 rounded-2xl border ${productosView === 'grid' ? 'border-gray-300 text-gray-900' : 'border-gray-200 text-gray-500 hover:text-gray-900'}`}
-                    title="Vista en grilla"
-                  >
-                    <LayoutGrid size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProductosView('list')}
-                    className={`p-3 rounded-2xl border ${productosView === 'list' ? 'border-gray-300 text-gray-900' : 'border-gray-200 text-gray-500 hover:text-gray-900'}`}
-                    title="Vista en lista"
-                  >
-                    <List size={18} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500">Buscar</label>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="mt-1 w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Buscar por nombre, descripción o categoría"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500">Categoría</label>
-                  <select
-                    value={categoriaFiltro}
-                    onChange={(e) => setCategoriaFiltro(e.target.value)}
-                    className="mt-1 w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Todas</option>
-                    {categoriasParaFiltro.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {searchQuery || categoriaFiltro ? (
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <div className="text-xs text-gray-500">
-                    Mostrando <span className="font-semibold text-gray-900">{productosFiltradosDashboard.length}</span> de{' '}
-                    <span className="font-semibold text-gray-900">{productosRecientes.length}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setCategoriaFiltro('');
-                    }}
-                    className="text-sm font-semibold text-gray-700 hover:text-gray-900"
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-              ) : null}
+      <div className="max-w-6xl mx-auto px-4 md:px-6 pt-4 pb-28 md:py-6">
+        {/* Tasas del día */}
+        <section className="rounded-3xl bg-neutral-900 p-5 text-white">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-widest text-neutral-400">Tasas del día</p>
+              <p className="mt-0.5 text-xs text-neutral-500">{productos.length} producto{productos.length === 1 ? '' : 's'} en este catálogo</p>
             </div>
-
-            <div className="p-4 md:p-6 bg-white">
-              {productos.length === 0 ? (
-                <div className="text-center py-10 text-gray-500">
-                  No hay productos. ¡Agrega uno nuevo!
-                </div>
-              ) : productosFiltradosDashboard.length === 0 ? (
-                <div className="text-center py-10">
-                  <div className="text-gray-700 font-semibold">No se encontraron productos</div>
-                  <div className="mt-1 text-sm text-gray-500">Prueba otra búsqueda o cambia la categoría.</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setCategoriaFiltro('');
-                    }}
-                    className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200"
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-              ) : (
-                <div className={productosView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4' : 'space-y-3 sm:space-y-4'}>
-                  {productosFiltradosDashboard.map((prod) => {
-                    const isVisible = prod.activo !== false;
-                    const profitPct = Math.round(Number(prod.profit) || 0);
-                    const usdtValue = Number(prod.precioUSDT) || 0;
-                    const isEditing = false;
-                    const hasChanges = false;
-                    return (
-                      <div
-                        key={prod.id}
-                        className={`rounded-2xl sm:rounded-3xl border border-gray-200 overflow-hidden ${isVisible ? 'bg-white' : 'bg-gray-50 opacity-80'}`}
-                      >
-                        <div className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4">
-                          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
-                              {prod.imagenUrl ? (
-                                <img
-                                  src={prod.imagenUrl}
-                                  alt={prod.nombre || 'Imagen del producto'}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              ) : null}
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="text-lg sm:text-xl font-extrabold text-gray-900 truncate text-left">
-                                {prod.nombre || 'Sin nombre'}
-                              </div>
-                              <div className="mt-1.5 sm:mt-2 flex items-center justify-start gap-2 text-xs text-gray-500">
-                                <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] sm:text-xs font-bold">
-                                  {prod.isFixedPrice ? 'PRECIO FIJO' : `${profitPct}% PROFIT`}
-                                </span>
-                                {prod.categoria ? (
-                                  <>
-                                    <span className="text-gray-300">•</span>
-                                    <span className="truncate">{prod.categoria}</span>
-                                  </>
-                                ) : null}
-                              </div>
-
-                              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                {!prod.isFixedPrice ? (
-                                  <>
-                                    <div className="hidden sm:block">
-                                      <div className="text-xs font-bold text-gray-400 tracking-wider">USDT</div>
-                                      <div className="text-lg sm:text-xl font-bold text-gray-900 tabular-nums">
-                                        ${usdtValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                      </div>
-                                    </div>
-                                    <div className="hidden sm:block">
-                                      <div className="text-xs font-bold text-gray-400 tracking-wider">BCV (REAL)</div>
-                                      <div className="text-lg sm:text-xl font-black text-emerald-500 tabular-nums">
-                                        ${calcularPrecioRealBCV(usdtValue).toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
-                                      </div>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="hidden sm:block col-span-2">
-                                    <div className="text-xs font-bold text-gray-400 tracking-wider">MODO</div>
-                                    <div className="text-lg sm:text-xl font-bold text-blue-600 italic">
-                                      Manual / Sin cálculo de tasa
-                                    </div>
-                                  </div>
-                                )}
-                                <div>
-                                  <div className="text-[11px] sm:text-xs font-bold text-gray-400 tracking-wider">
-                                    {prod.isFixedPrice ? 'PRECIO FINAL' : 'PÚBLICO'}
-                                  </div>
-                                  <div className="text-2xl sm:text-xl md:text-2xl font-black text-blue-600 tabular-nums leading-none">
-                                    ${calcularPrecioVenta(prod).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </div>
-                                  {/* Mostrar precio en Bs solo si mostrarBs está activo */}
-                                  {mostrarBs && (
-                                    <div className="text-xs font-semibold text-gray-500 mt-1">
-                                      Bs. {(calcularPrecioVenta(prod) * getTasaBCV()).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col items-end justify-between gap-3 shrink-0 relative self-stretch">
-                            <button
-                              type="button"
-                              onClick={() => handleEditarProducto(prod)}
-                              className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl text-gray-600 hover:bg-gray-50"
-                              title="Editar"
-                            >
-                              <Pencil size={18} />
-                            </button>
-
-
-                            <div className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleVisible(prod)}
-                                className={`relative inline-flex h-6 w-10 sm:h-7 sm:w-12 items-center rounded-full transition-colors ${isVisible ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                                aria-pressed={isVisible}
-                                title={isVisible ? 'Ocultar del catálogo' : 'Mostrar en el catálogo'}
-                              >
-                                <span
-                                  className={`inline-block h-5 w-5 sm:h-6 sm:w-6 transform rounded-full bg-white transition-transform ${
-                                    isVisible ? 'translate-x-4 sm:translate-x-5' : 'translate-x-1'
-                                  }`}
-                                />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <button
+              type="button"
+              onClick={() => { refrescarBCV?.(); refrescarUSDT?.(); }}
+              className="flex size-8 items-center justify-center rounded-full text-neutral-400 hover:bg-white/10 hover:text-white"
+              title="Actualizar tasas"
+              aria-label="Actualizar tasas"
+            >
+              <RefreshCw size={15} className={cargandoBCV || cargandoUSDT ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-2 divide-x divide-white/10">
+            <div className="pr-4">
+              <p className="text-xs text-neutral-400">BCV</p>
+              <p className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight">
+                {cargandoBCV ? '…' : formatearBs(tasaBCV)}
+              </p>
+            </div>
+            <div className="pl-4">
+              <p className="text-xs text-neutral-400">USDT</p>
+              <p className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight">
+                {cargandoUSDT ? '…' : formatearBs(tasaUSDT)}
+              </p>
             </div>
           </div>
         </section>
 
+        {productosError ? (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{productosError}</div>
+        ) : null}
+        {categoriasError ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{categoriasError}</div>
+        ) : null}
+
+        {/* Encabezado de la lista */}
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Productos</h1>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMostrarBs(!mostrarBs)}
+              className={`h-9 rounded-xl px-3 text-xs font-semibold transition-colors ${mostrarBs ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
+              title={mostrarBs ? 'Ocultar precios en Bs' : 'Mostrar precios en Bs'}
+              aria-pressed={mostrarBs}
+            >
+              Bs
+            </button>
+            <button
+              type="button"
+              onClick={() => setGestionarCategoriasOpen(true)}
+              className="flex size-9 items-center justify-center rounded-xl text-neutral-700 hover:bg-neutral-100"
+              title="Gestionar categorías"
+              aria-label="Gestionar categorías"
+            >
+              <Tags size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setProductosView(productosView === 'grid' ? 'list' : 'grid')}
+              className="flex size-9 items-center justify-center rounded-xl text-neutral-700 hover:bg-neutral-100"
+              title={productosView === 'grid' ? 'Ver en lista' : 'Ver en cuadrícula'}
+              aria-label="Cambiar vista"
+            >
+              {productosView === 'grid' ? <List size={18} /> : <LayoutGrid size={18} />}
+            </button>
+            <button
+              type="button"
+              onClick={handleAgregarProducto}
+              className="ml-1 hidden md:inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800"
+            >
+              <Plus size={18} /> Nuevo producto
+            </button>
+          </div>
+        </div>
+
+        {/* Búsqueda */}
+        <label className="mt-3 flex h-11 items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3.5 focus-within:border-neutral-900">
+          <Search size={17} className="shrink-0 text-neutral-400" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-full w-full bg-transparent text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+            placeholder="Buscar producto"
+          />
+          {searchQuery ? (
+            <button type="button" onClick={() => setSearchQuery('')} className="text-neutral-400 hover:text-neutral-900" aria-label="Limpiar búsqueda">
+              <X size={16} />
+            </button>
+          ) : null}
+        </label>
+
+        {/* Categorías */}
+        {categoriasParaFiltro.length ? (
+          <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar md:mx-0 md:flex-wrap md:px-0">
+            {['', ...categoriasParaFiltro].map((c) => {
+              const active = categoriaFiltro === c
+              return (
+                <button
+                  key={c || '__todas'}
+                  type="button"
+                  onClick={() => setCategoriaFiltro(c)}
+                  className={
+                    'h-8 shrink-0 rounded-full px-3.5 text-xs font-semibold transition-colors ' +
+                    (active ? 'bg-neutral-900 text-white' : 'border border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400')
+                  }
+                >
+                  {c || 'Todas'}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+
+        {searchQuery || categoriaFiltro ? (
+          <div className="mt-3 flex items-center justify-between text-xs text-neutral-500">
+            <span>
+              {productosFiltradosDashboard.length} de {productosRecientes.length} productos
+            </span>
+            <button
+              type="button"
+              onClick={() => { setSearchQuery(''); setCategoriaFiltro(''); }}
+              className="font-semibold text-neutral-900"
+            >
+              Limpiar
+            </button>
+          </div>
+        ) : null}
+
+        {/* Lista */}
+        <section id="productos" className="mt-4">
+          {productos.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white px-6 py-12 text-center">
+              <Package size={28} className="mx-auto text-neutral-300" />
+              <p className="mt-3 font-semibold text-neutral-900">Aún no tienes productos</p>
+              <p className="mt-1 text-sm text-neutral-500">Agrega el primero y aparecerá en tu catálogo.</p>
+              <button
+                type="button"
+                onClick={handleAgregarProducto}
+                className="mt-5 inline-flex h-11 items-center gap-2 rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white"
+              >
+                <Plus size={18} /> Nuevo producto
+              </button>
+            </div>
+          ) : productosFiltradosDashboard.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="font-semibold text-neutral-900">No se encontraron productos</p>
+              <p className="mt-1 text-sm text-neutral-500">Prueba otra búsqueda o categoría.</p>
+            </div>
+          ) : productosView === 'grid' ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {productosFiltradosDashboard.map((prod) => {
+                const isVisible = prod.activo !== false
+                const precio = calcularPrecioVenta(prod)
+                return (
+                  <div key={prod.id} className={`overflow-hidden rounded-2xl border border-neutral-200 bg-white ${isVisible ? '' : 'opacity-60'}`}>
+                    <button type="button" onClick={() => handleEditarProducto(prod)} className="block w-full text-left">
+                      <div className="aspect-square w-full bg-neutral-100">
+                        {prod.imagenUrl ? (
+                          <img src={prod.imagenUrl} alt={prod.nombre || ''} className="h-full w-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                        ) : null}
+                      </div>
+                      <div className="px-3 pt-2.5">
+                        <p className="truncate text-sm font-medium text-neutral-900">{prod.nombre || 'Sin nombre'}</p>
+                        <p className="mt-0.5 text-base font-semibold tabular-nums text-neutral-900">${formatearUsd(precio)}</p>
+                        {mostrarBs ? <p className="text-[11px] tabular-nums text-neutral-500">Bs. {formatearUsd(precio * getTasaBCV())}</p> : null}
+                      </div>
+                    </button>
+                    <div className="flex items-center justify-between px-3 pb-3 pt-2">
+                      <span className="truncate text-[11px] text-neutral-500">{isVisible ? 'Visible' : 'Oculto'}</span>
+                      <VisibleSwitch isVisible={isVisible} onClick={() => handleToggleVisible(prod)} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-100 overflow-hidden rounded-3xl border border-neutral-200 bg-white">
+              {productosFiltradosDashboard.map((prod) => {
+                const isVisible = prod.activo !== false
+                const profitPct = Math.round(Number(prod.profit) || 0)
+                const usdtValue = Number(prod.precioUSDT) || 0
+                const precio = calcularPrecioVenta(prod)
+                return (
+                  <div key={prod.id} className={`flex items-center gap-3 px-3.5 py-3 ${isVisible ? '' : 'bg-neutral-50'}`}>
+                    <button
+                      type="button"
+                      onClick={() => handleEditarProducto(prod)}
+                      className={`flex min-w-0 flex-1 items-center gap-3 text-left ${isVisible ? '' : 'opacity-55'}`}
+                      title="Editar producto"
+                    >
+                      <div className="size-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100">
+                        {prod.imagenUrl ? (
+                          <img src={prod.imagenUrl} alt={prod.nombre || ''} className="h-full w-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                        ) : null}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-medium text-neutral-900">{prod.nombre || 'Sin nombre'}</p>
+                        <p className="mt-0.5 truncate text-xs text-neutral-500">
+                          {prod.isFixedPrice ? 'Precio fijo' : `${profitPct}% ganancia`}
+                          {prod.categoria ? ` · ${prod.categoria}` : ''}
+                          {!prod.isFixedPrice ? (
+                            <span className="hidden sm:inline"> · USDT ${formatearUsd(usdtValue)} · BCV real ${calcularPrecioRealBCV(usdtValue).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+                          ) : null}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-base font-semibold tabular-nums text-neutral-900">${formatearUsd(precio)}</p>
+                        {mostrarBs ? <p className="text-[11px] tabular-nums text-neutral-500">Bs. {formatearUsd(precio * getTasaBCV())}</p> : null}
+                      </div>
+                    </button>
+                    <VisibleSwitch isVisible={isVisible} onClick={() => handleToggleVisible(prod)} />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </div>
+
+      {/* Botón flotante para crear (móvil) */}
+      <button
+        type="button"
+        onClick={handleAgregarProducto}
+        className="md:hidden fixed right-4 z-30 flex size-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-xl shadow-neutral-900/25 active:scale-95 transition-transform"
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        aria-label="Nuevo producto"
+        title="Nuevo producto"
+      >
+        <Plus size={24} />
+      </button>
     </div>
     </>
   );
