@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { normalizeTier } from '../lib/planFeatures'
+import { fetchAllRows } from '../lib/supabasePaging'
 
 const parseExpiresAt = (value) => {
   if (!value) return null
@@ -35,56 +36,71 @@ const normalizePlan = (plan) => {
 }
 
 export const suscripcionesRepository = {
+  // Todas las cuentas (superadmin). Une suscripciones, perfiles y catálogo principal,
+  // paginando para no quedar cortado en 1000 filas.
   async listAccounts() {
-    const [tiendasRes, perfilesRes, subsRes] = await Promise.all([
-      supabase
-        .from('tiendas')
-        .select('owner_id,handle,nombre_negocio,created_at')
-        .eq('es_principal', true)
-        .order('created_at', { ascending: false })
-        .limit(50000),
-      supabase
-        .from('perfiles')
-        .select('user_id,email,telefono,created_at')
-        .order('created_at', { ascending: false })
-        .limit(50000),
-      supabase
-        .from('suscripciones')
-        .select('owner_id,plan,tier,activa,expires_at,created_at,updated_at')
-        .limit(50000),
+    const [tiendas, perfiles, subs] = await Promise.all([
+      fetchAllRows((from, to) =>
+        supabase
+          .from('tiendas')
+          .select('owner_id,handle,nombre_negocio,created_at')
+          .eq('es_principal', true)
+          .order('owner_id', { ascending: true })
+          .range(from, to),
+      ),
+      fetchAllRows((from, to) =>
+        supabase
+          .from('perfiles')
+          .select('user_id,email,telefono,created_at')
+          .order('user_id', { ascending: true })
+          .range(from, to),
+      ),
+      fetchAllRows((from, to) =>
+        supabase
+          .from('suscripciones')
+          .select('owner_id,plan,tier,activa,expires_at,created_at,updated_at')
+          .order('owner_id', { ascending: true })
+          .range(from, to),
+      ),
     ])
 
-    if (tiendasRes.error) throw tiendasRes.error
+    const tiendasByOwnerId = new Map(tiendas.map((t) => [t.owner_id, t]))
+    const perfilesByUserId = new Map(perfiles.map((p) => [p.user_id, p]))
+    const subsByOwnerId = new Map(subs.map((s) => [s.owner_id, s]))
 
-    // Perfiles/suscripciones pueden fallar por RLS si no eres superadmin.
-    if (perfilesRes.error) throw perfilesRes.error
-    if (subsRes.error) throw subsRes.error
+    // Cada registro crea una fila en `suscripciones` (trigger de prueba), así que es la
+    // fuente más completa; sumamos perfiles/tiendas por si hay cuentas antiguas sin ella.
+    const ownerIds = new Set([...subsByOwnerId.keys(), ...perfilesByUserId.keys(), ...tiendasByOwnerId.keys()])
 
-    const perfilesByUserId = new Map((perfilesRes.data || []).map((p) => [p.user_id, p]))
-    const subsByOwnerId = new Map((subsRes.data || []).map((s) => [s.owner_id, s]))
+    const earliest = (...values) => {
+      const times = values.map((v) => (v ? new Date(v).getTime() : NaN)).filter(Number.isFinite)
+      return times.length ? new Date(Math.min(...times)).toISOString() : null
+    }
 
-    return (tiendasRes.data || []).map((t) => {
-      const perfil = perfilesByUserId.get(t.owner_id)
-      const sub = subsByOwnerId.get(t.owner_id)
-      const plan = normalizePlan(sub?.plan)
+    const accounts = Array.from(ownerIds).map((ownerId) => {
+      const t = tiendasByOwnerId.get(ownerId)
+      const perfil = perfilesByUserId.get(ownerId)
+      const sub = subsByOwnerId.get(ownerId)
       const activa = Boolean(sub?.activa)
       const expiresAt = sub?.expires_at || null
-      const hasAccess = hasActiveAccess({ activa, expiresAt })
 
       return {
-        ownerId: t.owner_id,
-        handle: t.handle,
-        nombreNegocio: t.nombre_negocio,
+        ownerId,
+        handle: t?.handle || '',
+        nombreNegocio: t?.nombre_negocio || '',
         email: perfil?.email || '',
         telefono: perfil?.telefono || '',
-        joinedAt: t.created_at || perfil?.created_at || null,
-        plan,
+        joinedAt: earliest(sub?.created_at, perfil?.created_at, t?.created_at),
+        plan: normalizePlan(sub?.plan),
         tier: normalizeTier(sub?.tier),
         activa,
         expiresAt,
-        hasAccess,
+        hasAccess: hasActiveAccess({ activa, expiresAt }),
       }
     })
+
+    accounts.sort((a, b) => String(b.joinedAt || '').localeCompare(String(a.joinedAt || '')))
+    return accounts
   },
 
   async getByOwnerId(ownerId) {

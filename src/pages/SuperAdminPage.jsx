@@ -5,11 +5,11 @@ import {
   Copy,
   Download,
   LayoutDashboard,
+  RefreshCw,
   Search,
   Users,
   CreditCard,
   BarChart3,
-  Settings,
   Store,
   MessageCircle,
 } from 'lucide-react'
@@ -20,8 +20,44 @@ import { suscripcionesRepository } from '../data/suscripcionesRepository'
 import { PRICING_PLANS, getPricingPlanById, getPlanLabel } from '../data/pricingPlans'
 import { TIERS } from '../lib/planFeatures'
 import { solicitudesPagoRepository } from '../data/solicitudesPagoRepository'
+import MetricsDashboard from '../components/superadmin/MetricsDashboard'
+import { formatInt, formatUsd } from '../lib/adminMetrics'
 
-const PLANS = ['All', 'free', ...PRICING_PLANS.map((p) => p.id)]
+const DAY = 24 * 60 * 60 * 1000
+const PAGE = 50
+
+const expMs = (a) => {
+  const t = a.expiresAt ? new Date(a.expiresAt).getTime() : NaN
+  return Number.isFinite(t) ? t : null
+}
+
+// Filtros de estado: se calculan sobre `hasAccess` (activa + no vencida), no sobre el interruptor.
+const STATUS_FILTERS = [
+  { key: 'all', label: 'Todas', test: () => true },
+  { key: 'active', label: 'Activas', test: (a) => a.hasAccess },
+  { key: 'paying', label: 'De pago', test: (a) => a.hasAccess && Boolean(getPricingPlanById(a.plan)) },
+  { key: 'trial', label: 'En prueba', test: (a) => a.hasAccess && a.plan === 'trial' },
+  {
+    key: 'expiring',
+    label: 'Vencen en 7 días',
+    test: (a, now) => {
+      const t = expMs(a)
+      return a.hasAccess && t !== null && t > now && t - now <= 7 * DAY
+    },
+  },
+  { key: 'inactive', label: 'Sin acceso', test: (a) => !a.hasAccess },
+]
+
+// Filtros de plan: la duración agrupa Estándar y Pro; "Cattaly Pro" filtra por nivel.
+const PLAN_FILTERS = [
+  { key: 'all', label: 'Todos los planes', test: () => true },
+  { key: 'trial', label: 'Prueba', test: (a) => a.plan === 'trial' },
+  { key: 'monthly', label: '1 mes', test: (a) => a.plan === 'monthly' || a.plan === 'premium_monthly' },
+  { key: 'biannual', label: '6 meses', test: (a) => a.plan === 'biannual' || a.plan === 'premium_biannual' },
+  { key: 'annual', label: 'Anual', test: (a) => a.plan === 'annual' || a.plan === 'premium_annual' },
+  { key: 'pro', label: 'Cattaly Pro', test: (a) => a.tier === TIERS.PREMIUM },
+  { key: 'free', label: 'Free', test: (a) => a.plan === 'free' },
+]
 
 const formatDateTime = (value) => {
   if (!value) return ''
@@ -89,18 +125,20 @@ const downloadCsv = (rows) => {
   URL.revokeObjectURL(url)
 }
 
-function PlanChip({ label, active, onClick }) {
+function FilterChip({ label, count, active, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={
-        active
-          ? 'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary text-white px-4 text-sm font-semibold'
-          : 'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white border border-slate-200 px-4 text-sm font-medium text-slate-700'
+        'flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors ' +
+        (active ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 border border-neutral-200 hover:border-neutral-400')
       }
     >
       {label}
+      {typeof count === 'number' ? (
+        <span className={active ? 'text-neutral-400' : 'text-neutral-400'}>{formatInt(count)}</span>
+      ) : null}
     </button>
   )
 }
@@ -115,7 +153,7 @@ function Toggle({ checked, onChange, disabled }) {
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
-      <div className="relative w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500" />
+      <div className="relative w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:tranneutral-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-900" />
     </label>
   )
 }
@@ -138,7 +176,11 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [accounts, setAccounts] = useState([])
-  const [totalEarnings, setTotalEarnings] = useState(0)
+  const [approvedPayments, setApprovedPayments] = useState([])
+  const totalEarnings = useMemo(
+    () => approvedPayments.reduce((acc, p) => acc + (Number(p.plan_price_usd) || 0), 0),
+    [approvedPayments],
+  )
 
   const [tab, setTab] = useState('usuarios')
 
@@ -156,9 +198,11 @@ export default function SuperAdminPage() {
   const [detailsSaving, setDetailsSaving] = useState(false)
 
   const [search, setSearch] = useState('')
-  const [planFilter, setPlanFilter] = useState('All')
+  const [planFilter, setPlanFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-  // statusFilter values: 'all' | 'expired' | 'expiring' | 'trial'
+  const [sortBy, setSortBy] = useState('recent') // recent | expiring
+  // Cuántas cuentas se muestran; se reinicia a PAGE cuando cambian los filtros.
+  const [visible, setVisible] = useState({ sig: '', count: PAGE })
 
   useEffect(() => {
     let mounted = true
@@ -201,12 +245,12 @@ export default function SuperAdminPage() {
     setError('')
     setLoading(true)
     try {
-      const [rows, earnings] = await Promise.all([
+      const [rows, payments] = await Promise.all([
         suscripcionesRepository.listAccounts(),
-        solicitudesPagoRepository.getTotalEarnings()
+        solicitudesPagoRepository.listApprovedPayments(),
       ])
       setAccounts(rows)
-      setTotalEarnings(earnings)
+      setApprovedPayments(payments)
     } catch (e) {
       setError(e?.message || 'No se pudieron cargar los datos.')
     } finally {
@@ -240,45 +284,43 @@ export default function SuperAdminPage() {
     reloadPayments()
   }, [session, isSuperadmin, tab])
 
-  const filtered = useMemo(() => {
+  const statusDef = STATUS_FILTERS.find((f) => f.key === statusFilter) || STATUS_FILTERS[0]
+  const planDef = PLAN_FILTERS.find((f) => f.key === planFilter) || PLAN_FILTERS[0]
+
+  const searched = useMemo(() => {
     const q = String(search || '').trim().toLowerCase()
+    if (!q) return accounts
+    return accounts.filter((a) => `${a.nombreNegocio || ''} ${a.email || ''} ${a.handle || ''}`.toLowerCase().includes(q))
+  }, [accounts, search])
+
+  // Conteos por chip (respetan la búsqueda y el otro grupo de filtros).
+  const counts = useMemo(() => {
     const now = Date.now()
+    const status = {}
+    const plan = {}
+    for (const f of STATUS_FILTERS) status[f.key] = searched.filter((a) => planDef.test(a, now) && f.test(a, now)).length
+    for (const f of PLAN_FILTERS) plan[f.key] = searched.filter((a) => statusDef.test(a, now) && f.test(a, now)).length
+    return { status, plan }
+  }, [searched, statusDef, planDef])
 
-    return accounts.filter((a) => {
-      // Plan filter
-      if (planFilter !== 'All' && a.plan !== planFilter) return false
+  const filtered = useMemo(() => {
+    const now = Date.now()
+    const list = searched.filter((a) => statusDef.test(a, now) && planDef.test(a, now))
+    if (sortBy === 'expiring') {
+      return [...list].sort((a, b) => (expMs(a) ?? Infinity) - (expMs(b) ?? Infinity))
+    }
+    return list
+  }, [searched, statusDef, planDef, sortBy])
 
-      // Status filter
-      if (statusFilter !== 'all') {
-        const exp = a.expiresAt ? new Date(a.expiresAt) : null
-        const expMs = exp && Number.isFinite(exp.getTime()) ? exp.getTime() : null
-
-        if (statusFilter === 'expired') {
-          // Vencidas: tiene fecha de expiración y ya pasó
-          if (!expMs || expMs > now) return false
-        } else if (statusFilter === 'expiring') {
-          // Por vencer: activa y le quedan 7 días o menos
-          const sevenDays = 7 * 24 * 60 * 60 * 1000
-          if (!a.hasAccess || !expMs || expMs <= now || expMs - now > sevenDays) return false
-        } else if (statusFilter === 'trial') {
-          // Trial / Free: plan free o sin acceso y sin fecha de expiración (nunca pagaron)
-          if (a.plan !== 'free') return false
-        }
-      }
-
-      // Text search
-      if (!q) return true
-      const hay = `${a.nombreNegocio || ''} ${a.email || ''}`.toLowerCase()
-      return hay.includes(q)
-    })
-  }, [accounts, planFilter, statusFilter, search])
+  const filterSig = `${search}|${statusFilter}|${planFilter}|${sortBy}`
+  const visibleCount = visible.sig === filterSig ? visible.count : PAGE
+  const shown = filtered.slice(0, visibleCount)
 
   const stats = useMemo(() => {
     const total = accounts.length
     const active = accounts.filter((a) => a.hasAccess).length
-    const expired = total - active
-
-    return { total, active, expired }
+    const paying = accounts.filter((a) => a.hasAccess && getPricingPlanById(a.plan)).length
+    return { total, active, inactive: total - active, paying }
   }, [accounts])
 
   const isExpiredAt = (value) => {
@@ -417,7 +459,7 @@ export default function SuperAdminPage() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-background-light flex items-center justify-center p-6 text-slate-600">
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 text-neutral-600">
         Cargando…
       </div>
     )
@@ -430,7 +472,7 @@ export default function SuperAdminPage() {
   // Mientras validamos el rol, mostramos skeleton simple.
   if (isSuperadmin === null) {
     return (
-      <div className="min-h-screen bg-background-light flex items-center justify-center p-6 text-slate-600">
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 text-neutral-600">
         Verificando acceso…
       </div>
     )
@@ -438,22 +480,22 @@ export default function SuperAdminPage() {
 
   if (isSuperadmin === false) {
     return (
-      <div className="min-h-screen bg-background-light flex items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
-          <div className="text-base font-semibold text-slate-900">Acceso restringido</div>
-          <div className="mt-2 text-sm text-slate-600">
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl bg-white border border-neutral-200 shadow-sm p-5">
+          <div className="text-base font-semibold text-neutral-900">Acceso restringido</div>
+          <div className="mt-2 text-sm text-neutral-600">
             Tu cuenta no tiene permisos de superadmin.
           </div>
 
-          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-xs text-slate-500">Sesión actual</div>
-            <div className="mt-1 text-xs text-slate-700 break-all">
+          <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="text-xs text-neutral-500">Sesión actual</div>
+            <div className="mt-1 text-xs text-neutral-700 break-all">
               <span className="font-semibold">user_id:</span> {session?.user?.id || '—'}
             </div>
-            <div className="mt-1 text-xs text-slate-700 break-all">
+            <div className="mt-1 text-xs text-neutral-700 break-all">
               <span className="font-semibold">email:</span> {session?.user?.email || '—'}
             </div>
-            <div className="mt-1 text-xs text-slate-700 break-all">
+            <div className="mt-1 text-xs text-neutral-700 break-all">
               <span className="font-semibold">supabase:</span> {supabaseProjectHost}
             </div>
           </div>
@@ -462,9 +504,9 @@ export default function SuperAdminPage() {
             <div className="mt-3 text-sm text-rose-600">{roleError}</div>
           ) : null}
 
-          <div className="mt-4 text-sm text-slate-700">
+          <div className="mt-4 text-sm text-neutral-700">
             Verifica en Supabase:
-            <ul className="list-disc ml-5 mt-2 space-y-1 text-slate-600">
+            <ul className="list-disc ml-5 mt-2 space-y-1 text-neutral-600">
               <li>Que ejecutaste el SQL que crea <span className="font-mono">app_admins</span> y sus policies.</li>
               <li>Que exista tu fila en <span className="font-mono">public.app_admins</span> con role <span className="font-mono">superadmin</span>.</li>
               <li>Que estás logueado con el usuario correcto (Auth Users id).</li>
@@ -474,14 +516,14 @@ export default function SuperAdminPage() {
           <div className="mt-5 flex gap-2">
             <Link
               to="/admin"
-              className="inline-flex items-center justify-center rounded-xl bg-primary text-white px-4 h-10 text-sm font-semibold"
+              className="inline-flex items-center justify-center rounded-xl bg-neutral-900 text-white px-4 h-10 text-sm font-semibold"
             >
               Ir al admin
             </Link>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 px-4 h-10 text-sm font-semibold"
+              className="inline-flex items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 px-4 h-10 text-sm font-semibold"
             >
               Reintentar
             </button>
@@ -492,251 +534,230 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <div className="bg-background-light text-[#0e141b] min-h-screen">
-      <div className="relative flex min-h-screen w-full flex-col bg-background-light max-w-[480px] mx-auto overflow-x-hidden border-x border-slate-200">
-        {/* TopAppBar */}
-        <div className="sticky top-0 z-20 bg-background-light/80 backdrop-blur-md">
-          <div className="flex items-center p-4 pb-2 justify-between">
-            <div className="text-primary flex size-10 shrink-0 items-center justify-center bg-primary/10 rounded-lg">
+    <div className="bg-neutral-50 text-neutral-900 min-h-screen">
+      <div className="relative flex min-h-screen w-full flex-col bg-neutral-50 max-w-[480px] mx-auto overflow-x-hidden border-x border-neutral-200">
+        {/* Barra superior */}
+        <div className="sticky top-0 z-20 bg-neutral-50/85 backdrop-blur-md border-b border-neutral-200">
+          <div className="flex items-center p-4 justify-between">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white">
               <LayoutDashboard size={18} />
             </div>
-            <h2 className="text-[#0e141b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 ml-3">
-              {tab === 'cobros' ? 'Cobros' : 'Suscripciones'}
-            </h2>
-            <div className="flex w-10 items-center justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  if (tab === 'usuarios') downloadCsv(filtered)
-                  if (tab === 'cobros') reloadPayments()
-                }}
-                className="flex items-center justify-center rounded-lg h-10 w-10 bg-white border border-slate-200 text-[#0e141b]"
-                title={tab === 'usuarios' ? 'Descargar CSV' : 'Recargar'}
-                aria-label={tab === 'usuarios' ? 'Descargar CSV' : 'Recargar'}
-              >
-                {tab === 'usuarios' ? <Download size={18} /> : <LayoutDashboard size={18} />}
-              </button>
+            <div className="flex-1 ml-3">
+              <h2 className="text-base font-semibold leading-tight tracking-tight">
+                {tab === 'cobros' ? 'Cobros' : tab === 'metricas' ? 'Métricas' : 'Suscripciones'}
+              </h2>
+              <p className="text-[11px] text-neutral-500">Cattaly · Superadmin</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (tab === 'usuarios') downloadCsv(filtered)
+                if (tab === 'cobros') reloadPayments()
+                if (tab === 'metricas') reload()
+              }}
+              className="flex items-center justify-center rounded-xl h-10 w-10 bg-white border border-neutral-200 text-neutral-900 hover:bg-neutral-100"
+              title={tab === 'usuarios' ? 'Descargar CSV (con filtros)' : 'Recargar'}
+              aria-label={tab === 'usuarios' ? 'Descargar CSV' : 'Recargar'}
+            >
+              {tab === 'usuarios' ? <Download size={18} /> : <RefreshCw size={18} className={loading || paymentsLoading ? 'animate-spin' : ''} />}
+            </button>
           </div>
         </div>
 
-        {tab === 'usuarios' ? (
+        {tab === 'metricas' ? (
+          <MetricsDashboard accounts={accounts} payments={approvedPayments} loading={loading} error={error} onReload={reload} />
+        ) : tab === 'usuarios' ? (
           <>
-            {/* Stats */}
-            <div className="flex flex-wrap gap-3 p-4">
-              <div className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl p-4 bg-white shadow-sm border border-slate-100">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Total usuarios</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-[#0e141b] tracking-tight text-xl font-bold leading-tight">{stats.total}</p>
-                </div>
-              </div>
-              <div className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl p-4 bg-white shadow-sm border border-slate-100">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Activas</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-[#0e141b] tracking-tight text-xl font-bold leading-tight">{stats.active}</p>
-                </div>
-              </div>
-              <div className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl p-4 bg-white shadow-sm border border-slate-100">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Inactivas</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-[#0e141b] tracking-tight text-xl font-bold leading-tight">{stats.expired}</p>
-                </div>
-              </div>
-              <div className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl p-4 bg-white shadow-sm border border-slate-100">
-                <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Ganancias totales</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-[#0e141b] tracking-tight text-xl font-bold leading-tight">${totalEarnings.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Search */}
-            <div className="px-4 py-2">
-              <label className="flex flex-col min-w-40 h-12 w-full">
-                <div className="flex w-full flex-1 items-stretch rounded-xl h-full shadow-sm">
-                  <div className="text-slate-400 flex border-none bg-white items-center justify-center pl-4 rounded-l-xl">
-                    <Search size={18} />
-                  </div>
-                  <input
-                    className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-xl text-[#0e141b] focus:outline-0 focus:ring-0 border-none bg-white focus:border-none h-full placeholder:text-slate-400 px-4 pl-2 text-base font-normal leading-normal"
-                    placeholder="Buscar negocio o email"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </label>
-            </div>
-
-            {/* Chips de plan */}
-            <div className="flex gap-2 px-4 pb-1 overflow-x-auto no-scrollbar">
-              {PLANS.map((p) => (
-                <PlanChip
-                  key={p}
-                  label={p === 'All' ? 'Todos' : getPlanLabel(p)}
-                  active={planFilter === p}
-                  onClick={() => setPlanFilter(p)}
-                />
-              ))}
-            </div>
-
-            {/* Chips de estado */}
-            <div className="flex gap-2 px-4 pb-3 overflow-x-auto no-scrollbar">
+            {/* Resumen */}
+            <div className="grid grid-cols-2 gap-3 p-4">
               {[
-                { key: 'all', label: 'Cualquier estado' },
-                { key: 'expired',  label: '⛔ Vencidas' },
-                { key: 'expiring', label: '⚠️ Por vencer' },
-                { key: 'trial',    label: '🆓 Free / Trial' },
-              ].map(({ key, label }) => (
+                { label: 'Cuentas', value: formatInt(stats.total), onClick: () => setStatusFilter('all') },
+                { label: 'Activas', value: formatInt(stats.active), onClick: () => setStatusFilter('active') },
+                { label: 'De pago activas', value: formatInt(stats.paying), onClick: () => setStatusFilter('paying') },
+                { label: 'Ganancias reales', value: formatUsd(totalEarnings), onClick: () => setTab('metricas') },
+              ].map((t) => (
                 <button
-                  key={key}
+                  key={t.label}
                   type="button"
-                  onClick={() => setStatusFilter(key)}
-                  className={
-                    statusFilter === key
-                      ? 'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full px-4 text-sm font-semibold ' +
-                        (key === 'expired' ? 'bg-rose-600 text-white' :
-                         key === 'expiring' ? 'bg-orange-500 text-white' :
-                         key === 'trial' ? 'bg-slate-600 text-white' :
-                         'bg-primary text-white')
-                      : 'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white border border-slate-200 px-4 text-sm font-medium text-slate-700'
-                  }
+                  onClick={t.onClick}
+                  className="flex flex-col gap-1 rounded-2xl border border-neutral-200 bg-white p-4 text-left hover:border-neutral-400 transition-colors"
                 >
-                  {label}
+                  <span className="text-xs text-neutral-500">{t.label}</span>
+                  <span className="text-xl font-semibold tracking-tight">{loading && !accounts.length ? '…' : t.value}</span>
                 </button>
               ))}
             </div>
 
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pt-2">
-              <h3 className="text-[#0e141b] text-lg font-bold leading-tight tracking-[-0.015em]">Cuentas</h3>
-              <span className="text-xs font-semibold text-slate-500">{filtered.length} TOTAL</span>
+            {/* Búsqueda */}
+            <div className="px-4 pb-3">
+              <label className="flex h-11 w-full items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 focus-within:border-neutral-900">
+                <Search size={16} className="text-neutral-400" />
+                <input
+                  className="h-full w-full bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+                  placeholder="Buscar negocio, email o link"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </label>
             </div>
 
-            {error ? <div className="px-4 pt-3 text-sm text-rose-600">{error}</div> : null}
+            {/* Filtros: estado */}
+            <div className="flex gap-2 px-4 pb-2 overflow-x-auto no-scrollbar">
+              {STATUS_FILTERS.map((f) => (
+                <FilterChip key={f.key} label={f.label} count={counts.status[f.key]} active={statusFilter === f.key} onClick={() => setStatusFilter(f.key)} />
+              ))}
+            </div>
+            {/* Filtros: plan */}
+            <div className="flex gap-2 px-4 pb-3 overflow-x-auto no-scrollbar">
+              {PLAN_FILTERS.map((f) => (
+                <FilterChip key={f.key} label={f.label} count={counts.plan[f.key]} active={planFilter === f.key} onClick={() => setPlanFilter(f.key)} />
+              ))}
+            </div>
 
-            {/* List */}
-            <div className="flex flex-col gap-3 p-4 pb-24">
-              {loading ? (
-                <div className="text-slate-600 text-sm">Cargando cuentas…</div>
+            <div className="flex items-center justify-between px-4 pt-1">
+              <h3 className="text-sm font-semibold">
+                {formatInt(filtered.length)} cuenta{filtered.length === 1 ? '' : 's'}
+              </h3>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-xs font-medium text-neutral-700"
+                aria-label="Ordenar"
+              >
+                <option value="recent">Más recientes</option>
+                <option value="expiring">Vencen primero</option>
+              </select>
+            </div>
+
+            {error ? <div className="px-4 pt-3 text-sm text-rose-700">{error}</div> : null}
+
+            {/* Lista */}
+            <div className="flex flex-col gap-2.5 p-4 pb-28">
+              {loading && !accounts.length ? (
+                <div className="text-neutral-500 text-sm">Cargando cuentas…</div>
               ) : filtered.length === 0 ? (
-                <div className="text-slate-600 text-sm">No hay resultados.</div>
+                <div className="text-neutral-500 text-sm">No hay resultados.</div>
               ) : (
-                filtered.map((u) => (
-                  <div
-                    key={u.ownerId}
-                    className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 ${u.hasAccess ? '' : 'opacity-80'}`}
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-base text-[#0e141b]">{u.nombreNegocio || 'Sin nombre'}</span>
-                        <span className="text-sm text-slate-500">{u.email || '—'}</span>
-                      </div>
+                <>
+                  {shown.map((u) => {
+                    const exp = expMs(u)
+                    const daysLeft = exp ? Math.ceil((exp - Date.now()) / DAY) : null
+                    return (
+                      <div key={u.ownerId} className="rounded-2xl border border-neutral-200 bg-white p-4">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-[15px]">{u.nombreNegocio || 'Sin nombre'}</div>
+                            <div className="truncate text-xs text-neutral-500">{u.email || '—'}</div>
+                          </div>
+                          <Toggle checked={u.activa} disabled={loading} onChange={(next) => handleToggle(u.ownerId, next)} />
+                        </div>
 
-                      <Toggle checked={u.activa} disabled={loading} onChange={(next) => handleToggle(u.ownerId, next)} />
-                    </div>
+                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-neutral-100 pt-3">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-700">
+                              <span className={`h-1.5 w-1.5 rounded-full ${u.hasAccess ? 'bg-emerald-600' : 'bg-rose-600'}`} />
+                              {getPlanLabel(u.plan)}
+                              {u.hasAccess ? '' : u.activa && isExpiredAt(u.expiresAt) ? ' · vencida' : ' · sin acceso'}
+                            </span>
+                            {u.tier === TIERS.PREMIUM ? (
+                              <span className="rounded-md bg-neutral-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Pro</span>
+                            ) : null}
+                            <span className="text-[11px] text-neutral-400">
+                              {u.hasAccess && daysLeft !== null
+                                ? `${daysLeft <= 0 ? 'vence hoy' : `${daysLeft} d restantes`}`
+                                : u.joinedAt
+                                  ? `Desde ${formatJoined(u.joinedAt)}`
+                                  : ''}
+                            </span>
+                          </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                      <div className="flex gap-2 items-center">
-                        <span
-                          className={
-                            String(u.plan || '').startsWith('premium_')
-                              ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700'
-                              : u.plan === 'annual'
-                              ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-primary/10 text-primary'
-                              : u.plan === 'biannual'
-                                ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600'
-                                : u.plan === 'monthly'
-                                  ? 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700'
-                                  : 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-600'
-                          }
-                        >
-                          {getPlanLabel(u.plan)}
-                          {u.hasAccess ? '' : u.activa && isExpiredAt(u.expiresAt) ? ' (expirada)' : ' (sin acceso)'}
-                        </span>
-                        {u.tier === TIERS.PREMIUM ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Pro</span>
-                        ) : null}
-                        <span className="text-[11px] text-slate-400">{u.joinedAt ? `Desde ${formatJoined(u.joinedAt)}` : ''}</span>
-                      </div>
-
-                      <div className="flex gap-3 items-center">
-                        {u.telefono ? (
-                          <a
-                            href={`https://wa.me/${String(u.telefono).replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-emerald-500 hover:text-emerald-600 transition-colors flex items-center justify-center"
-                            title={`WhatsApp: ${u.telefono}`}
-                          >
-                            <MessageCircle size={16} />
-                          </a>
-                        ) : null}
-                        {u.handle ? (
-                            <Link
+                          <div className="flex shrink-0 gap-3 items-center">
+                            {u.telefono ? (
+                              <a
+                                href={`https://wa.me/${String(u.telefono).replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-neutral-400 hover:text-neutral-900 transition-colors"
+                                title={`WhatsApp: ${u.telefono}`}
+                              >
+                                <MessageCircle size={16} />
+                              </a>
+                            ) : null}
+                            {u.handle ? (
+                              <Link
                                 to={`/${u.handle}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-slate-400 hover:text-primary transition-colors flex items-center justify-center"
+                                className="text-neutral-400 hover:text-neutral-900 transition-colors"
                                 title={`Ver catálogo: /${u.handle}`}
-                            >
-                              <Store size={16} />
-                            </Link>
-                        ) : null}
-                        <button type="button" onClick={() => openDetails(u)} className="text-primary text-sm font-bold flex items-center gap-1">
-                          Detalles
-                          <ArrowRight size={14} />
-                        </button>
+                              >
+                                <Store size={16} />
+                              </Link>
+                            ) : null}
+                            <button type="button" onClick={() => openDetails(u)} className="text-neutral-900 text-xs font-semibold flex items-center gap-1">
+                              Detalles
+                              <ArrowRight size={13} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))
+                    )
+                  })}
+                  {filtered.length > shown.length ? (
+                    <button
+                      type="button"
+                      onClick={() => setVisible({ sig: filterSig, count: visibleCount + PAGE })}
+                      className="h-11 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                    >
+                      Mostrar más ({formatInt(filtered.length - shown.length)} restantes)
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           </>
         ) : (
           <>
-            {paymentsError ? <div className="px-4 pt-3 text-sm text-rose-600">{paymentsError}</div> : null}
+            {paymentsError ? <div className="px-4 pt-3 text-sm text-rose-700">{paymentsError}</div> : null}
 
             <div className="flex items-center justify-between px-4 pt-4">
-              <h3 className="text-[#0e141b] text-lg font-bold leading-tight tracking-[-0.015em]">Solicitudes pendientes</h3>
-              <span className="text-xs font-semibold text-slate-500">{payments.length} TOTAL</span>
+              <h3 className="text-sm font-semibold">Solicitudes pendientes</h3>
+              <span className="text-xs font-medium text-neutral-500">{formatInt(payments.length)} en total</span>
             </div>
 
-            <div className="flex flex-col gap-3 p-4 pb-24">
+            <div className="flex flex-col gap-2.5 p-4 pb-28">
               {paymentsLoading ? (
-                <div className="text-slate-600 text-sm">Cargando cobros…</div>
+                <div className="text-neutral-500 text-sm">Cargando cobros…</div>
               ) : payments.length === 0 ? (
-                <div className="text-slate-600 text-sm">No hay solicitudes pendientes.</div>
+                <div className="text-neutral-500 text-sm">No hay solicitudes pendientes.</div>
               ) : (
                 payments.map((p) => (
-                  <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                  <div key={p.id} className="rounded-2xl border border-neutral-200 bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 truncate">
-                          {p.nombreNegocio || 'Sin negocio'}
-                        </div>
-                        <div className="mt-0.5 text-xs text-slate-500 truncate">{p.email || '—'}</div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                        <div className="text-sm font-semibold truncate">{p.nombreNegocio || 'Sin negocio'}</div>
+                        <div className="mt-0.5 text-xs text-neutral-500 truncate">{p.email || '—'}</div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-neutral-700">
                             {getPlanLabel(p.plan_id)}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                          <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-neutral-700">
                             {p.metodo === 'ves' ? 'Bolívares' : 'Binance'}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                          <span className="rounded-md bg-neutral-900 px-2 py-0.5 text-[10px] font-semibold uppercase text-white">
                             {p.plan_price_usd ? `$${p.plan_price_usd}` : '—'}
                           </span>
                         </div>
                       </div>
 
-                      <button type="button" onClick={() => openPaymentDetails(p)} className="text-primary text-sm font-bold flex items-center gap-1 shrink-0">
+                      <button type="button" onClick={() => openPaymentDetails(p)} className="text-neutral-900 text-xs font-semibold flex items-center gap-1 shrink-0">
                         Revisar
-                        <ArrowRight size={14} />
+                        <ArrowRight size={13} />
                       </button>
                     </div>
 
-                    <div className="mt-3 border-t border-slate-50 pt-3 flex items-center justify-between text-xs text-slate-500">
-                      <span>Ref: <span className="font-mono text-slate-700">{p.referencia || '—'}</span></span>
+                    <div className="mt-3 border-t border-neutral-100 pt-3 flex items-center justify-between text-xs text-neutral-500">
+                      <span>Ref: <span className="font-mono text-neutral-700">{p.referencia || '—'}</span></span>
                       <span>{formatDateTime(p.created_at)}</span>
                     </div>
                   </div>
@@ -746,55 +767,42 @@ export default function SuperAdminPage() {
           </>
         )}
 
-        {/* Bottom Nav (solo visual) */}
-        <div className="fixed bottom-0 w-full max-w-[480px] bg-white/90 backdrop-blur-lg border-t border-slate-200 flex justify-around items-center h-20 pb-4 px-2">
-          <button
-            type="button"
-            onClick={() => setTab('usuarios')}
-            className={tab === 'usuarios' ? 'flex flex-col items-center gap-1 text-primary' : 'flex flex-col items-center gap-1 text-slate-400'}
-          >
-            <Users size={18} />
-            <span className="text-[10px] font-bold">Usuarios</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('cobros')}
-            className={tab === 'cobros' ? 'flex flex-col items-center gap-1 text-primary' : 'flex flex-col items-center gap-1 text-slate-400'}
-          >
-            <CreditCard size={18} />
-            <span className="text-[10px] font-medium">Cobros</span>
-          </button>
-          <div className="flex flex-col items-center gap-1 text-slate-400">
-            <BarChart3 size={18} />
-            <span className="text-[10px] font-medium">Analítica</span>
-          </div>
-          <div className="flex flex-col items-center gap-1 text-slate-400">
-            <Settings size={18} />
-            <span className="text-[10px] font-medium">Ajustes</span>
-          </div>
-        </div>
-
-        <div className="sr-only">
-          <button type="button" onClick={reload}>Recargar</button>
+        {/* Navegación inferior */}
+        <div className="fixed bottom-0 w-full max-w-[480px] bg-white/95 backdrop-blur-lg border-t border-neutral-200 grid grid-cols-3 h-20 pb-4 px-2">
+          {[
+            { key: 'usuarios', label: 'Usuarios', icon: <Users size={18} /> },
+            { key: 'cobros', label: 'Cobros', icon: <CreditCard size={18} /> },
+            { key: 'metricas', label: 'Métricas', icon: <BarChart3 size={18} /> },
+          ].map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`flex flex-col items-center justify-center gap-1 ${tab === t.key ? 'text-neutral-900' : 'text-neutral-400 hover:text-neutral-600'}`}
+            >
+              {t.icon}
+              <span className={`text-[10px] ${tab === t.key ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
       {detailsOpen && detailsAccount ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
-          <div className="w-full max-w-[480px] rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="w-full max-w-[480px] rounded-2xl bg-white shadow-xl border border-neutral-200 overflow-hidden">
+            <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-900">{detailsAccount.nombreNegocio || 'Sin nombre'}</div>
-                <div className="text-xs text-slate-500">{detailsAccount.email || '—'}</div>
+                <div className="text-sm font-semibold text-neutral-900">{detailsAccount.nombreNegocio || 'Sin nombre'}</div>
+                <div className="text-xs text-neutral-500">{detailsAccount.email || '—'}</div>
               </div>
-              <button type="button" onClick={closeDetails} className="text-slate-500 hover:text-slate-700">
+              <button type="button" onClick={closeDetails} className="text-neutral-500 hover:text-neutral-700">
                 Cerrar
               </button>
             </div>
 
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-700">Suscripción activa</div>
+                <div className="text-sm text-neutral-700">Suscripción activa</div>
                 <Toggle
                   checked={detailsAccount.activa}
                   disabled={detailsSaving}
@@ -816,9 +824,9 @@ export default function SuperAdminPage() {
               </div>
 
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm text-slate-700">Plan</div>
+                <div className="text-sm text-neutral-700">Plan</div>
                 <select
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
                   value={detailsAccount.plan}
                   disabled={detailsSaving}
                   onChange={async (e) => {
@@ -838,6 +846,7 @@ export default function SuperAdminPage() {
                   }}
                 >
                   <option value="free">Free</option>
+                  <option value="trial">Prueba</option>
                   {PRICING_PLANS.map((p) => (
                     <option key={p.id} value={p.id}>{getPlanLabel(p.id)}</option>
                   ))}
@@ -845,13 +854,13 @@ export default function SuperAdminPage() {
               </div>
 
               <div className="space-y-2">
-                <div className="text-xs text-slate-500">Owner ID</div>
+                <div className="text-xs text-neutral-500">Owner ID</div>
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-mono text-slate-700 break-all">{detailsAccount.ownerId}</div>
+                  <div className="text-xs font-mono text-neutral-700 break-all">{detailsAccount.ownerId}</div>
                   <button
                     type="button"
                     onClick={() => copyText(detailsAccount.ownerId)}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-700"
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-neutral-200 bg-white text-neutral-700"
                     title="Copiar"
                     aria-label="Copiar"
                   >
@@ -866,60 +875,60 @@ export default function SuperAdminPage() {
 
       {paymentDetailsOpen && paymentDetails ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
-          <div className="w-full max-w-[480px] rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="w-full max-w-[480px] rounded-2xl bg-white shadow-xl border border-neutral-200 overflow-hidden">
+            <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-900">{paymentDetails.nombreNegocio || 'Solicitud'}</div>
-                <div className="text-xs text-slate-500">{paymentDetails.email || '—'}</div>
+                <div className="text-sm font-semibold text-neutral-900">{paymentDetails.nombreNegocio || 'Solicitud'}</div>
+                <div className="text-xs text-neutral-500">{paymentDetails.email || '—'}</div>
               </div>
-              <button type="button" onClick={closePaymentDetails} className="text-slate-500 hover:text-slate-700">
+              <button type="button" onClick={closePaymentDetails} className="text-neutral-500 hover:text-neutral-700">
                 Cerrar
               </button>
             </div>
 
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] text-slate-500">Plan</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">{getPlanLabel(paymentDetails.plan_id)}</div>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <div className="text-[11px] text-neutral-500">Plan</div>
+                  <div className="mt-1 text-sm font-semibold text-neutral-900">{getPlanLabel(paymentDetails.plan_id)}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] text-slate-500">Método</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">{paymentDetails.metodo === 'ves' ? 'Bolívares' : 'Binance'}</div>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <div className="text-[11px] text-neutral-500">Método</div>
+                  <div className="mt-1 text-sm font-semibold text-neutral-900">{paymentDetails.metodo === 'ves' ? 'Bolívares' : 'Binance'}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] text-slate-500">Referencia</div>
-                  <div className="mt-1 text-sm font-mono text-slate-900 break-all">{paymentDetails.referencia || '—'}</div>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <div className="text-[11px] text-neutral-500">Referencia</div>
+                  <div className="mt-1 text-sm font-mono text-neutral-900 break-all">{paymentDetails.referencia || '—'}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-[11px] text-slate-500">Fecha pago</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">{paymentDetails.fecha_pago || '—'}</div>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <div className="text-[11px] text-neutral-500">Fecha pago</div>
+                  <div className="mt-1 text-sm font-semibold text-neutral-900">{paymentDetails.fecha_pago || '—'}</div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="text-[11px] text-slate-500">Comprobante</div>
+              <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                <div className="text-[11px] text-neutral-500">Comprobante</div>
                 {paymentProofUrl ? (
                   <a
                     href={paymentProofUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-flex items-center justify-center rounded-xl bg-primary text-white px-4 h-10 text-sm font-semibold"
+                    className="mt-2 inline-flex items-center justify-center rounded-xl bg-neutral-900 text-white px-4 h-10 text-sm font-semibold"
                   >
                     Abrir comprobante
                   </a>
                 ) : (
-                  <div className="mt-2 text-sm text-slate-600">No se pudo generar el link del comprobante.</div>
+                  <div className="mt-2 text-sm text-neutral-600">No se pudo generar el link del comprobante.</div>
                 )}
               </div>
 
               <div>
-                <div className="text-[11px] text-slate-500 mb-2">Nota (opcional)</div>
+                <div className="text-[11px] text-neutral-500 mb-2">Nota (opcional)</div>
                 <textarea
                   value={paymentNote}
                   onChange={(e) => setPaymentNote(e.target.value)}
                   rows={3}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm"
+                  className="w-full rounded-xl border border-neutral-200 bg-white p-3 text-sm"
                   placeholder="Ej: Pago confirmado por Binance / Falta referencia / etc."
                 />
               </div>
@@ -929,7 +938,7 @@ export default function SuperAdminPage() {
                   type="button"
                   onClick={rejectPayment}
                   disabled={paymentActionLoading}
-                  className="inline-flex flex-1 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 h-11 text-sm font-semibold disabled:opacity-60"
+                  className="inline-flex flex-1 items-center justify-center rounded-xl border border-neutral-300 bg-white text-neutral-800 px-4 h-11 text-sm font-semibold disabled:opacity-60"
                 >
                   Rechazar
                 </button>
@@ -937,7 +946,7 @@ export default function SuperAdminPage() {
                   type="button"
                   onClick={approvePayment}
                   disabled={paymentActionLoading}
-                  className="inline-flex flex-1 items-center justify-center rounded-xl bg-primary text-white px-4 h-11 text-sm font-semibold disabled:opacity-60"
+                  className="inline-flex flex-1 items-center justify-center rounded-xl bg-neutral-900 text-white px-4 h-11 text-sm font-semibold disabled:opacity-60"
                 >
                   Aprobar y activar
                 </button>

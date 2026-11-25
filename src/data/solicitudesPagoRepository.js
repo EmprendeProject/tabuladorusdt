@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { chunk, fetchAllRows } from '../lib/supabasePaging'
 
 const BUCKET = 'payment-proofs'
 
@@ -160,34 +161,33 @@ export const solicitudesPagoRepository = {
   async listSolicitudes({ status } = {}) {
     const statusNorm = safeTrim(status)
 
-    let query = supabase
-      .from('solicitudes_pago')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50000)
-
-    if (statusNorm) {
-      query = query.eq('status', statusNorm)
-    }
-
-    const solicitudesRes = await query
-
-    if (solicitudesRes.error) throw solicitudesRes.error
-
-    const filtered = solicitudesRes.data || []
+    const filtered = await fetchAllRows((from, to) => {
+      let query = supabase
+        .from('solicitudes_pago')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+      if (statusNorm) query = query.eq('status', statusNorm)
+      return query.range(from, to)
+    })
 
     const ownerIds = Array.from(new Set(filtered.map((r) => r.owner_id).filter(Boolean)))
 
-    const [tiendasRes, perfilesRes] = await Promise.all([
-      supabase.from('tiendas').select('owner_id,handle,nombre_negocio').in('owner_id', ownerIds).eq('es_principal', true),
-      supabase.from('perfiles').select('user_id,email').in('user_id', ownerIds),
-    ])
+    const tiendas = []
+    const perfiles = []
+    for (const ids of chunk(ownerIds)) {
+      const [tiendasRes, perfilesRes] = await Promise.all([
+        supabase.from('tiendas').select('owner_id,handle,nombre_negocio').in('owner_id', ids).eq('es_principal', true),
+        supabase.from('perfiles').select('user_id,email').in('user_id', ids),
+      ])
+      if (tiendasRes.error) throw tiendasRes.error
+      if (perfilesRes.error) throw perfilesRes.error
+      tiendas.push(...(tiendasRes.data || []))
+      perfiles.push(...(perfilesRes.data || []))
+    }
 
-    if (tiendasRes.error) throw tiendasRes.error
-    if (perfilesRes.error) throw perfilesRes.error
-
-    const tiendasByOwnerId = new Map((tiendasRes.data || []).map((t) => [t.owner_id, t]))
-    const perfilesByUserId = new Map((perfilesRes.data || []).map((p) => [p.user_id, p]))
+    const tiendasByOwnerId = new Map(tiendas.map((t) => [t.owner_id, t]))
+    const perfilesByUserId = new Map(perfiles.map((p) => [p.user_id, p]))
 
     return filtered.map((r) => {
       const tienda = tiendasByOwnerId.get(r.owner_id)
@@ -202,16 +202,22 @@ export const solicitudesPagoRepository = {
     })
   },
 
+  // Pagos aprobados (dinero real recibido). Base de ganancias y métricas.
+  async listApprovedPayments() {
+    return fetchAllRows((from, to) =>
+      supabase
+        .from('solicitudes_pago')
+        .select('id,owner_id,plan_id,plan_price_usd,metodo,monto_bs,fecha_pago,created_at,reviewed_at')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    )
+  },
+
   async getTotalEarnings() {
-    const { data, error } = await supabase
-      .from('solicitudes_pago')
-      .select('plan_price_usd')
-      .eq('status', 'approved')
-      .limit(50000)
-      
-    if (error) throw error
-    
-    return (data || []).reduce((acc, row) => acc + (Number(row.plan_price_usd) || 0), 0)
+    const rows = await this.listApprovedPayments()
+    return rows.reduce((acc, row) => acc + (Number(row.plan_price_usd) || 0), 0)
   },
 
   async updateStatus(id, { status, reviewNote } = {}) {
