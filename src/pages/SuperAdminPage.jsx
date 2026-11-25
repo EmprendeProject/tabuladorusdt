@@ -654,7 +654,7 @@ export default function SuperAdminPage() {
                           {u.hasAccess ? '' : u.activa && isExpiredAt(u.expiresAt) ? ' (expirada)' : ' (sin acceso)'}
                         </span>
                         {u.tier === TIERS.PREMIUM ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Premium</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Pro</span>
                         ) : null}
                         <span className="text-[11px] text-slate-400">{u.joinedAt ? `Desde ${formatJoined(u.joinedAt)}` : ''}</span>
                       </div>

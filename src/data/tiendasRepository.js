@@ -65,7 +65,7 @@ const getSessionUser = async () => {
 const toFriendlyTiendaError = (error) => {
   const msg = String(error?.message || '')
   if (msg.includes('LIMITE_CATALOGOS')) {
-    return new Error('Llegaste al límite de catálogos de tu plan. Mejora a Premium para tener hasta 3 catálogos.')
+    return new Error('Llegaste al límite de catálogos de tu plan. Pásate a Cattaly Pro para tener hasta 3 catálogos.')
   }
   if (isUniqueViolation(error)) return new Error('Ese link ya está en uso. Elige otro.')
   return error

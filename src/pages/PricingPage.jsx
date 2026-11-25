@@ -6,7 +6,7 @@ import { useTasas } from '../hooks/useTasas'
 
 const TIER_TABS = [
   { id: TIERS.STANDARD, label: 'Estándar' },
-  { id: TIERS.PREMIUM, label: 'Premium ✨' },
+  { id: TIERS.PREMIUM, label: 'Cattaly Pro ✨' },
 ]
 
 export default function PricingPage() {
@@ -71,7 +71,7 @@ export default function PricingPage() {
 
           <div className="flex items-center gap-1.5 rounded-full border border-[#1840f5]/20 bg-[#1840f5]/10 px-4 py-1.5 text-[#1840f5]">
             <span className="material-symbols-outlined text-sm font-fill">verified</span>
-            <span className="text-xs font-extrabold uppercase tracking-wider">Conviertete en Premium</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider">{tier === TIERS.PREMIUM ? 'Conviértete en Pro' : 'Activa tu catálogo'}</span>
           </div>
 
           <button

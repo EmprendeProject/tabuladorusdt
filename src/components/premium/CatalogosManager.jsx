@@ -194,7 +194,7 @@ export default function CatalogosManager({ ownerId, catalogosApi, premium, maxCa
                     </div>
                     <div className="mt-0.5 text-xs text-gray-500 truncate">
                       {publicBaseUrl || ''}/{c.handle}
-                      {locked ? ' · oculto hasta renovar Premium' : ''}
+                      {locked ? ' · oculto hasta renovar Cattaly Pro' : ''}
                     </div>
                   </div>
 

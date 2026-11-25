@@ -91,7 +91,7 @@ export default function PaginasManager({ ownerId, premium, catalogos, publicBase
       {!premium ? (
         <PremiumUpsell
           title="Páginas para tu negocio"
-          description="Homepage, link en la bio y landing pages con Pixel de Meta. Si ya tenías páginas, se reactivan al renovar Premium."
+          description="Homepage, link en la bio y landing pages con Pixel de Meta. Si ya tenías páginas, se reactivan al renovar Cattaly Pro."
         />
       ) : null}
 
@@ -150,7 +150,7 @@ export default function PaginasManager({ ownerId, premium, catalogos, publicBase
                     type="button"
                     onClick={() => setEditing(p)}
                     disabled={!premium}
-                    title={premium ? 'Editar' : 'Renueva Premium para editar'}
+                    title={premium ? 'Editar' : 'Renueva Cattaly Pro para editar'}
                     className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                   >
                     <Pencil size={16} />

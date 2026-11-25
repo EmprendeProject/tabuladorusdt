@@ -9,7 +9,7 @@ export default function PremiumBadge({ className = '' }) {
       }
     >
       <Sparkles size={10} />
-      Premium
+      Pro
     </span>
   )
 }

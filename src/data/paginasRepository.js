@@ -39,7 +39,7 @@ const toFriendlyPaginaError = (error) => {
   const lower = msg.toLowerCase()
   if (msg.includes('LIMITE_PAGINAS')) return new Error('Llegaste al límite de páginas de este tipo.')
   if (lower.includes('duplicate key') || lower.includes('unique')) return new Error('Ese link ya está en uso. Elige otro.')
-  if (lower.includes('row-level security')) return new Error('Las páginas son una función Premium. Mejora tu plan para crearlas o editarlas.')
+  if (lower.includes('row-level security')) return new Error('Las páginas son una función de Cattaly Pro. Mejora tu plan para crearlas o editarlas.')
   if (lower.includes('meta_pixel_id')) return new Error('El ID del Pixel de Meta debe tener solo números (5 a 20 dígitos).')
   return error
 }

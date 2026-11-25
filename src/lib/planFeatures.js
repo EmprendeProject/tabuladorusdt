@@ -24,7 +24,7 @@ const TIER_CONFIG = {
     features: new Set(),
   },
   [TIERS.PREMIUM]: {
-    label: 'Premium',
+    label: 'Cattaly Pro',
     maxCatalogos: 3,
     features: new Set(Object.values(FEATURES)),
   },

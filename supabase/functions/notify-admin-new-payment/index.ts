@@ -14,9 +14,9 @@ const getPlanLabel = (planId: string) => {
   if (planId === 'monthly') return '1 Mes'
   if (planId === 'biannual') return '6 Meses'
   if (planId === 'annual') return 'Anual'
-  if (planId === 'premium_monthly') return 'Premium 1 Mes'
-  if (planId === 'premium_biannual') return 'Premium 6 Meses'
-  if (planId === 'premium_annual') return 'Premium Anual'
+  if (planId === 'premium_monthly') return 'Cattaly Pro 1 Mes'
+  if (planId === 'premium_biannual') return 'Cattaly Pro 6 Meses'
+  if (planId === 'premium_annual') return 'Cattaly Pro Anual'
   return planId
 }
 
